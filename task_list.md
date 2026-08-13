@@ -14,6 +14,7 @@ Legend: **[M]** = Megha (tech), **[T]** = Teammate (KPMG domain). Check off as c
 - [x] **[M]** by 3 PM ET — billing alerts set at $30, $60, $100, $140
 - [ ] **[M]** by 6 PM ET — GitHub repo created (private for now), Python 3.11 + poetry/uv scaffolded
 - [ ] **[M]** by 9 PM ET — ADK "hello world" agent running locally + deployed to Cloud Run
+- [ ] **[M]** follow-up — redeploy hello-agent under a clean service name (currently `adk-default-service-name` due to ADK CLI arg-parsing quirk swallowing `--service_name`); `gcloud run services delete adk-default-service-name --region=us-central1` then redeploy
 - [ ] **[T]** by 12 PM ET — read hackathon Fortified track requirements end to end
 - [ ] **[T]** by 9 PM ET — draft CMMI 1-5 rubric for 5 highest-priority Govern subcategories (25 cells)
 - [ ] **[T]** by 9 PM ET — draft 8 interview questions for Govern

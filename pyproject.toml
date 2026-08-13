@@ -1,0 +1,18 @@
+[tool.poetry]
+package-mode = false
+name = "csf-assessor"
+version = "0.1.0"
+description = "CSF Assessor Fleet"
+authors = ["Megha Agarwal"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.11"
+google-adk = "^2.6.3"
+fastapi = "*"
+uvicorn = "*"
+pydantic = "*"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
