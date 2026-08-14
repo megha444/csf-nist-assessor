@@ -19,3 +19,7 @@ dist/
 *.egg-info/
 
 test_commands.md
+
+docs/ingest_tasks.md
+docs/phase_wise_user_journey.md
+docs/project_plan_phase_wise.md

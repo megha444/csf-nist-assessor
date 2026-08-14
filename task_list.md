@@ -1,7 +1,9 @@
 # CSF Assessor Fleet — Task List
 
-Source of truth: [docs/csf_assessor_hackathon_plan.md](docs/csf_assessor_hackathon_plan.md)
+Source of truth: [docs/csf_assessor_hackathon_plan.md](docs/csf_assessor_hackathon_plan.md) + end-to-end system plan at `~/.claude/plans/now-lets-plan-the-mossy-glacier.md`
 Legend: **[M]** = Megha (tech), **[T]** = Teammate (KPMG domain). Check off as completed.
+
+**Scope note (from approved system plan):** rubrics are per **Category** (~22 total), NOT per Subcategory (~106). Sakina scores at Category level to save time. All "subcategory" task counts below have been rescaled.
 
 ---
 
@@ -12,11 +14,11 @@ Legend: **[M]** = Megha (tech), **[T]** = Teammate (KPMG domain). Check off as c
 - [x] **[M]** by 12 PM ET — register for Aug 13 webinar (Long-Running Agents with ADK); attend live or watch recording by EOD
 - [x] **[M]** by 3 PM ET — GCP project created + enable Vertex AI, Cloud Run, Firestore, Pub/Sub, Vector Search, Cloud SQL, Cloud Storage, Secret Manager
 - [x] **[M]** by 3 PM ET — billing alerts set at $30, $60, $100, $140
-- [ ] **[M]** by 6 PM ET — GitHub repo created (private for now), Python 3.11 + poetry/uv scaffolded
-- [ ] **[M]** by 9 PM ET — ADK "hello world" agent running locally + deployed to Cloud Run
+- [x] **[M]** by 6 PM ET — GitHub repo created (private for now), Python 3.11 + poetry/uv scaffolded
+- [x] **[M]** by 9 PM ET — ADK "hello world" agent running locally + deployed to Cloud Run
 - [ ] **[M]** follow-up — redeploy hello-agent under a clean service name (currently `adk-default-service-name` due to ADK CLI arg-parsing quirk swallowing `--service_name`); `gcloud run services delete adk-default-service-name --region=us-central1` then redeploy
 - [ ] **[T]** by 12 PM ET — read hackathon Fortified track requirements end to end
-- [ ] **[T]** by 9 PM ET — draft CMMI 1-5 rubric for 5 highest-priority Govern subcategories (25 cells)
+- [ ] **[T]** by 9 PM ET — draft CMMI 1-5 rubric for 3 highest-priority Govern **Categories** (15 cells)
 - [ ] **[T]** by 9 PM ET — draft 8 interview questions for Govern
 - [ ] **[T]** by 9 PM ET — confirm which regs apply to Northwind (GLBA, NYDFS, PCI, SOX, state insurance)
 - [ ] **[Both]** by 9:30 PM ET — status shared in shared doc
@@ -25,29 +27,29 @@ Legend: **[M]** = Megha (tech), **[T]** = Teammate (KPMG domain). Check off as c
 - [ ] **[M]** by 12 PM ET — ingest pipeline: FastAPI accepts PDF/DOCX, section-aware chunker, raw → Cloud Storage, chunks + metadata → Firestore
 - [ ] **[M]** by 6 PM ET — Vertex AI Vector Search index created + embedding pipeline running (text-embedding-004)
 - [ ] **[M]** by 9 PM ET — ingest tested with 3 SANS policy templates end to end
-- [ ] **[T]** by 9 PM ET — complete CMMI rubric for remaining 5 Govern subcategories (25 cells) + finish 8 Govern interview questions
-- [ ] **[T]** by 9 PM ET — draft CMMI rubric for 5 highest-priority Identify subcategories (25 cells)
+- [ ] **[T]** by 9 PM ET — complete CMMI rubric for remaining Govern Categories (~3 more, ~15 cells) + finish 8 Govern interview questions
+- [ ] **[T]** by 9 PM ET — draft CMMI rubric for 3 highest-priority Identify Categories (~15 cells)
 - [ ] **[T]** by 9 PM ET — draft 8 interview questions for Identify
-- [ ] **[T]** by 9 PM ET — evidence taxonomy v1: table mapping doc types to subcategories they satisfy
+- [ ] **[T]** by 9 PM ET — evidence taxonomy v1: table mapping doc types to Categories they satisfy
 
 ### Sat Aug 15 (weekend — deep work day)
 - [ ] **[M]** by 3 PM ET — first Govern agent stub in ADK, wired to Vertex AI + Vector Search + Firestore
-- [ ] **[M]** by 3 PM ET — Pydantic output schema: `{subcategory_id, cmmi_level, confidence, evidence_citation, reasoning}`
-- [ ] **[M]** by 9 PM ET — Govern agent runs on a single subcategory, returns valid structured output (quality not required yet)
-- [ ] **[T]** by 12 PM ET — complete CMMI rubric for remaining 5 Identify subcategories (25 cells)
+- [ ] **[M]** by 3 PM ET — Pydantic output schema: `{category_id, cmmi_level, confidence, evidence_citation, reasoning}`
+- [ ] **[M]** by 9 PM ET — Govern agent runs on a single Category, returns valid structured output (quality not required yet)
+- [ ] **[T]** by 12 PM ET — complete CMMI rubric for remaining Identify Categories
 - [ ] **[T]** by 3 PM ET — Northwind Financial doc package delivered (5-7 policies, org chart, asset inventory, risk register, incident log, vendor list)
-- [ ] **[T]** by 6 PM ET — golden test set v1 (5 Northwind policies + expert CMMI scores for 10 Govern subcategories = 50 tuples)
+- [ ] **[T]** by 6 PM ET — golden test set v1 (5 Northwind policies + expert CMMI scores for all Govern Categories ≈ 30 tuples)
 - [ ] **[T]** by 9 PM ET — review Megha's Govern agent output, flag every domain error in shared doc
-- [ ] **[T]** by 9 PM ET — start Protect CMMI rubric (5 subcategories, 25 cells, if time permits)
+- [ ] **[T]** by 9 PM ET — start Protect CMMI rubric (Categories, if time permits)
 
 ### Phase 1 Gate (Sat EOD Aug 15)
 - [ ] GCP fully set up, credits active
 - [ ] ADK hello-world deployed
 - [ ] Ingest pipeline working end to end
-- [ ] Govern + Identify CMMI rubrics locked (20 subcategories, 100 cells)
+- [ ] Govern + Identify CMMI rubrics locked (all Categories, ~40 cells)
 - [ ] Interview questions locked for Govern + Identify (16 questions)
 - [ ] Northwind Financial doc package received in full
-- [ ] Golden test set v1 exists (50 tuples for Govern)
+- [ ] Golden test set v1 exists (~30 tuples for Govern)
 - [ ] Govern agent produces structured output
 
 ---
@@ -60,31 +62,31 @@ Legend: **[M]** = Megha (tech), **[T]** = Teammate (KPMG domain). Check off as c
 - [ ] **[M]** by 6 PM ET — Level 1 adaptive logic: LLM decides which questions to skip based on previous answers
 - [ ] **[M]** by 8 PM ET — session state persistence via Firestore, tested end to end
 - [ ] **[M]** by 9 PM ET — coordinator agent stub: routes to Govern only, publishes to Pub/Sub, subscribes to results
-- [ ] **[T]** by 6 PM ET — CMMI rubric for 10 Protect subcategories (50 cells) + 8 interview questions
-- [ ] **[T]** by 9 PM ET — expand golden test set: 3 more Northwind policies scored across Govern + Identify (~80 tuples total)
+- [ ] **[T]** by 6 PM ET — CMMI rubric for all Protect Categories + 8 interview questions
+- [ ] **[T]** by 9 PM ET — expand golden test set: 3 more Northwind policies scored across Govern + Identify (~50 tuples total)
 
 ### Mon Aug 17 (teammate: evening only)
-- [ ] **[M]** by 6 PM ET — scoring engine: consumes agent outputs, aggregates CMMI per subcategory, computes Function-level average
-- [ ] **[M]** by 9 PM ET — report generator v1: JSON output listing scored subcategories with CMMI level, evidence citations, reasoning
-- [ ] **[T]** by 10 PM ET — CMMI rubric for 5 Detect subcategories (25 cells, half of Detect)
+- [ ] **[M]** by 6 PM ET — scoring engine: consumes agent outputs, aggregates CMMI per Category, computes Function-level average
+- [ ] **[M]** by 9 PM ET — report generator v1: JSON output listing scored Categories with CMMI level, evidence citations, reasoning
+- [ ] **[T]** by 10 PM ET — CMMI rubric for half of Detect Categories
 - [ ] **[T]** by 10 PM ET — review Govern agent scores against golden set, flag disagreements
 
 ### Tue Aug 18 (teammate: evening only)
 - [ ] **[M]** by 6 PM ET — report generator v2: HTML output via Jinja2, Plotly radar chart embedded
 - [ ] **[M]** by 9 PM ET — Streamlit app v1: upload docs, chat interview, view report
-- [ ] **[T]** by 10 PM ET — complete Detect rubric (remaining 5 subcategories, 25 cells) + 8 Detect interview questions
+- [ ] **[T]** by 10 PM ET — complete Detect Categories rubric + 8 Detect interview questions
 
 ### Wed Aug 19 (teammate: evening only)
 - [ ] **[M]** by 6 PM ET — templatize Govern agent config-driven so remaining Functions plug in via config
 - [ ] **[M]** by 9 PM ET — LLM-as-Judge pass on Govern agent outputs (Gemini Pro grades CMMI defensibility)
-- [ ] **[T]** by 10 PM ET — CMMI rubric for Respond (10 subcategories, 50 cells) + 8 Respond interview questions
+- [ ] **[T]** by 10 PM ET — CMMI rubric for all Respond Categories + 8 Respond interview questions
 - [ ] **[T]** by 10 PM ET — recommendation templates: 30 standard remediation templates for CMMI L1/L2 findings
 
 ### Thu Aug 20 (teammate: evening only)
 - [ ] **[Both]** 12–1:30 PM ET — Aug 20 webinar (Self-Evolving Agents), live or recording
 - [ ] **[M]** by 6 PM ET — confidence threshold logic: below 0.6, agent flags "insufficient evidence"
 - [ ] **[M]** by 9 PM ET — deploy Identify agent (config-based off Govern template)
-- [ ] **[T]** by 10 PM ET — CMMI rubric for Recover (10 subcategories, 50 cells) + 8 Recover interview questions **(COMPLETES ALL 6 FUNCTIONS)**
+- [ ] **[T]** by 10 PM ET — CMMI rubric for all Recover Categories + 8 Recover interview questions **(COMPLETES ALL 6 FUNCTIONS)**
 - [ ] **[T]** by 10 PM ET — confirm CSF Tier aggregation ranges (CMMI avg → Tier mapping)
 
 ### Fri Aug 21 (teammate: evening only)
@@ -96,7 +98,7 @@ Legend: **[M]** = Megha (tech), **[T]** = Teammate (KPMG domain). Check off as c
 ### Phase 2 Gate (Fri EOD Aug 21)
 - [ ] Vertical slice: end-to-end Govern assessment works
 - [ ] CMMI agreement rate with teammate ≥ 60% (targeting 80% by week 3)
-- [ ] All 6 Function CMMI rubrics locked (60 subcategories, 300 cells)
+- [ ] All 6 Function CMMI rubrics locked (~22 Categories, ~110 cells)
 - [ ] All 6 Function interview questions locked (~50 questions)
 - [ ] CSF Tier aggregation ranges confirmed
 - [ ] Executive summary templates ready
@@ -115,7 +117,7 @@ Legend: **[M]** = Megha (tech), **[T]** = Teammate (KPMG domain). Check off as c
 - [ ] **[M]** by 9 PM ET — Agent Registry in Firestore: each agent publishes metadata (name, version, capabilities, owner Function, IAM identity)
 - [ ] **[T]** by 3 PM ET — review outputs from Identify, Protect, Detect on Northwind docs
 - [ ] **[T]** by 6 PM ET — review outputs from Respond + Recover on Northwind docs
-- [ ] **[T]** by 9 PM ET — golden test set expansion to 100 tuples covering all 6 Functions
+- [ ] **[T]** by 9 PM ET — golden test set expansion to ~66 tuples covering all 22 Categories
 
 ### Sun Aug 23 (weekend — deep work day)
 - [ ] **[Both]** 11:00 AM–12:30 PM ET — Sunday review: vertical slice + fleet running, CMMI agreement ≥ 70%?, adjust Phase 4
@@ -131,7 +133,7 @@ Legend: **[M]** = Megha (tech), **[T]** = Teammate (KPMG domain). Check off as c
 - [ ] **[T]** by 10 PM ET — executive summary written for Northwind (3 paragraphs, sets tone the agent should match)
 
 ### Tue Aug 25 (teammate: evening only)
-- [ ] **[M]** by 6 PM ET — report generator v3: exec summary + radar (Tier) + subcategory table (CMMI) + prioritized roadmap (top 10 gaps)
+- [ ] **[M]** by 6 PM ET — report generator v3: exec summary + radar (Tier) + Category table (CMMI) + prioritized roadmap (top 10 gaps)
 - [ ] **[M]** by 9 PM ET — cost dashboard: tokens used, cost per assessment, latency per agent
 - [ ] **[T]** by 10 PM ET — findings, gaps, roadmap wording refinements based on latest agent outputs
 

@@ -2,7 +2,17 @@
 **All Things Agentic Hackathon | Fortified Enterprise Fleet Track**
 **Team: Megha (tech) + [Teammate name] (KPMG cybersec domain)**
 **Timeline: Thu Aug 13 to Mon Aug 31, 2026 (submission 5 PM PDT / 8 PM ET Mon Aug 31)**
-**Last updated: Wed Aug 12, 2026 (calendar corrected)**
+**Last updated: Thu Aug 13, 2026 (Category-scope amendment)**
+
+---
+
+## 0. Scope Amendment (Thu Aug 13, 2026)
+
+After Day 1 architecture planning, one significant scope change was locked:
+
+- **CMMI scoring is now per CSF Category (~22 total), NOT per Subcategory (~106).** Sakina's rubrics drop from ~500 cells to ~110 cells. Aggregation, agent scoring, report table, and Sakina's deliverables all rescale accordingly.
+- Rationale: fits the 19-day timeline, preserves the two-layer story (Category CMMI → Function Tier), still produces defensible board-ready findings.
+- The end-to-end system design is captured separately in `~/.claude/plans/now-lets-plan-the-mossy-glacier.md` and the day-to-day tracker in `task_list.md`. Section 8 below still references subcategory counts in some places — `task_list.md` is the working version.
 
 ---
 
@@ -19,7 +29,7 @@
 - Coordinator agent dispatching in parallel via Google ADK
 - Adaptive interview flow (Level 1: conditional questions based on previous answers)
 - Evidence extraction from uploaded policies with citations
-- Two-layer scoring engine: CMMI 1-5 per subcategory, CSF Tier 1-4 per Function (aggregated from CMMI)
+- Two-layer scoring engine: CMMI 1-5 per **Category**, CSF Tier 1-4 per Function (aggregated from CMMI)
 - Maturity report (executive summary, radar chart at Tier level, subcategory table at CMMI level, prioritized roadmap)
 - Fortified track components: Agent Registry, Memory Bank, Agent Identity, Agent Gateway, Model Armor (or DLP fallback), Agent Observability
 - Deployed on Google Cloud (Cloud Run + Firestore + Vertex AI)
@@ -32,7 +42,7 @@
 - Bonus: 1 blog post + 1 LinkedIn post (both hashtagged #AllThingsAgenticHackathon)
 
 **Quality bar**
-- Golden test set eval: 80%+ CMMI level agreement with teammate's expert scores
+- Golden test set eval: 80%+ CMMI level agreement (per Category) with teammate's expert scores
 - Every score cites the source document passage
 - Demo runs end-to-end without a crash
 
@@ -58,7 +68,7 @@
 | Document parsing | pypdf + python-docx | Ingest layer |
 | Charts | Plotly | Radar chart (Tier) + heatmap (CMMI) |
 | Eval | pytest + deepeval | Golden set + LLM-as-Judge |
-| Scoring model | CMMI 1-5 per subcategory, CSF Tier 1-4 per Function (aggregated) | Two-layer, matches KPMG standard practice |
+| Scoring model | CMMI 1-5 per **Category**, CSF Tier 1-4 per Function (aggregated) | Two-layer, matches KPMG standard practice |
 
 **No fine-tuning.** Structured prompts with few-shot from teammate's golden set.
 
@@ -70,7 +80,7 @@
 Architecture, all code, ADK orchestration, ingestion, evidence extraction, scoring engine (uses her rubrics), report generation, UI, deploy, demo video production, README, architecture diagram.
 
 ### Teammate owns (domain)
-CSF 2.0 rubrics (30 highest-priority subcategories, CMMI 1-5 levels each), CSF Tier aggregation ranges, interview question bank (~50 questions total), evidence taxonomy (what doc types satisfy what subcategories), demo target company documents, golden test set, findings and recommendation language templates, executive summary tone, domain accuracy review after every phase.
+CSF 2.0 rubrics (~22 Categories, CMMI 1-5 levels each ≈ 110 cells), CSF Tier aggregation ranges, interview question bank (~50 questions total), evidence taxonomy (what doc types satisfy what Categories), demo target company documents, golden test set, findings and recommendation language templates, executive summary tone, domain accuracy review after every phase.
 
 **Rule:** She never writes Python. Megha never invents rubrics. Cross that line and the moat collapses.
 
@@ -101,15 +111,16 @@ CSF 2.0 rubrics (30 highest-priority subcategories, CMMI 1-5 levels each), CSF T
 
 **Executive layer:** CSF Tier 1-4 per Function. Shown on radar chart, executive summary. Board-friendly.
 
-**Control layer:** CMMI 1-5 per subcategory. Shown in findings table, drill-downs. Practitioner-friendly.
+**Control layer:** CMMI 1-5 per **Category** (~22 total). Shown in findings table, drill-downs. Practitioner-friendly.
 
 **Aggregation rule (draft, teammate confirms Thu Aug 20):**
+- Per Function: mean CMMI over its Categories
 - CMMI avg 1.0-1.9 = Tier 1 (Partial)
 - CMMI avg 2.0-2.9 = Tier 2 (Risk Informed)
 - CMMI avg 3.0-3.9 = Tier 3 (Repeatable)
 - CMMI avg 4.0-5.0 = Tier 4 (Adaptive)
 
-**CMMI rubric template pattern** (teammate applies per subcategory):
+**CMMI rubric template pattern** (teammate applies per Category):
 - Level 1 Initial: No formal [thing]. Ad-hoc. Individual-dependent.
 - Level 2 Managed: [Thing] exists in some BUs or projects. Inconsistent.
 - Level 3 Defined: [Thing] is documented, org-wide, with named owner.
@@ -487,7 +498,7 @@ If Sunday Aug 23 shows <60% of Phase 2 gate met, execute contingency: **drop fro
 - Answer 3 pre-scripted interview questions (mention "system asks 30 in a full run")
 - Split-screen: 6 agents working in parallel, each showing reasoning chain
 - Click into Protect agent, show CMMI 2 score on PR.AA-05, show evidence citation
-- Show final report: executive summary, radar chart (Tier), subcategory table (CMMI), prioritized roadmap
+- Show final report: executive summary, radar chart (Tier), Category table (CMMI), prioritized roadmap
 - Highlight the MFA gap with recommendation
 
 **3:00 to 3:30, Architecture snapshot (Megha)**

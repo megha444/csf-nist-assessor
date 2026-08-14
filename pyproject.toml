@@ -12,6 +12,9 @@ google-adk = "^2.6.3"
 fastapi = "*"
 uvicorn = "*"
 pydantic = "*"
+pydantic-settings = "*"
+qdrant-client = "~1.16.0"
+python-dotenv = "*"
 
 [build-system]
 requires = ["poetry-core"]
