@@ -25,7 +25,7 @@ Legend: **[M]** = Megha (tech), **[T]** = Teammate (KPMG domain). Check off as c
 
 ### Fri Aug 14
 - [ ] **[M]** by 12 PM ET — ingest pipeline: FastAPI accepts PDF/DOCX, section-aware chunker, raw → Cloud Storage, chunks + metadata → Firestore
-- [ ] **[M]** by 6 PM ET — Vertex AI Vector Search index created + embedding pipeline running (text-embedding-004)
+- [ ] **[M]** by 6 PM ET — Vector store ready + embedding pipeline running (text-embedding-004). **Progress:** Qdrant Cloud managed cluster + `csf_chunks` collection created (superseded from Vertex Vector Search — see [ADR-0001](docs/decisions.md)); embedding pipeline pending in Phase E7.
 - [ ] **[M]** by 9 PM ET — ingest tested with 3 SANS policy templates end to end
 - [ ] **[T]** by 9 PM ET — complete CMMI rubric for remaining Govern Categories (~3 more, ~15 cells) + finish 8 Govern interview questions
 - [ ] **[T]** by 9 PM ET — draft CMMI rubric for 3 highest-priority Identify Categories (~15 cells)

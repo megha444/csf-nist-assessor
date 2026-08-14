@@ -52,7 +52,7 @@ After Day 1 architecture planning, one significant scope change was locked:
 
 | Layer | Tech | Notes |
 |---|---|---|
-| LLM | Gemini 3.5 Flash (primary), Gemini 3.5 Pro (coordinator + LLM-as-Judge only) | Via Vertex AI, not raw Gemini API |
+| LLM | Gemini 3.5 Flash (primary for specialists), Gemini 3.7 Flash (coordinator + LLM-as-Judge) | Via Vertex AI on `global` endpoint. 3.x has no Pro tier as of Aug 2026, so newer Flash plays the smarter-reviewer role. |
 | Agent framework | Google ADK (Python) | Mandatory hackathon requirement, best pattern support |
 | Compute | Cloud Run (FastAPI app) | Scales to zero |
 | Async orchestration | Pub/Sub | Enables parallel Function agent dispatch |

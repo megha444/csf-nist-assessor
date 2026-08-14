@@ -1,0 +1,184 @@
+# Architecture Decision Records
+
+Presentation-ready notes on the load-bearing choices in the CSF Assessor Fleet. Each ADR is scannable in 60 seconds and includes talking points for the demo Q&A and any post-hackathon interview.
+
+Status legend: 🟢 accepted · 🟡 accepted but revisit-later · 🔴 superseded.
+
+Related docs: [architecture.md](architecture.md) · [lld.md](lld.md) · [csf_assessor_hackathon_plan.md](csf_assessor_hackathon_plan.md).
+
+---
+
+## ADR-0001 — Vector store: Qdrant Cloud (not Vertex AI Vector Search)   🟡
+
+**Date:** 2026-08-13
+
+### Context
+The specialists need a vector search backend to retrieve evidence chunks per assessment. The original plan locked Vertex AI Vector Search (all-GCP). Local dev revealed friction: creating a Vertex Vector Search index takes ~30 minutes per iteration, which kills the tight rebuild loop we need in a 19-day sprint. Megha already had Qdrant running in local Docker for another project.
+
+### Decision
+Use **Qdrant Cloud** (managed cluster hosted by Qdrant Solutions on GCP `us-east4`) as the vector store for both dev and prod. Local Docker Qdrant remains an option for offline dev; env vars swap between the two.
+
+Wrapper module `csf_gateway/app/ingest/vector_store.py` abstracts the client so a future swap to Vertex AI Vector Search is a one-file change, not a systemic refactor.
+
+### Alternatives considered
+1. **Vertex AI Vector Search** (original plan). Native GCP, but ~30 min index-create wait per iteration + a different filter/query API. Rewrite cost estimated ~1 hr.
+2. **Self-host Qdrant on GCE.** Adds an ops moving part + ~$14/month from credits. No advantage over managed.
+3. **Tunnel local Qdrant via ngrok/cloudflared.** Fragile for a live demo; drops = demo dies.
+
+### Consequences
+- ✅ Dev iteration stays fast (Qdrant collection creation is instant)
+- ✅ Judges hit a real network-accessible instance from Cloud Run
+- ✅ Familiar client, simpler filter syntax
+- ✅ Data still lives on GCP infrastructure (Qdrant Cloud runs the cluster on GCP `us-east4`), so the "GCP-hosted" story mostly holds
+- ⚠ Third-party dependency (Qdrant Solutions Inc.) — a purist Fortified-track judge could dock a point for not being 100% GCP-native services
+- ⚠ Client version pinning: cluster is Qdrant 1.19, client is pinned 1.16 for compatibility with the older local Docker. Version-mismatch warning is cosmetic; upgrade to 1.19 client is on the housekeeping list.
+
+### Demo-Q&A talking points
+- "We keep the vector store abstracted behind `vector_store.py` — swapping to Vertex AI Vector Search is a one-file change, and we'd do that in production if the customer required a strict all-GCP data-residency posture."
+- "Qdrant Cloud runs the cluster on Google infrastructure in `us-east4`, so this isn't a cross-cloud dependency — data doesn't leave GCP's network."
+- "The dev-loop cost of Vertex Vector Search's 30-minute index creation wasn't tolerable in a 19-day sprint; managed Qdrant made the demo shippable."
+
+### Revisit-when
+- Post-hackathon, if a real customer (say, a regulated bank) needs all-GCP-native. Then a Phase 3 hardening item swaps to Vertex Vector Search.
+
+---
+
+## ADR-0002 — Rubric scope: per CSF Category, not per Subcategory   🟢
+
+**Date:** 2026-08-13
+
+### Context
+NIST CSF 2.0 has 6 Functions → ~22 Categories → ~106 Subcategories. The original plan locked scoring at the Subcategory level (~106 × 5 CMMI cells = ~530 rubric cells for Sakina to author). That's her single biggest deliverable and paces the entire domain track.
+
+### Decision
+Score CMMI at the **Category level (~22)** instead. Sakina writes ~22 × 5 = ~110 cells. Aggregation still rolls up to CSF Tier 1-4 per Function.
+
+### Alternatives considered
+1. **Subcategory-level scoring** (original). Highest fidelity, but Sakina's rubric authoring likely doesn't finish in 19 days at her ~5 hrs/day KPMG-adjacent bandwidth.
+2. **Function-level scoring only** (skip CMMI). Loses the practitioner drill-down which is half of the "consultant judgment" story. Rejected.
+
+### Consequences
+- ✅ Sakina's rubric authoring drops from ~500 cells to ~110 cells — realistic in the timeline
+- ✅ Agent cost drops from ~60 Flash calls/run to ~22 (~$0.05 instead of $0.15)
+- ✅ Report table stays scannable (22 rows vs. 60+)
+- ⚠ Slight loss of fidelity — a Category with 4 well-managed Subcategories and 1 broken one shows up as CMMI 3 instead of pinpointing the broken one. Mitigated by capturing the fine-grained finding in the reasoning field per Category.
+- ⚠ Divergence from KPMG standard practice — Sakina's real-world engagements often go to Subcategory. For the demo she's already Category-focused for Northwind.
+
+### Demo-Q&A talking points
+- "In production this scales down naturally: adding Subcategory-level scoring is more agent calls with the same rubric structure — no architectural change. We chose Category for the demo because it lines up with the level a board consumes and finishes in 19 days."
+- "The two-layer story is intact: CMMI 1-5 per Category for practitioners, Tier 1-4 per Function for executives. That maps directly to how KPMG delivers these engagements."
+
+### Revisit-when
+- If we ship this as a real product, add Subcategory-level scoring as a "detailed" mode. Same agents, same rubrics, just more calls.
+
+---
+
+## ADR-0003 — PDF ingest: Gemini 2.5 Flash multimodal   🟢
+
+**Date:** 2026-08-13
+
+### Context
+Policy docs (SANS templates, Sakina's Northwind package) contain narrative text plus tables plus the occasional chart or image. Extraction quality matters — an agent scoring "PR.AA-05 (MFA on privileged accounts)" needs to find MFA policy text even when it's in a table cell, not free prose. The standard approach is `pypdf` + `pdfplumber` (tables) + `PyMuPDF` (images) + Tesseract or Vertex AI Document AI (OCR for scanned pages) — four libraries to stitch, none handling chart semantics.
+
+### Decision
+Use **Gemini 2.5 Flash multimodal** at ingest time. Each PDF is passed to Gemini with a prompt: "convert to structured markdown, preserve headings, render tables as markdown tables, insert `[Figure N: description]` placeholders for charts/images." Output is text-only markdown ready for the section-aware chunker.
+
+### Alternatives considered
+1. **pypdf + pdfplumber + PyMuPDF + Document AI/Tesseract soup.** ~1 day of glue code, still misses chart semantics, brittle across policy layouts.
+2. **Vertex AI Document AI.** Purpose-built parser, but adds a separate service to configure and doesn't natively describe charts.
+3. **Skip charts/images entirely, text-only pypdf.** Cheapest, loses the visual-content information.
+
+### Consequences
+- ✅ One library, one call, handles text + tables + charts + images + scanned pages
+- ✅ Cost is negligible: ~$0.005 per doc, ~$0.05 for a 10-doc Northwind package
+- ✅ Robust to layout variance across policy authors
+- ⚠ Latency: ~5-10s per doc for the multimodal pass (offset by async ingest UX — user sees a progress bar)
+- ⚠ Depends on Gemini quotas — a hard rate-limit at scale, mitigated with retry/backoff
+- ⚠ Non-deterministic: the exact markdown output can vary between runs. Chunking is idempotent by content-hash dedupe, but ML/eval numbers should be pinned by seed if we care
+
+### Demo-Q&A talking points
+- "Multimodal-in ingest was cheaper and more accurate than a library stack. It also let us handle scanned PDFs without a separate OCR pipeline."
+- "The ingest cost is under half a cent per document — the total per-assessment cost is dominated by the ~22 scoring calls, not ingest."
+
+### Revisit-when
+- If a real customer needs on-prem PDF extraction with no external LLM call, swap in Document AI or an open-source Docling pipeline. Chunker downstream doesn't change.
+
+---
+
+## ADR-0004 — Deployment topology: 3 Cloud Run services + per-agent SA impersonation   🟢
+
+**Date:** 2026-08-13
+
+### Context
+The Fortified Enterprise Fleet track requires an Agent Identity model — "one IAM identity per agent." Literal reading = 8 Cloud Run services (1 gateway + 1 coordinator + 6 specialists). Reality = 8× cold starts, 8× deploy pipelines, 8× monitoring targets in a 19-day sprint. Simplest reading = 1 monolith with attribution-only "identity" (Firestore field, no IAM isolation) — weak Fortified story.
+
+### Decision
+Ship **3 Cloud Run services** with **per-agent service-account impersonation** inside the specialists container:
+
+| Service | Contents |
+|---|---|
+| `csf-gateway` | Streamlit + FastAPI (ingest, session, chat proxy, report) |
+| `csf-coordinator` | Coordinator agent + Interview Director agent |
+| `csf-specialists` | All 6 Function specialist agents, Pub/Sub-triggered |
+
+Inside `csf-specialists`, the container's default SA is granted permission to impersonate 6 dedicated per-agent SAs (`csf-agent-{function}@…`). Every Firestore + Vertex call an agent makes is authenticated as its own SA. Cloud Trace records the impersonated identity per span, so per-agent activity is auditable in the trace waterfall.
+
+### Alternatives considered
+1. **8 Cloud Run services** (literal). Strongest Fortified compliance. 8× cold starts + 8× deploy scripts — real cost in a 19-day sprint. Rejected.
+2. **1 monolith.** Simplest. Per-agent identity is just a Firestore field — weakest Fortified story. Rejected.
+
+### Consequences
+- ✅ Per-agent identity is real (own SA, own IAM policies, own audit trail in Cloud Trace)
+- ✅ Only 3 deploy pipelines to maintain
+- ✅ Coordinator + specialists can scale independently on cold starts
+- ⚠ SA impersonation needs the `iam.serviceAccountTokenCreator` role granted from container SA to each agent SA — one extra infra step, documented in `infra/setup.sh`
+- ⚠ A Fortified-track judge who reads strictly might prefer literal 8-service isolation. Talking point below covers this.
+
+### Demo-Q&A talking points
+- "Every specialist agent runs under its own IAM service account via impersonation — Cloud Trace shows exactly which agent identity authenticated which Firestore read or Gemini call. That's the audit trail a real security customer needs."
+- "We considered fully separate Cloud Run services per agent but the 8× cold-start latency would have pushed our 15-minute demo target to something no CISO would sit through. The impersonation pattern is standard GCP practice for multi-tenant workloads."
+
+### Revisit-when
+- Post-hackathon, if scale grows (many concurrent assessments or agents need different resource profiles), split specialists into 6 Cloud Run services. No code change to the agents themselves — only Pub/Sub subscription binding.
+
+---
+
+## ADR-0005 — Model selection: `gemini-3.5-flash` + `gemini-3.7-flash` (no Pro tier available)   🟢
+
+**Date:** 2026-08-14
+
+### Context
+Hackathon rules require **Gemini 3.5 or newer** via Gemini API or Vertex AI. Original plan targeted "Gemini 3.5 Flash + Gemini 3.5 Pro" (Flash for specialists, Pro for coordinator + LLM-as-Judge). A live probe against Vertex AI showed:
+
+- ✅ `gemini-3.5-flash`, `gemini-3.5-flash-lite`, `gemini-3.6-flash`, `gemini-3.7-flash` — all available on the `global` endpoint
+- ❌ `gemini-3.5-pro`, `gemini-3-pro`, `gemini-3.7-pro` — 404 on this project as of Aug 14, 2026
+
+**The Gemini 3.x family currently ships Flash + Flash Lite only. No Pro tier exists.**
+
+Regional availability: 3.x models are served **only via the `global` Vertex endpoint** for this project (not `us-central1`, `us-east4`, `europe-west1`, or `asia-northeast1` in our probe — Tokyo did return 200 for Flash but not for others). Setting `GOOGLE_CLOUD_LOCATION=global` is required for the SDK to route correctly.
+
+### Decision
+- **Flash slot (specialist scoring — ~22 calls/run):** `gemini-3.5-flash`. Baseline compliance with hackathon rule; thinking-model quality for scoring.
+- **"Pro" slot (LLM-as-Judge + coordinator reasoning):** `gemini-3.7-flash`. Since no 3.x Pro exists, the newest Flash plays the smarter-reviewer role. Positioned in the demo as "faster model does the mechanical scoring, newer model reviews for defensibility."
+- **Region:** `GOOGLE_CLOUD_LOCATION=global` for all Vertex AI calls. GCS bucket + Firestore stay in `us-central1` (region baked into resource names, not this env var).
+
+### Alternatives considered
+1. **Same `gemini-3.5-flash` for both Flash and Judge.** Simpler, one model, but the "second opinion" story weakens if scorer and judge are literally the same weights.
+2. **`gemini-3.5-flash-lite` for scoring + `gemini-3.5-flash` for Judge.** Cheaper. Downside: Lite has no thinking tokens; scoring quality on multi-hop reasoning would drop.
+3. **Wait for Gemini 3 Pro release.** Not a hackathon-timeline option.
+4. **Fall back to `gemini-2.5-pro`.** Would satisfy the "Pro" tier need but breaks the "3.5 or newer" hackathon rule. Rejected.
+
+### Consequences
+- ✅ Fully compliant with hackathon requirement #1 (Gemini 3.5+)
+- ✅ Two-tier "cheap scorer, smarter reviewer" story intact — even more defensible now that they're different model versions
+- ✅ 3.7 Flash cost per call is comparable to 3.5 Flash (both Flash-tier), so Judge budget stays ~same as original 2.5 Pro assumption
+- ⚠ Both are thinking models — the judge model burns ~60-100 "thoughts" tokens per call even for trivial prompts. Add to cost accounting later.
+- ⚠ Dependency on `global` region — a regional-outage story is different from us-central1 outages. Not a demo-window concern.
+- ⚠ Regional resources (Cloud Run in us-central1, Firestore in us-central1) still fine; only the Vertex/GenAI SDK follows `GOOGLE_CLOUD_LOCATION=global`.
+
+### Demo-Q&A talking points
+- "The 3.x family is Flash-only right now — no Pro. We use `gemini-3.5-flash` for the ~22 scoring calls per assessment because it's the compliance floor, and `gemini-3.7-flash` as the reviewer because it's the newest thing available. When Google ships Gemini 3 Pro, the Judge is a one-line config swap."
+- "Every Gemini call goes through Vertex AI on the `global` endpoint — that's a hackathon-rule requirement plus a data-residency choice."
+
+### Revisit-when
+- The moment Gemini 3.x Pro (or `gemini-3.5-pro` / `gemini-3.7-pro`) becomes available on Vertex. Swap `GEMINI_PRO_MODEL` in `.env` + Secret Manager, redeploy. No code change.

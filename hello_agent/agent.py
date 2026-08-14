@@ -2,7 +2,7 @@ from google.adk.agents import Agent
 
 root_agent = Agent(
     name="hello_agent",
-    model="gemini-2.5-flash",
+    model="gemini-3.5-flash",
     description="Hello-world agent for the CSF Assessor Fleet. Proves ADK + Vertex AI wiring.",
     instruction=(
         "You are the hello-world agent for the CSF Assessor Fleet, a multi-agent system "

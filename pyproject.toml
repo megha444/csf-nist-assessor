@@ -15,6 +15,14 @@ pydantic = "*"
 pydantic-settings = "*"
 qdrant-client = "~1.16.0"
 python-dotenv = "*"
+google-cloud-firestore = "*"
+google-cloud-storage = "*"
+google-cloud-aiplatform = "*"
+python-docx = "*"
+tiktoken = "*"
+python-multipart = "*"
+aiofiles = "*"
+httpx = "*"
 
 [build-system]
 requires = ["poetry-core"]

@@ -228,14 +228,16 @@ fi
 info "Testing Vertex AI (Gemini) access"
 TOKEN=$(gcloud auth print-access-token)
 
-# Try Gemini 2.5 Flash first, fall back to 2.0
-for MODEL in gemini-2.5-flash gemini-2.0-flash-001; do
+# Gemini 3.x on this project is only served via the `global` endpoint (not regional).
+# Hackathon requires Gemini 3.5 or newer.
+for MODEL in gemini-3.5-flash gemini-3.7-flash gemini-3.5-flash-lite; do
   RESPONSE=$(curl -s -o /tmp/gemini_test.json -w "%{http_code}" -X POST \
     -H "Authorization: Bearer $TOKEN" \
     -H "Content-Type: application/json" \
-    "https://${REGION}-aiplatform.googleapis.com/v1/projects/${PROJECT_ID}/locations/${REGION}/publishers/google/models/${MODEL}:generateContent" \
+    "https://aiplatform.googleapis.com/v1/projects/${PROJECT_ID}/locations/global/publishers/google/models/${MODEL}:generateContent" \
     -d '{
-      "contents": [{"role": "user", "parts": [{"text": "Say hello in one word."}]}]
+      "contents": [{"role": "user", "parts": [{"text": "Say hello in one word."}]}],
+      "generationConfig": {"maxOutputTokens": 200}
     }')
 
   if [ "$RESPONSE" = "200" ]; then
