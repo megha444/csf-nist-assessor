@@ -230,6 +230,20 @@ class EvidenceCitation(BaseModel):
     snippet: str = Field(..., max_length=300)
 
 
+class SubcategoryGap(BaseModel):
+    """
+    Per-Subcategory finding under a Category. Populated by the specialist agent
+    (ADR-0007). Drives Subcategory-level recommendations in the report:
+    templates are keyed by (subcategory_id, current→next_level).
+    """
+    subcategory_id: str = Field(..., description="e.g. 'PR.AA-05'")
+    expected_practice: str = Field(
+        ..., description="NIST Implementation Example text describing what a mature org would do"
+    )
+    evidence_status: Literal["absent", "partial", "present"]
+    notes: str = Field(..., description="1-2 sentences explaining what's missing or weak")
+
+
 class ScoreOutput(BaseModel):
     model_config = ConfigDict(use_enum_values=True)
 
@@ -241,6 +255,10 @@ class ScoreOutput(BaseModel):
     interview_evidence: list[str] = Field(default_factory=list)  # answer_ids
     reasoning: str
     no_doc_evidence: bool = False
+    subcategory_gaps: list[SubcategoryGap] = Field(  # ADR-0007
+        default_factory=list,
+        description="Per-Subcategory gap findings; drives recommendation template lookup.",
+    )
 
 
 class TierResult(BaseModel):

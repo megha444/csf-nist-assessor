@@ -1,0 +1,80 @@
+function: identify
+categories:
+  ID.AM:
+    name: Asset Management
+    importance: 2
+    levels:
+      1: No asset inventory exists. Hardware, software, and data assets are known only informally, by
+        individual staff, and are not documented anywhere central. There is no concept of asset criticality,
+        everything is treated the same, or criticality is guessed at the point of an incident rather than
+        known in advance. The organisation cannot describe what it owns or operates.
+      2: An asset inventory exists but is partial. It may cover hardware but not software, or cover some
+        business units but not others (common when it's a byproduct of IT procurement rather than a deliberate
+        security process). The inventory is maintained manually and not linked to risk management. Data
+        assets and data flows are rarely inventoried at all. At criticality is informal and not documented.
+      3: A comprehensive asset inventory exists covering hardware, software, systems, and data, is owned
+        by a named function, and is updated on a defined schedule or trigger (e.g., new deployment, procurement).
+        Assets are tagged with criticality/classification, and ownership is assigned per asset or asset
+        class. Network communication and data flows are documented. At lifecycle management is in place
+        and the processes are followed.
+      4: Asset inventory accuracy is actively measured e.g., reconciliation between the inventory and
+        discovery/scanning tools, with a tracked variance rate. Criticality tiering drives measurable
+        downstream decisions (patch SLAs, monitoring coverage, access review frequency scaled by tier).
+        Gaps (unowned or unclassified assets) are tracked to closure against a target. Lifecycle transitions
+        are governed and evidenced.
+      5: Asset management is largely automated and continuously reconciled, discovery tooling feeds the
+        inventory in near-real-time rather than relying on periodic manual review. Asset data informs
+        risk assessment (ID.RA) and resourcing decisions in a demonstrable feedback loop (e.g., a criticality
+        reclassification that changed monitoring investment). Inventory completeness and freshness are
+        benchmarked and reported as a standing metric.
+  ID.RA:
+    name: Risk Assessment
+    importance: 2
+    levels:
+      1: No formal risk assessment process. Risk is discussed informally, if at all, usually only after
+        something goes wrong. There is no risk register, no consistent method for identifying threats
+        or vulnerabilities, and no link between whatever informal risk awareness exists and resourcing
+        or remediation decisions.
+      2: Risk assessments happen, but inconsistently e.g., only for certain systems, only when required
+        by an external audit, or only within IT rather than across the business. A risk register may exist
+        but is not comprehensive, not consistently updated, and risk scoring methodology varies by whoever
+        performs the assessment (no standard rubric). Vulnerability identification, threat Intel and impact
+        analysis are fragmented.
+      3: A documented risk assessment methodology exists (standard scoring for likelihood/impact, standard
+        categories of threat and vulnerability considered) and is applied organization-wide on a defined
+        cadence. A risk register is maintained centrally with named owners per risk, treatment decisions
+        (accept/mitigate/transfer/avoid), and status tracking. Process for vulnerability disclosure and
+        pre acquisition assessment are defined.
+      4: Risk assessments incorporate quantitative or semi-quantitative inputs (threat intelligence, vulnerability
+        scan data, historical incident/loss data) rather than purely qualitative judgment. Risk register
+        entries are tracked against remediation timelines with measurable overdue rates. Risk assessment
+        triggers are defined (new system, new threat class, M&A) in addition to the periodic cadence.
+      5: Risk assessment is continuous rather than point-in-time, informed by live threat intelligence
+        feeds, ongoing vulnerability data, and near-miss/incident learnings. The organization can demonstrate
+        specific resourcing or control changes driven directly by risk assessment findings. Risk assessment
+        methodology itself is periodically validated (e.g., back-tested against actual incidents) and
+        refined based on that validation.
+  ID.IM:
+    name: Improvements
+    importance: 2
+    levels:
+      1: No formal improvement process. Lessons from incidents, audits, or assessments are not systematically
+        captured. If learning happens, it stays with the individuals involved and is not fed back into
+        processes, policy, or training. The same gaps tend to recur because nothing structural changes
+        after they're found.
+      2: Some improvement activity happens after major events e.g., a post-incident review following a
+        significant incident but it is inconsistent, not applied after smaller incidents or audit findings,
+        and recommendations frequently aren't tracked through to implementation. No standard method exists
+        for capturing lessons learned.
+      3: 'A documented improvement process exists: lessons learned are captured after incidents, audits,
+        exercises, and assessments using a standard method, logged centrally, assigned an owner, and tracked
+        to remediation. The process applies across all six CSF Functions, not just incident response.'
+      4: Improvement actions are tracked against measurable completion rates and timelines, with overdue
+        items escalated. Sources of improvement input are broadened beyond incidents to include control
+        testing results, tabletop exercises, and external assessments. Trends across improvement items
+        are analyzed (e.g., recurring root causes) rather than treating each one in isolation.
+      5: 'Improvement is a continuous, closed-loop discipline: findings from every source (incidents,
+        audits, threat intel, exercises, peer benchmarking) systematically inform changes to strategy,
+        policy, and controls across all Functions, with evidence the loop functions (specific, traceable
+        process or control changes). The organization measures its own improvement velocity and benchmarks
+        it against prior periods or peers.'

@@ -1,0 +1,198 @@
+PR.AA-01:
+  name: Identities and credentials for authorized users, services, and hardware are managed by the organization
+  examples:
+  - 'Ex1:  Initiate requests for new access or additional access for employees, contractors, and others,
+    and track, review, and fulfill the requests, with permission from system or data owners when needed'
+  - 'Ex2:  Issue, manage, and revoke cryptographic certificates and identity tokens, cryptographic keys
+    (i.e., key management), and other credentials'
+  - 'Ex3:  Select a unique identifier for each device from immutable hardware characteristics or an identifier
+    securely provisioned to the device'
+  - 'Ex4:  Physically label authorized hardware with an identifier for inventory and servicing purposes'
+PR.AA-02:
+  name: Identities are proofed and bound to credentials based on the context of interactions
+  examples:
+  - 'Ex1:  Verify a person’s claimed identity at enrollment time using government-issued identity credentials
+    (e.g., passport, visa, driver’s license)'
+  - 'Ex2:  Issue a different credential for each person (i.e., no credential sharing)'
+PR.AA-03:
+  name: Users, services, and hardware are authenticated
+  examples:
+  - 'Ex1:  Require multifactor authentication'
+  - 'Ex2:  Enforce policies for the minimum strength of passwords, PINs, and similar authenticators'
+  - 'Ex3:  Periodically reauthenticate users, services, and hardware based on risk (e.g., in zero trust
+    architectures)'
+  - 'Ex4:  Ensure that authorized personnel can access accounts essential for protecting safety under
+    emergency conditions'
+PR.AA-04:
+  name: Identity assertions are protected, conveyed, and verified
+  examples:
+  - 'Ex1:  Protect identity assertions that are used to convey authentication and user information through
+    single sign-on systems'
+  - 'Ex2:  Protect identity assertions that are used to convey authentication and user information between
+    federated systems'
+  - 'Ex3:  Implement standards-based approaches for identity assertions in all contexts, and follow all
+    guidance for the generation (e.g., data models, metadata), protection (e.g., digital signing, encryption),
+    and verification (e.g., signature validation) of identity assertions'
+PR.AA-05:
+  name: Access permissions, entitlements, and authorizations are defined in a policy, managed, enforced,
+    and reviewed, and incorporate the principles of least privilege and separation of duties
+  examples:
+  - 'Ex1:  Review logical and physical access privileges periodically and whenever someone changes roles
+    or leaves the organization, and promptly rescind privileges that are no longer needed'
+  - 'Ex2:  Take attributes of the requester and the requested resource into account for authorization
+    decisions (e.g., geolocation, day/time, requester endpoint’s cyber health)'
+  - 'Ex3:  Restrict access and privileges to the minimum necessary (e.g., zero trust architecture)'
+  - 'Ex4:  Periodically review the privileges associated with critical business functions to confirm proper
+    separation of duties'
+PR.AA-06:
+  name: Physical access to assets is managed, monitored, and enforced commensurate with risk
+  examples:
+  - 'Ex1:  Use security guards, security cameras, locked entrances, alarm systems, and other physical
+    controls to monitor facilities and restrict access'
+  - 'Ex2:  Employ additional physical security controls for areas that contain high-risk assets'
+  - 'Ex3:  Escort guests, vendors, and other third parties within areas that contain business-critical
+    assets'
+PR.AT-01:
+  name: Personnel are provided with awareness and training so that they possess the knowledge and skills
+    to perform general tasks with cybersecurity risks in mind
+  examples:
+  - 'Ex1:  Provide basic cybersecurity awareness and training to employees, contractors, partners, suppliers,
+    and all other users of the organization’s non-public resources'
+  - 'Ex2:  Train personnel to recognize social engineering attempts and other common attacks, report attacks
+    and suspicious activity, comply with acceptable use policies, and perform basic cyber hygiene tasks
+    (e.g., patching software, choosing passwords, protecting credentials)'
+  - 'Ex3:  Explain the consequences of cybersecurity policy violations, both to individual users and the
+    organization as a whole'
+  - 'Ex4:  Periodically assess or test users on their understanding of basic cybersecurity practices'
+  - 'Ex5:  Require annual refreshers to reinforce existing practices and introduce new practices'
+PR.AT-02:
+  name: Individuals in specialized roles are provided with awareness and training so that they possess
+    the knowledge and skills to perform relevant tasks with cybersecurity risks in mind
+  examples:
+  - 'Ex1:  Identify the specialized roles within the organization that require additional cybersecurity
+    training, such as physical and cybersecurity personnel, finance personnel, senior leadership, and
+    anyone with access to business-critical data'
+  - 'Ex2:  Provide role-based cybersecurity awareness and training to all those in specialized roles,
+    including contractors, partners, suppliers, and other third parties'
+  - 'Ex3:  Periodically assess or test users on their understanding of cybersecurity practices for their
+    specialized roles'
+  - 'Ex4:  Require annual refreshers to reinforce existing practices and introduce new practices'
+PR.DS-01:
+  name: The confidentiality, integrity, and availability of data-at-rest are protected
+  examples:
+  - 'Ex1:  Use encryption, digital signatures, and cryptographic hashes to protect the confidentiality
+    and integrity of stored data in files, databases, virtual machine disk images, container images, and
+    other resources'
+  - 'Ex2:  Use full disk encryption to protect data stored on user endpoints'
+  - 'Ex3:  Confirm the integrity of software by validating signatures'
+  - 'Ex4:  Restrict the use of removable media to prevent data exfiltration'
+  - 'Ex5:  Physically secure removable media containing unencrypted sensitive information, such as within
+    locked offices or file cabinets'
+PR.DS-02:
+  name: The confidentiality, integrity, and availability of data-in-transit are protected
+  examples:
+  - 'Ex1:  Use encryption, digital signatures, and cryptographic hashes to protect the confidentiality
+    and integrity of network communications'
+  - 'Ex2:  Automatically encrypt or block outbound emails and other communications that contain sensitive
+    data, depending on the data classification'
+  - 'Ex3:  Block access to personal email, file sharing, file storage services, and other personal communications
+    applications and services from organizational systems and networks'
+  - 'Ex4:  Prevent reuse of sensitive data from production environments (e.g., customer records) in development,
+    testing, and other non-production environments'
+PR.DS-10:
+  name: The confidentiality, integrity, and availability of data-in-use are protected
+  examples:
+  - 'Ex1:  Remove data that must remain confidential (e.g., from processors and memory) as soon as it
+    is no longer needed'
+  - 'Ex2:  Protect data in use from access by other users and processes of the same platform'
+PR.DS-11:
+  name: Backups of data are created, protected, maintained, and tested
+  examples:
+  - 'Ex1:  Continuously back up critical data in near-real-time, and back up other data frequently at
+    agreed-upon schedules'
+  - 'Ex2:  Test backups and restores for all types of data sources at least annually'
+  - 'Ex3:  Securely store some backups offline and offsite so that an incident or disaster will not damage
+    them'
+  - 'Ex4:  Enforce geographic separation and geolocation restrictions for data backup storage'
+PR.IR-01:
+  name: Networks and environments are protected from unauthorized logical access and usage
+  examples:
+  - 'Ex1:  Logically segment organization networks and cloud-based platforms according to trust boundaries
+    and platform types (e.g., IT, IoT, OT, mobile, guests), and permit required communications only between
+    segments'
+  - 'Ex2:  Logically segment organization networks from external networks, and permit only necessary communications
+    to enter the organization’s networks from the external networks'
+  - 'Ex3:  Implement zero trust architectures to restrict network access to each resource to the minimum
+    necessary'
+  - 'Ex4:  Check the cyber health of endpoints before allowing them to access and use production resources'
+PR.IR-02:
+  name: The organization’s technology assets are protected from environmental threats
+  examples:
+  - 'Ex1:  Protect organizational equipment from known environmental threats, such as flooding, fire,
+    wind, and excessive heat and humidity'
+  - 'Ex2:  Include protection from environmental threats and provisions for adequate operating infrastructure
+    in requirements for service providers that operate systems on the organization''s behalf'
+PR.IR-03:
+  name: Mechanisms are implemented to achieve resilience requirements in normal and adverse situations
+  examples:
+  - 'Ex1:  Avoid single points of failure in systems and infrastructure'
+  - 'Ex2:  Use load balancing to increase capacity and improve reliability'
+  - 'Ex3:  Use high-availability components like redundant storage and power supplies to improve system
+    reliability'
+PR.IR-04:
+  name: Adequate resource capacity to ensure availability is maintained
+  examples:
+  - 'Ex1:  Monitor usage of storage, power, compute, network bandwidth, and other resources'
+  - 'Ex2:  Forecast future needs, and scale resources accordingly'
+PR.PS-01:
+  name: Configuration management practices are established and applied
+  examples:
+  - 'Ex1:  Establish, test, deploy, and maintain hardened baselines that enforce the organization’s cybersecurity
+    policies and provide only essential capabilities (i.e., principle of least functionality)'
+  - 'Ex2:  Review all default configuration settings that may potentially impact cybersecurity when installing
+    or upgrading software'
+  - 'Ex3:  Monitor implemented software for deviations from approved baselines'
+PR.PS-02:
+  name: Software is maintained, replaced, and removed commensurate with risk
+  examples:
+  - 'Ex1:  Perform routine and emergency patching within the timeframes specified in the vulnerability
+    management plan'
+  - 'Ex2:  Update container images, and deploy new container instances to replace rather than update existing
+    instances'
+  - 'Ex3:  Replace end-of-life software and service versions with supported, maintained versions'
+  - 'Ex4:  Uninstall and remove unauthorized software and services that pose undue risks'
+  - 'Ex5:  Uninstall and remove any unnecessary software components (e.g., operating system utilities)
+    that attackers might misuse'
+  - 'Ex6:  Define and implement plans for software and service end-of-life maintenance support and obsolescence'
+PR.PS-03:
+  name: Hardware is maintained, replaced, and removed commensurate with risk
+  examples:
+  - 'Ex1:  Replace hardware when it lacks needed security capabilities or when it cannot support software
+    with needed security capabilities'
+  - 'Ex2:  Define and implement plans for hardware end-of-life maintenance support and obsolescence'
+  - 'Ex3:  Perform hardware disposal in a secure, responsible, and auditable manner'
+PR.PS-04:
+  name: Log records are generated and made available for continuous monitoring
+  examples:
+  - 'Ex1:  Configure all operating systems, applications, and services (including cloud-based services)
+    to generate log records'
+  - 'Ex2:  Configure log generators to securely share their logs with the organization’s logging infrastructure
+    systems and services'
+  - 'Ex3:  Configure log generators to record the data needed by zero-trust architectures'
+PR.PS-05:
+  name: Installation and execution of unauthorized software are prevented
+  examples:
+  - 'Ex1:  When risk warrants it, restrict software execution to permitted products only or deny the execution
+    of prohibited and unauthorized software'
+  - 'Ex2:  Verify the source of new software and the software’s integrity before installing it'
+  - 'Ex3:  Configure platforms to use only approved DNS services that block access to known malicious
+    domains'
+  - 'Ex4:  Configure platforms to allow the installation of organization-approved software only'
+PR.PS-06:
+  name: Secure software development practices are integrated, and their performance is monitored throughout
+    the software development life cycle
+  examples:
+  - 'Ex1:  Protect all components of organization-developed software from tampering and unauthorized access'
+  - 'Ex2:  Secure all software produced by the organization, with minimal vulnerabilities in their releases'
+  - 'Ex3:  Maintain the software used in production environments, and securely dispose of software once
+    it is no longer needed'

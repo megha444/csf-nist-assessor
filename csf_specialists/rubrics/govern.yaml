@@ -1,0 +1,148 @@
+function: govern
+categories:
+  GV.OC:
+    name: Organisational Context
+    importance: 2
+    levels:
+      1: No formal articulation of organizational context as it relates to cybersecurity. Mission, stakeholders,
+        and legal/regulatory obligations are understood informally by individuals (often only by leadership
+        or legal counsel) but not documented or connected to cybersecurity risk decisions. Critical dependencies
+        (suppliers, systems, data flows) are not inventoried. Cybersecurity risk is treated as a generic
+        IT concern disconnected from business context.
+      2: Some elements of organizational context exist in fragmented form — a legal/compliance team may
+        track regulatory obligations, or a business continuity function may know critical dependencies
+        — but these are not consolidated or shared with those making cybersecurity decisions. Coverage
+        is inconsistent across business units. No single source of truth exists, and context is refreshed
+        reactively (e.g., only after an audit finding or new regulation).
+      3: Organizational context is documented in a formal artifact (e.g., a risk context statement or
+        equivalent) covering mission, stakeholders, legal/regulatory/contractual obligations, and critical
+        dependencies. It is owned by a named function (often GRC, risk, or the CISO office) and is referenced
+        when making cybersecurity risk decisions. Coverage is organization-wide, not pocketed in individual
+        BUs.
+      4: The organizational context artifact is reviewed on a defined cadence (e.g., annually or at major
+        business change) against measurable triggers — new regulations, M&A activity, new critical suppliers,
+        new product lines. Changes are tracked and their downstream impact on cybersecurity priorities
+        is assessed. Ownership includes accountability metrics (e.g., time-to-update after a triggering
+        event).
+      5: Organizational context is continuously informed by external threat intelligence, regulatory horizon-scanning,
+        and internal business intelligence, with a defined feedback loop back into risk strategy (GV.RM)
+        and oversight (GV.OV). The organization can demonstrate specific cybersecurity decisions that
+        changed because of a context update. Context maintenance itself is periodically assessed for completeness
+        and used to benchmark against peers.
+  GV.RM:
+    name: Risk Management Strategy
+    importance: 2
+    levels:
+      1: No documented risk tolerance or appetite. Risk decisions are made ad hoc by whoever is closest
+        to the issue, with no consistent threshold for what's acceptable. There is no shared vocabulary
+        for risk across the organization — "high risk" means different things to different teams.
+      2: A risk appetite or tolerance concept exists, typically at the enterprise risk level, but it has
+        not been translated into cybersecurity-specific terms. Some business units apply informal risk
+        thresholds inconsistently. Risk decisions are occasionally escalated but without a defined strategy
+        guiding when escalation should happen.
+      3: A documented cybersecurity risk management strategy exists, including risk appetite/tolerance
+        statements, priorities, and constraints. It is approved by an accountable owner (e.g., CISO, risk
+        committee) and communicated to relevant stakeholders. The strategy is used as an input to prioritization
+        decisions (e.g., which findings get remediated first). A standardised risk calculation methodology
+        is in use. Lines of Defense and communication channels for cyber risk are established.
+      4: The risk strategy is quantitatively informed, risk tolerance is expressed with measurable thresholds
+        (e.g., acceptable downtime, acceptable data exposure classes) rather than qualitative language
+        alone. Risk decisions and KRIs are tracked against the risk tolerance, and threshold breaches
+        trigger escalation. The risk appetite is reviewed on a fixed cadence tied to business planning
+        cycles.
+      5: The risk strategy is continuously recalibrated using loss data, incident history, threat intelligence,
+        and industry benchmarking. The organization can show specific instances where the strategy itself
+        changed based on measured outcomes (e.g., tolerance tightened after a near-miss). Risk appetite
+        is a living input to board-level strategic decisions, not just a compliance artifact. Strategic
+        opportunities (positive risk) is measured and reported.
+  GV.RR:
+    name: Roles, Responsibilities, and Authorities
+    importance: 2
+    levels:
+      1: Cybersecurity responsibilities are not formally assigned. The Board and Executive Committees
+        do not engage with cyber risk. Whoever has technical knowledge handles issues as they arise, often
+        without formal authority to make decisions or enforce controls. No one is clearly accountable
+        if something goes wrong.
+      2: 'Some roles exist informally, e.g., an IT manager is "the security person" but responsibilities
+        are not documented, and authority to enforce cybersecurity requirements is unclear or contested.
+        Coverage is inconsistent: some business units or functions have no cybersecurity point of contact
+        at all. Leadership engagement with cyber risk is reactive(e.g. post incident) rather than proactive.'
+      3: Cybersecurity roles, responsibilities, and authorities are documented (e.g., in a RACI or governance
+        charter) and cover the organization, including at minimum a named accountable executive (CISO
+        or equivalent), and defined authority for that role to enforce policy and approve exceptions.
+        Roles are communicated to the workforce. Leadership receives regular reports on cyber risk. Cybersecurity
+        is integrated into HR practices.
+      4: Role performance is measured e.g., accountable owners have defined KPIs or KRIs tied to their
+        cybersecurity responsibilities (time-to-remediate, policy exception rates, training completion
+        in their org). Gaps in coverage (e.g., a BU without a designated security liaison) are tracked
+        and closed against a target. Cyber risk is a standing agenda item at relevant governance forums.
+      5: Roles and authorities are periodically reassessed and adjusted based on organizational change,
+        incident post-mortems, and emerging risk areas (e.g., a new role created after a gap was identified
+        in an incident retrospective). Accountability structures are benchmarked externally and used to
+        inform succession planning and board-level reporting on cybersecurity governance maturity.
+  GV.PO:
+    name: Policy
+    importance: 2
+    levels:
+      1: No formal cybersecurity policy exists, or policy exists only as an informal, unapproved document
+        (e.g., a wiki page) with no organizational backing. Where informal guidance exists, it is not
+        consistently followed and there's no mechanism to check compliance.
+      2: A cybersecurity policy exists but covers only some domains (e.g., acceptable use, but not access
+        control or data classification) or applies only to some business units. It may be outdated, unapproved
+        by leadership, or not actively communicated to the workforce beyond initial onboarding.
+      3: A comprehensive cybersecurity policy set exists, is formally approved by an accountable owner,
+        is communicated organization-wide, and has a defined exception process. Policies are version-controlled
+        and mapped to the areas they govern (access control, data handling, incident response, etc.).
+      4: Policy compliance is actively measured — e.g., through periodic attestation, control testing,
+        or automated enforcement (technical controls that reflect policy requirements). Exception requests
+        are tracked, time-bound, and reported on. Policy review cadence is defined and adhered to (e.g.,
+        annual review, with evidence of the review having occurred).
+      5: Policy is continuously updated based on incident learnings, audit findings, regulatory change,
+        and control effectiveness data. The organization can demonstrate specific policy changes driven
+        by measured gaps (e.g., a policy tightened after exception rates in a particular control spiked).
+        Policy effectiveness, not just existence, is what's tracked and reported to leadership.
+  GV.OV:
+    name: Oversight
+    importance: 2
+    levels:
+      1: No formal oversight mechanism for cybersecurity risk exists. Leadership and the board (if applicable)
+        receive little to no visibility into cybersecurity posture beyond ad hoc updates after an incident.
+        There is no reporting cadence or structure.
+      2: Some oversight exists e.g., periodic informal updates to leadership but it is inconsistent, lacks
+        standardized metrics, and does not reliably reach board or executive level. Oversight tends to
+        be reactive, triggered by incidents or audits rather than scheduled.
+      3: A formal oversight structure exists (e.g., a security steering committee or defined board reporting
+        line) with a set reporting cadence and a standard set of metrics/KPIs presented. Oversight results
+        are documented and there is a defined path for escalating significant risks.
+      4: Oversight reporting includes trend data, not just point-in-time snapshots — metrics are tracked
+        over time and compared against targets or thresholds. Oversight bodies have demonstrated authority
+        to direct changes to the risk strategy or resourcing based on what they see (e.g., budget reallocated
+        after an oversight review flagged a gap).
+      5: 'Oversight is a closed-loop system: findings from oversight activities systematically feed back
+        into risk strategy (GV.RM), policy (GV.PO), and resourcing decisions, with evidence the loop is
+        functioning (specific strategy or budget changes traceable to oversight findings). Oversight maturity
+        itself is benchmarked, and the organization can articulate how its oversight model compares to
+        peers or leading practice.'
+  GV.SC:
+    name: Cybersecurity Supply Chain Risk Management
+    importance: 2
+    levels:
+      1: No formal supply chain cybersecurity risk process. Vendors and third parties are onboarded without
+        cybersecurity due diligence. There is no inventory of critical suppliers or awareness of which
+        vendors have access to sensitive systems or data.
+      2: Some vendor risk assessment happens, typically only for the largest or most visible contracts,
+        and often driven by procurement or legal rather than a defined cybersecurity process. No consistent
+        criticality tiering exists, and reassessment after initial onboarding is rare or nonexistent.
+      3: A documented supply chain risk management process exists, including a maintained vendor inventory
+        with criticality tiering, defined due diligence requirements scaled to tier, and standard contract
+        language for cybersecurity requirements. The process applies organization-wide, not just to a
+        subset of high-visibility vendors.
+      4: Vendor risk is monitored on an ongoing basis, not just at onboarding — e.g., periodic reassessment
+        tied to tier, tracked remediation of vendor-identified gaps, and metrics on vendor risk posture
+        reported to oversight (GV.OV). Contractual cybersecurity requirements are tracked for compliance,
+        not just included as boilerplate.
+      5: Supply chain risk management is continuously refined using incident data (including vendor-caused
+        incidents), threat intelligence on supply chain attack trends, and vendor performance history.
+        The organization can show specific process changes driven by this data (e.g., tightened due diligence
+        after a sector-wide vendor compromise). Supply chain risk posture is a standing input to strategic
+        sourcing decisions, not just a compliance gate.

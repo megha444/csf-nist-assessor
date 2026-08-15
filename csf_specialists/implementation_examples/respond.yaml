@@ -1,0 +1,99 @@
+RS.AN-03:
+  name: Analysis is performed to establish what has taken place during an incident and the root cause
+    of the incident
+  examples:
+  - 'Ex1:  Determine the sequence of events that occurred during the incident and which assets and resources
+    were involved in each event'
+  - 'Ex2:  Attempt to determine what vulnerabilities, threats, and threat actors were directly or indirectly
+    involved in the incident'
+  - 'Ex3:  Analyze the incident to find the underlying, systemic root causes'
+  - 'Ex4:  Check any cyber deception technology for additional information on attacker behavior'
+RS.AN-06:
+  name: Actions performed during an investigation are recorded, and the records’ integrity and provenance
+    are preserved
+  examples:
+  - 'Ex1:  Require each incident responder and others (e.g., system administrators, cybersecurity engineers)
+    who perform incident response tasks to record their actions and make the record immutable'
+  - 'Ex2:  Require the incident lead to document the incident in detail and be responsible for preserving
+    the integrity of the documentation and the sources of all information being reported'
+RS.AN-07:
+  name: Incident data and metadata are collected, and their integrity and provenance are preserved
+  examples:
+  - 'Ex1:  Collect, preserve, and safeguard the integrity of all pertinent incident data and metadata
+    (e.g., data source, date/time of collection) based on evidence preservation and chain-of-custody procedures'
+RS.AN-08:
+  name: An incident’s magnitude is estimated and validated
+  examples:
+  - 'Ex1:  Review other potential targets of the incident to search for indicators of compromise and evidence
+    of persistence'
+  - 'Ex2:  Automatically run tools on targets to look for indicators of compromise and evidence of persistence'
+RS.CO-02:
+  name: Internal and external stakeholders are notified of incidents
+  examples:
+  - 'Ex1:  Follow the organization’s breach notification procedures after discovering a data breach incident,
+    including notifying affected customers'
+  - 'Ex2:  Notify business partners and customers of incidents in accordance with contractual requirements'
+  - 'Ex3:  Notify law enforcement agencies and regulatory bodies of incidents based on criteria in the
+    incident response plan and management approval'
+RS.CO-03:
+  name: Information is shared with designated internal and external stakeholders
+  examples:
+  - 'Ex1:  Securely share information consistent with response plans and information sharing agreements'
+  - 'Ex2:  Voluntarily share information about an attacker’s observed TTPs, with all sensitive data removed,
+    with an Information Sharing and Analysis Center (ISAC)'
+  - 'Ex3:  Notify HR when malicious insider activity occurs'
+  - 'Ex4:  Regularly update senior leadership on the status of major incidents'
+  - 'Ex5:  Follow the rules and protocols defined in contracts for incident information sharing between
+    the organization and its suppliers'
+  - 'Ex6:  Coordinate crisis communication methods between the organization and its critical suppliers'
+RS.MA-01:
+  name: The incident response plan is executed in coordination with relevant third parties once an incident
+    is declared
+  examples:
+  - 'Ex1:  Detection technologies automatically report confirmed incidents'
+  - 'Ex2:  Request incident response assistance from the organization’s incident response outsourcer'
+  - 'Ex3:  Designate an incident lead for each incident'
+  - 'Ex4:  Initiate execution of additional cybersecurity plans as needed to support incident response
+    (for example, business continuity and disaster recovery)'
+RS.MA-02:
+  name: Incident reports are triaged and validated
+  examples:
+  - 'Ex1:  Preliminarily review incident reports to confirm that they are cybersecurity-related and necessitate
+    incident response activities'
+  - 'Ex2:  Apply criteria to estimate the severity of an incident'
+RS.MA-03:
+  name: Incidents are categorized and prioritized
+  examples:
+  - 'Ex1:  Further review and categorize incidents based on the type of incident (e.g., data breach, ransomware,
+    DDoS, account compromise)'
+  - 'Ex2:  Prioritize incidents based on their scope, likely impact, and time-critical nature'
+  - 'Ex3:  Select incident response strategies for active incidents by balancing the need to quickly recover
+    from an incident with the need to observe the attacker or conduct a more thorough investigation'
+RS.MA-04:
+  name: Incidents are escalated or elevated as needed
+  examples:
+  - 'Ex1:  Track and validate the status of all ongoing incidents'
+  - 'Ex2:  Coordinate incident escalation or elevation with designated internal and external stakeholders'
+RS.MA-05:
+  name: The criteria for initiating incident recovery are applied
+  examples:
+  - 'Ex1:  Apply incident recovery criteria to known and assumed characteristics of the incident to determine
+    whether incident recovery processes should be initiated'
+  - 'Ex2:  Take the possible operational disruption of incident recovery activities into account'
+RS.MI-01:
+  name: Incidents are contained
+  examples:
+  - 'Ex1:  Cybersecurity technologies (e.g., antivirus software) and cybersecurity features of other technologies
+    (e.g., operating systems, network infrastructure devices) automatically perform containment actions'
+  - 'Ex2:  Allow incident responders to manually select and perform containment actions'
+  - 'Ex3:  Allow a third party (e.g., internet service provider, managed security service provider) to
+    perform containment actions on behalf of the organization'
+  - 'Ex4:  Automatically transfer compromised endpoints to a remediation virtual local area network (VLAN)'
+RS.MI-02:
+  name: Incidents are eradicated
+  examples:
+  - 'Ex1:  Cybersecurity technologies and cybersecurity features of other technologies (e.g., operating
+    systems, network infrastructure devices) automatically perform eradication actions'
+  - 'Ex2:  Allow incident responders to manually select and perform eradication actions'
+  - 'Ex3:  Allow a third party (e.g., managed security service provider) to perform eradication actions
+    on behalf of the organization'

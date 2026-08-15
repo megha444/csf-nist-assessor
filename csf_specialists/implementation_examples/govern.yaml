@@ -1,0 +1,340 @@
+GV.OC-01:
+  name: The organizational mission is understood and informs cybersecurity risk management
+  examples:
+  - 'Ex1:  Share the organization’s mission (e.g., through vision and mission statements, marketing, and
+    service strategies) to provide a basis for identifying risks that may impede that mission'
+GV.OC-02:
+  name: Internal and external stakeholders are understood, and their needs and expectations regarding
+    cybersecurity risk management are understood and considered
+  examples:
+  - 'Ex1:  Identify relevant internal stakeholders and their cybersecurity-related expectations (e.g.,
+    performance and risk expectations of officers, directors, and advisors; cultural expectations of employees)'
+  - 'Ex2:  Identify relevant external stakeholders and their cybersecurity-related expectations (e.g.,
+    privacy expectations of customers, business expectations of partnerships, compliance expectations
+    of regulators, ethics expectations of society)'
+GV.OC-03:
+  name: Legal, regulatory, and contractual requirements regarding cybersecurity — including privacy and
+    civil liberties obligations — are understood and managed
+  examples:
+  - 'Ex1:  Determine a process to track and manage legal and regulatory requirements regarding protection
+    of individuals’ information (e.g., Health Insurance Portability and Accountability Act, California
+    Consumer Privacy Act, General Data Protection Regulation)'
+  - 'Ex2:  Determine a process to track and manage contractual requirements for cybersecurity management
+    of supplier, customer, and partner information'
+  - 'Ex3:  Align the organization’s cybersecurity strategy with legal, regulatory, and contractual requirements'
+GV.OC-04:
+  name: Critical objectives, capabilities, and services that stakeholders depend on or expect from the
+    organization are understood and communicated
+  examples:
+  - 'Ex1:  Establish criteria for determining the criticality of capabilities and services as viewed by
+    internal and external stakeholders'
+  - 'Ex2:  Determine (e.g., from a business impact analysis) assets and business operations that are vital
+    to achieving mission objectives and the potential impact of a loss (or partial loss) of such operations'
+  - 'Ex3:  Establish and communicate resilience objectives (e.g., recovery time objectives) for delivering
+    critical capabilities and services in various operating states (e.g., under attack, during recovery,
+    normal operation)'
+GV.OC-05:
+  name: Outcomes, capabilities, and services that the organization depends on are understood and communicated
+  examples:
+  - 'Ex1:  Create an inventory of the organization’s dependencies on external resources (e.g., facilities,
+    cloud-based hosting providers) and their relationships to organizational assets and business functions'
+  - 'Ex2:  Identify and document external dependencies that are potential points of failure for the organization’s
+    critical capabilities and services, and share that information with appropriate personnel'
+GV.OV-01:
+  name: Cybersecurity risk management strategy outcomes are reviewed to inform and adjust strategy and
+    direction
+  examples:
+  - 'Ex1:  Measure how well the risk management strategy and risk results have helped leaders make decisions
+    and achieve organizational objectives'
+  - 'Ex2:  Examine whether cybersecurity risk strategies that impede operations or innovation should be
+    adjusted'
+GV.OV-02:
+  name: The cybersecurity risk management strategy is reviewed and adjusted to ensure coverage of organizational
+    requirements and risks
+  examples:
+  - 'Ex1:  Review audit findings to confirm whether the existing cybersecurity strategy has ensured compliance
+    with internal and external requirements'
+  - 'Ex2:  Review the performance oversight of those in cybersecurity-related roles to determine whether
+    policy changes are necessary'
+  - 'Ex3:  Review strategy in light of cybersecurity incidents'
+GV.OV-03:
+  name: Organizational cybersecurity risk management performance is evaluated and reviewed for adjustments
+    needed
+  examples:
+  - 'Ex1:  Review key performance indicators (KPIs) to ensure that organization-wide policies and procedures
+    achieve objectives'
+  - 'Ex2:  Review key risk indicators (KRIs) to identify risks the organization faces, including likelihood
+    and potential impact'
+  - 'Ex3:  Collect and communicate metrics on cybersecurity risk management with senior leadership'
+GV.PO-01:
+  name: Policy for managing cybersecurity risks is established based on organizational context, cybersecurity
+    strategy, and priorities and is communicated and enforced
+  examples:
+  - 'Ex1:  Create, disseminate, and maintain an understandable, usable risk management policy with statements
+    of management intent, expectations, and direction'
+  - 'Ex2:  Periodically review policy and supporting processes and procedures to ensure that they align
+    with risk management strategy objectives and priorities, as well as the high-level direction of the
+    cybersecurity policy'
+  - 'Ex3:  Require approval from senior management on policy'
+  - 'Ex4:  Communicate cybersecurity risk management policy and supporting processes and procedures across
+    the organization'
+  - 'Ex5:  Require personnel to acknowledge receipt of policy when first hired, annually, and whenever
+    policy is updated'
+GV.PO-02:
+  name: Policy for managing cybersecurity risks is reviewed, updated, communicated, and enforced to reflect
+    changes in requirements, threats, technology, and organizational mission
+  examples:
+  - 'Ex1:  Update policy based on periodic reviews of cybersecurity risk management results to ensure
+    that policy and supporting processes and procedures adequately maintain risk at an acceptable level'
+  - 'Ex2:  Provide a timeline for reviewing changes to the organization’s risk environment (e.g., changes
+    in risk or in the organization’s mission objectives), and communicate recommended policy updates'
+  - 'Ex3:  Update policy to reflect changes in legal and regulatory requirements'
+  - 'Ex4:  Update policy to reflect changes in technology (e.g., adoption of artificial intelligence)
+    and changes to the business (e.g., acquisition of a new business, new contract requirements)'
+GV.RM-01:
+  name: Risk management objectives are established and agreed to by organizational stakeholders
+  examples:
+  - 'Ex1:  Update near-term and long-term cybersecurity risk management objectives as part of annual strategic
+    planning and when major changes occur'
+  - 'Ex2:  Establish measurable objectives for cybersecurity risk management (e.g., manage the quality
+    of user training, ensure adequate risk protection for industrial control systems)'
+  - 'Ex3:  Senior leaders agree about cybersecurity objectives and use them for measuring and managing
+    risk and performance'
+GV.RM-02:
+  name: Risk appetite and risk tolerance statements are established, communicated, and maintained
+  examples:
+  - 'Ex1:  Determine and communicate risk appetite statements that convey expectations about the appropriate
+    level of risk for the organization'
+  - 'Ex2:  Translate risk appetite statements into specific, measurable, and broadly understandable risk
+    tolerance statements'
+  - 'Ex3:  Refine organizational objectives and risk appetite periodically based on known risk exposure
+    and residual risk'
+GV.RM-03:
+  name: Cybersecurity risk management activities and outcomes are included in enterprise risk management
+    processes
+  examples:
+  - 'Ex1:  Aggregate and manage cybersecurity risks alongside other enterprise risks (e.g., compliance,
+    financial, operational, regulatory, reputational, safety)'
+  - 'Ex2:  Include cybersecurity risk managers in enterprise risk management planning'
+  - 'Ex3:  Establish criteria for escalating cybersecurity risks within enterprise risk management'
+GV.RM-04:
+  name: Strategic direction that describes appropriate risk response options is established and communicated
+  examples:
+  - 'Ex1:  Specify criteria for accepting and avoiding cybersecurity risk for various classifications
+    of data'
+  - 'Ex2:  Determine whether to purchase cybersecurity insurance'
+  - 'Ex3:  Document conditions under which shared responsibility models are acceptable (e.g., outsourcing
+    certain cybersecurity functions, having a third party perform financial transactions on behalf of
+    the organization, using public cloud-based services)'
+GV.RM-05:
+  name: Lines of communication across the organization are established for cybersecurity risks, including
+    risks from suppliers and other third parties
+  examples:
+  - 'Ex1:  Determine how to update senior executives, directors, and management on the organization’s
+    cybersecurity posture at agreed-upon intervals'
+  - 'Ex2:  Identify how all departments across the organization — such as management, operations, internal
+    auditors, legal, acquisition, physical security, and HR — will communicate with each other about cybersecurity
+    risks'
+GV.RM-06:
+  name: A standardized method for calculating, documenting, categorizing, and prioritizing cybersecurity
+    risks is established and communicated
+  examples:
+  - 'Ex1:  Establish criteria for using a quantitative approach to cybersecurity risk analysis, and specify
+    probability and exposure formulas'
+  - 'Ex2:  Create and use templates (e.g., a risk register) to document cybersecurity risk information
+    (e.g., risk description, exposure, treatment, and ownership)'
+  - 'Ex3:  Establish criteria for risk prioritization at the appropriate levels within the enterprise'
+  - 'Ex4:  Use a consistent list of risk categories to support integrating, aggregating, and comparing
+    cybersecurity risks'
+GV.RM-07:
+  name: Strategic opportunities (i.e., positive risks) are characterized and are included in organizational
+    cybersecurity risk discussions
+  examples:
+  - 'Ex1:  Define and communicate guidance and methods for identifying opportunities and including them
+    in risk discussions (e.g., strengths, weaknesses, opportunities, and threats [SWOT] analysis)'
+  - 'Ex2:  Identify stretch goals and document them'
+  - 'Ex3:  Calculate, document, and prioritize positive risks alongside negative risks'
+GV.RR-01:
+  name: Organizational leadership is responsible and accountable for cybersecurity risk and fosters a
+    culture that is risk-aware, ethical, and continually improving
+  examples:
+  - 'Ex1:  Leaders (e.g., directors) agree on their roles and responsibilities in developing, implementing,
+    and assessing the organization’s cybersecurity strategy'
+  - 'Ex2:  Share leaders’ expectations regarding a secure and ethical culture, especially when current
+    events present the opportunity to highlight positive or negative examples of cybersecurity risk management'
+  - 'Ex3:  Leaders direct the CISO to maintain a comprehensive cybersecurity risk strategy and review
+    and update it at least annually and after major events'
+  - 'Ex4:  Conduct reviews to ensure adequate authority and coordination among those responsible for managing
+    cybersecurity risk'
+GV.RR-02:
+  name: Roles, responsibilities, and authorities related to cybersecurity risk management are established,
+    communicated, understood, and enforced
+  examples:
+  - 'Ex1:  Document risk management roles and responsibilities in policy'
+  - 'Ex2:  Document who is responsible and accountable for cybersecurity risk management activities and
+    how those teams and individuals are to be consulted and informed'
+  - 'Ex3:  Include cybersecurity responsibilities and performance requirements in personnel descriptions'
+  - 'Ex4:  Document performance goals for personnel with cybersecurity risk management responsibilities,
+    and periodically measure performance to identify areas for improvement'
+  - 'Ex5:  Clearly articulate cybersecurity responsibilities within operations, risk functions, and internal
+    audit functions'
+GV.RR-03:
+  name: Adequate resources are allocated commensurate with the cybersecurity risk strategy, roles, responsibilities,
+    and policies
+  examples:
+  - 'Ex1:  Conduct periodic management reviews to ensure that those given cybersecurity risk management
+    responsibilities have the necessary authority'
+  - 'Ex2:  Identify resource allocation and investment in line with risk tolerance and response'
+  - 'Ex3:  Provide adequate and sufficient people, process, and technical resources to support the cybersecurity
+    strategy'
+GV.RR-04:
+  name: Cybersecurity is included in human resources practices
+  examples:
+  - 'Ex1:  Integrate cybersecurity risk management considerations into human resources processes (e.g.,
+    personnel screening, onboarding, change notification, offboarding)'
+  - 'Ex2:  Consider cybersecurity knowledge to be a positive factor in hiring, training, and retention
+    decisions'
+  - 'Ex3:  Conduct background checks prior to onboarding new personnel for sensitive roles, and periodically
+    repeat background checks for personnel with such roles'
+  - 'Ex4:  Define and enforce obligations for personnel to be aware of, adhere to, and uphold security
+    policies as they relate to their roles'
+GV.SC-01:
+  name: A cybersecurity supply chain risk management program, strategy, objectives, policies, and processes
+    are established and agreed to by organizational stakeholders
+  examples:
+  - 'Ex1:  Establish a strategy that expresses the objectives of the cybersecurity supply chain risk management
+    program'
+  - 'Ex2:  Develop the cybersecurity supply chain risk management program, including a plan (with milestones),
+    policies, and procedures that guide implementation and improvement of the program, and share the policies
+    and procedures with the organizational stakeholders'
+  - 'Ex3:  Develop and implement program processes based on the strategy, objectives, policies, and procedures
+    that are agreed upon and performed by the organizational stakeholders'
+  - 'Ex4:  Establish a cross-organizational mechanism that ensures alignment between functions that contribute
+    to cybersecurity supply chain risk management, such as cybersecurity, IT, operations, legal, human
+    resources, and engineering'
+GV.SC-02:
+  name: Cybersecurity roles and responsibilities for suppliers, customers, and partners are established,
+    communicated, and coordinated internally and externally
+  examples:
+  - 'Ex1:  Identify one or more specific roles or positions that will be responsible and accountable for
+    planning, resourcing, and executing cybersecurity supply chain risk management activities'
+  - 'Ex2:  Document cybersecurity supply chain risk management roles and responsibilities in policy'
+  - 'Ex3:  Create responsibility matrixes to document who will be responsible and accountable for cybersecurity
+    supply chain risk management activities and how those teams and individuals will be consulted and
+    informed'
+  - 'Ex4:  Include cybersecurity supply chain risk management responsibilities and performance requirements
+    in personnel descriptions to ensure clarity and improve accountability'
+  - 'Ex5:  Document performance goals for personnel with cybersecurity risk management-specific responsibilities,
+    and periodically measure them to demonstrate and improve performance'
+  - 'Ex6:  Develop roles and responsibilities for suppliers, customers, and business partners to address
+    shared responsibilities for applicable cybersecurity risks, and integrate them into organizational
+    policies and applicable third-party agreements'
+  - 'Ex7:  Internally communicate cybersecurity supply chain risk management roles and responsibilities
+    for third parties'
+  - 'Ex8:  Establish rules and protocols for information sharing and reporting processes between the organization
+    and its suppliers'
+GV.SC-03:
+  name: Cybersecurity supply chain risk management is integrated into cybersecurity and enterprise risk
+    management, risk assessment, and improvement processes
+  examples:
+  - 'Ex1:  Identify areas of alignment and overlap with cybersecurity and enterprise risk management'
+  - 'Ex2:  Establish integrated control sets for cybersecurity risk management and cybersecurity supply
+    chain risk management'
+  - 'Ex3:  Integrate cybersecurity supply chain risk management into improvement processes'
+  - 'Ex4:  Escalate material cybersecurity risks in supply chains to senior management, and address them
+    at the enterprise risk management level'
+GV.SC-04:
+  name: Suppliers are known and prioritized by criticality
+  examples:
+  - 'Ex1:  Develop criteria for supplier criticality based on, for example, the sensitivity of data processed
+    or possessed by suppliers, the degree of access to the organization’s systems, and the importance
+    of the products or services to the organization’s mission'
+  - 'Ex2:  Keep a record of all suppliers, and prioritize suppliers based on the criticality criteria'
+GV.SC-05:
+  name: Requirements to address cybersecurity risks in supply chains are established, prioritized, and
+    integrated into contracts and other types of agreements with suppliers and other relevant third parties
+  examples:
+  - 'Ex1:  Establish security requirements for suppliers, products, and services commensurate with their
+    criticality level and potential impact if compromised'
+  - 'Ex2:  Include all cybersecurity and supply chain requirements that third parties must follow and
+    how compliance with the requirements may be verified in default contractual language'
+  - 'Ex3:  Define the rules and protocols for information sharing between the organization and its suppliers
+    and sub-tier suppliers in agreements'
+  - 'Ex4:  Manage risk by including security requirements in agreements based on their criticality and
+    potential impact if compromised'
+  - 'Ex5:  Define security requirements in service-level agreements (SLAs) for monitoring suppliers for
+    acceptable security performance throughout the supplier relationship lifecycle'
+  - 'Ex6:  Contractually require suppliers to disclose cybersecurity features, functions, and vulnerabilities
+    of their products and services for the life of the product or the term of service'
+  - 'Ex7:  Contractually require suppliers to provide and maintain a current component inventory (e.g.,
+    software or hardware bill of materials) for critical products'
+  - 'Ex8:  Contractually require suppliers to vet their employees and guard against insider threats'
+  - 'Ex9:  Contractually require suppliers to provide evidence of performing acceptable security practices
+    through, for example, self-attestation, conformance to known standards, certifications, or inspections'
+  - 'Ex10:  Specify in contracts and other agreements the rights and responsibilities of the organization,
+    its suppliers, and their supply chains, with respect to potential cybersecurity risks'
+GV.SC-06:
+  name: Planning and due diligence are performed to reduce risks before entering into formal supplier
+    or other third-party relationships
+  examples:
+  - 'Ex1:  Perform thorough due diligence on prospective suppliers that is consistent with procurement
+    planning and commensurate with the level of risk, criticality, and complexity of each supplier relationship'
+  - 'Ex2:  Assess the suitability of the technology and cybersecurity capabilities and the risk management
+    practices of prospective suppliers'
+  - 'Ex3:  Conduct supplier risk assessments against business and applicable cybersecurity requirements'
+  - 'Ex4:  Assess the authenticity, integrity, and security of critical products prior to acquisition
+    and use'
+GV.SC-07:
+  name: The risks posed by a supplier, their products and services, and other third parties are understood,
+    recorded, prioritized, assessed, responded to, and monitored over the course of the relationship
+  examples:
+  - 'Ex1:  Adjust assessment formats and frequencies based on the third party’s reputation and the criticality
+    of the products or services they provide'
+  - 'Ex2:  Evaluate third parties’ evidence of compliance with contractual cybersecurity requirements,
+    such as self-attestations, warranties, certifications, and other artifacts'
+  - 'Ex3:  Monitor critical suppliers to ensure that they are fulfilling their security obligations throughout
+    the supplier relationship lifecycle using a variety of methods and techniques, such as inspections,
+    audits, tests, or other forms of evaluation'
+  - 'Ex4:  Monitor critical suppliers, services, and products for changes to their risk profiles, and
+    reevaluate supplier criticality and risk impact accordingly'
+  - 'Ex5:  Plan for unexpected supplier and supply chain-related interruptions to ensure business continuity'
+GV.SC-08:
+  name: Relevant suppliers and other third parties are included in incident planning, response, and recovery
+    activities
+  examples:
+  - 'Ex1:  Define and use rules and protocols for reporting incident response and recovery activities
+    and the status between the organization and its suppliers'
+  - 'Ex2:  Identify and document the roles and responsibilities of the organization and its suppliers
+    for incident response'
+  - 'Ex3:  Include critical suppliers in incident response exercises and simulations'
+  - 'Ex4:  Define and coordinate crisis communication methods and protocols between the organization and
+    its critical suppliers'
+  - 'Ex5:  Conduct collaborative lessons learned sessions with critical suppliers'
+GV.SC-09:
+  name: Supply chain security practices are integrated into cybersecurity and enterprise risk management
+    programs, and their performance is monitored throughout the technology product and service life cycle
+  examples:
+  - 'Ex1:  Policies and procedures require provenance records for all acquired technology products and
+    services'
+  - 'Ex2:  Periodically provide risk reporting to leaders about how acquired components are proven to
+    be untampered and authentic'
+  - 'Ex3:  Communicate regularly among cybersecurity risk managers and operations personnel about the
+    need to acquire software patches, updates, and upgrades only from authenticated and trustworthy software
+    providers'
+  - 'Ex4:  Review policies to ensure that they require approved supplier personnel to perform maintenance
+    on supplier products'
+  - 'Ex5:  Policies and procedure require checking upgrades to critical hardware for unauthorized changes'
+GV.SC-10:
+  name: Cybersecurity supply chain risk management plans include provisions for activities that occur
+    after the conclusion of a partnership or service agreement
+  examples:
+  - 'Ex1:  Establish processes for terminating critical relationships under both normal and adverse circumstances'
+  - 'Ex2:  Define and implement plans for component end-of-life maintenance support and obsolescence'
+  - 'Ex3:  Verify that supplier access to organization resources is deactivated promptly when it is no
+    longer needed'
+  - 'Ex4:  Verify that assets containing the organization’s data are returned or properly disposed of
+    in a timely, controlled, and safe manner'
+  - 'Ex5:  Develop and execute a plan for terminating or transitioning supplier relationships that takes
+    supply chain security risk and resiliency into account'
+  - 'Ex6:  Mitigate risks to data and systems created by supplier termination'
+  - 'Ex7:  Manage data leakage risks associated with supplier termination'

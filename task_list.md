@@ -18,29 +18,29 @@ Legend: **[M]** = Megha (tech), **[T]** = Teammate (KPMG domain). Check off as c
 - [x] **[M]** by 9 PM ET — ADK "hello world" agent running locally + deployed to Cloud Run
 - [x] **[M]** follow-up — resolved by superseding: `adk-default-service-name` deleted (Aug 15), replaced by cleanly-named `csf-gateway` Cloud Run service via `infra/deploy_gateway.sh`. Hello-agent proof-of-life served its purpose.
 - [ ] **[T]** by 12 PM ET — read hackathon Fortified track requirements end to end
-- [ ] **[T]** by 9 PM ET — draft CMMI 1-5 rubric for 3 highest-priority Govern **Categories** (15 cells)
-- [ ] **[T]** by 9 PM ET — draft 8 interview questions for Govern
-- [ ] **[T]** by 9 PM ET — confirm which regs apply to Northwind (GLBA, NYDFS, PCI, SOX, state insurance)
-- [ ] **[Both]** by 9:30 PM ET — status shared in shared doc
+- [x] **[T]** by 9 PM ET — draft CMMI 1-5 rubric for 3 highest-priority Govern **Categories** (15 cells) — **delivered all 6 Govern Categories** in `Ref Docs/NIST Rubrics.xlsx` sheet Govern (5 levels each). Extracted to `csf_specialists/rubrics/govern.yaml`.
+- [ ] **[T]** by 9 PM ET — draft 8 interview questions for Govern — **PENDING from Sakina**
+- [ ] **[T]** by 9 PM ET — confirm which regs apply to Northwind (GLBA, NYDFS, PCI, SOX, state insurance) — **PENDING from Sakina**
+- [ ] **[Both]** by 9:30 PM ET — status shared in shared doc — **PENDING**
 
 ### Fri Aug 14
 - [x] **[M]** by 12 PM ET — ingest pipeline: FastAPI `POST /sessions/{sid}/documents` accepts multipart PDF/DOCX with per-file `doc_types`, section-aware Gemini-multimodal parser + chunker (Phase E5), raw → GCS (`storage.upload_raw`), chunks + metadata → Firestore (`firestore_writer.write_document` + `write_chunks`). Full HTTP → GCS → Firestore → Qdrant flow verified.
 - [x] **[M]** by 6 PM ET — Vector store ready + embedding pipeline running. Qdrant Cloud `csf_chunks` collection live (Phase A, superseded from Vertex — see [ADR-0001](docs/decisions.md)) + async embedder via google-genai using text-embedding-004 (Phase E7) + Qdrant upsert wrapper (Phase E8). Verified end-to-end by ingesting a real SANS PDF: chunks flow through embedder → Qdrant with correct 768-dim vectors and session-scoped payload filters.
 - [x] **[M]** by 9 PM ET — ingest tested with 3 SANS policy templates end-to-end via `POST /sessions/{sid}/documents`. All 3 reached `ingest_status: ready` in ~26s (well under the informal 60s target). Duplicate + oversized + wrong-extension validation paths all verified in the same test.
-- [ ] **[T]** by 9 PM ET — complete CMMI rubric for remaining Govern Categories (~3 more, ~15 cells) + finish 8 Govern interview questions
-- [ ] **[T]** by 9 PM ET — draft CMMI rubric for 3 highest-priority Identify Categories (~15 cells)
-- [ ] **[T]** by 9 PM ET — draft 8 interview questions for Identify
-- [ ] **[T]** by 9 PM ET — evidence taxonomy v1: table mapping doc types to Categories they satisfy
+- [x] **[T]** by 9 PM ET — complete CMMI rubric for remaining Govern Categories (~3 more, ~15 cells) + finish 8 Govern interview questions — **Rubric part: done** (all 6 Categories in `Ref Docs/NIST Rubrics.xlsx`). **Interview questions: PENDING from Sakina.**
+- [x] **[T]** by 9 PM ET — draft CMMI rubric for 3 highest-priority Identify Categories (~15 cells) — **delivered all 3 Identify Categories** in the same file. Extraction pending on Megha side (Identify rubric YAML not yet built).
+- [ ] **[T]** by 9 PM ET — draft 8 interview questions for Identify — **PENDING from Sakina**
+- [ ] **[T]** by 9 PM ET — evidence taxonomy v1: table mapping doc types to Categories they satisfy — **PENDING from Sakina**
 
 ### Sat Aug 15 (weekend — deep work day)
-- [ ] **[M]** by 3 PM ET — first Govern agent stub in ADK, wired to Vertex AI + Vector Search + Firestore
+- [ ] **[M]** by 3 PM ET — first Govern agent stub in ADK, wired to Vertex AI + Vector Search + Firestore. Detailed sub-tasks in [docs/govern_build_tasks.md](docs/govern_build_tasks.md) (Phases A-D).
 - [x] **[M]** by 3 PM ET — Pydantic output schema shipped early in [csf_gateway/app/schema.py](csf_gateway/app/schema.py): `ScoreOutput{category_id, function, cmmi_level, confidence, evidence_citations, interview_evidence, reasoning, no_doc_evidence}` + `EvidenceCitation`, `TierResult`, `JudgeResult`
-- [ ] **[M]** by 9 PM ET — Govern agent runs on a single Category, returns valid structured output (quality not required yet)
-- [ ] **[T]** by 12 PM ET — complete CMMI rubric for remaining Identify Categories
-- [ ] **[T]** by 3 PM ET — Northwind Financial doc package delivered (5-7 policies, org chart, asset inventory, risk register, incident log, vendor list)
-- [ ] **[T]** by 6 PM ET — golden test set v1 (5 Northwind policies + expert CMMI scores for all Govern Categories ≈ 30 tuples)
-- [ ] **[T]** by 9 PM ET — review Megha's Govern agent output, flag every domain error in shared doc
-- [ ] **[T]** by 9 PM ET — start Protect CMMI rubric (Categories, if time permits)
+- [ ] **[M]** by 9 PM ET — Govern agent runs on a single Category, returns valid structured output (quality not required yet). Test detail in [docs/govern_build_tasks.md](docs/govern_build_tasks.md) Phase F.
+- [x] **[T]** by 12 PM ET — complete CMMI rubric for remaining Identify Categories — **all 3 Identify Categories delivered** in `Ref Docs/NIST Rubrics.xlsx` sheet Identify (5 levels each).
+- [ ] **[T]** by 3 PM ET — Northwind Financial doc package delivered (5-7 policies, org chart, asset inventory, risk register, incident log, vendor list) — **PENDING from Sakina**. Megha will seed sample Northwind pre-seed Q&A in Phase E to unblock Govern testing.
+- [ ] **[T]** by 6 PM ET — golden test set v1 (5 Northwind policies + expert CMMI scores for all Govern Categories ≈ 30 tuples) — **PENDING from Sakina**
+- [ ] **[T]** by 9 PM ET — review Megha's Govern agent output, flag every domain error in shared doc — pending Megha's Govern agent output first (blocks on M task)
+- [ ] **[T]** by 9 PM ET — start Protect CMMI rubric (Categories, if time permits) — **PENDING from Sakina**
 
 ### Phase 1 Gate (Sat EOD Aug 15)
 - [x] GCP fully set up, credits active — project, APIs, buckets, Firestore, Pub/Sub, Secret Manager, Artifact Registry all provisioned via `infra/setup.sh`; billing alerts live.
