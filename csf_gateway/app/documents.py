@@ -95,6 +95,7 @@ async def post_documents(
     session = await get_session(session_id)
     if session is None:
         raise HTTPException(status_code=404, detail=f"session {session_id} not found")
+    org_id = session.org_id or ""   # legacy sessions may have blank org_id
 
     if not files:
         raise HTTPException(status_code=400, detail="no files provided")
@@ -167,6 +168,7 @@ async def post_documents(
             doc_id=doc_id,
             filename=filename,
             doc_type=dt,
+            org_id=org_id,
             uploaded_at=datetime.now(timezone.utc),
             ingest_status=IngestStatus.pending,
             gcs_uri=gcs_uri,
@@ -176,7 +178,7 @@ async def post_documents(
 
         # Fire-and-forget: the orchestrator drives the pipeline to completion / failure.
         asyncio.create_task(
-            orchestrator.ingest_one(session_id, doc_id, filename, dt, data),
+            orchestrator.ingest_one(session_id, doc_id, filename, dt, data, org_id=org_id),
             name=f"ingest:{session_id[:8]}:{doc_id[:8]}",
         )
 

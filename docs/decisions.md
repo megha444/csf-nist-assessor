@@ -182,3 +182,50 @@ Regional availability: 3.x models are served **only via the `global` Vertex endp
 
 ### Revisit-when
 - The moment Gemini 3.x Pro (or `gemini-3.5-pro` / `gemini-3.7-pro`) becomes available on Vertex. Swap `GEMINI_PRO_MODEL` in `.env` + Secret Manager, redeploy. No code change.
+
+---
+
+## ADR-0006 — Multi-tenant support: org-tagged payload now, full refactor deferred   🟡
+
+**Date:** 2026-08-15
+
+### Context
+The Fleet is pitched as an AI consultant that runs an assessment for a company. In production, the same company would run an assessment annually — ideally reusing uploaded policy docs across engagements, comparing year-over-year Tier movement, and being isolated from every other tenant's data. The demo scope is single-company (Northwind Financial), single session — but the data model has to be honest about the multi-tenant intent, or reviewers will spot session-scoping as a scale-limit rather than a demo simplification.
+
+Two paths to answer this:
+
+- **Option 1 (shipped now):** Add a stable `org_id` field to every point in Qdrant + every row in Firestore. Retrieval helpers gain a `search_org()` that spans all of an org's sessions. No collection-model changes, no dedupe across sessions, no auth. ~15 min of work.
+- **Option 2 (production model, deferred):** Real multi-tenant refactor — orgs are a first-class Firestore collection, docs live under the org (not the session), sessions reference `org_id` + a subset of `doc_ids`, cross-session dedupe, per-org access control.
+
+### Decision
+Ship **Option 1** for the hackathon. Explicitly note **Option 2 as planned, not built.** No production customer is running the demo; the point today is that the data model doesn't lie about what it can support.
+
+### What Option 2 will include (post-hackathon roadmap)
+
+| Piece | Change |
+|---|---|
+| New collection | `organizations/{org_id}` with `{name, industry, size, applicable_regs, target_profile, created_at, contacts[]}` |
+| Doc ownership | Move docs from `sessions/{sid}/documents/{did}` to `organizations/{org_id}/documents/{did}`. Chunks stay under the doc. |
+| Session model | Session gets `org_id` (already added in Option 1) + `included_doc_ids: list[str]` — the subset of org docs relevant to this assessment. |
+| Ingest | Upload endpoint moves under `/organizations/{org_id}/documents`. Dedupe checked at org level, not session level. Uploading the same file twice to Acme in different sessions returns the existing doc_id. |
+| Retrieval | Vector Search primary filter becomes `org_id`; `session_id` becomes an optional secondary filter (used only when we want a session-scoped view, e.g. audit trail of what the specialists actually looked at during Run N). |
+| Auth | Per-org IAM binding — a caller can only read/write within an org they belong to. Adds an `X-Org-Id` header or session cookie. Enforced at the gateway. |
+| UI | Streamlit gets an org picker at session creation. New session either targets an existing org (reuses its doc pool) or creates one on the fly. |
+| Historical view | New endpoint `GET /organizations/{org_id}/history` — timeline of past runs with Tier deltas. |
+| Migration | One-shot script that walks existing `sessions/*/documents/*`, moves to `organizations/{slug(target_org)}/documents/*`, updates session refs. |
+
+### Consequences of Option 1 (what's live now)
+- ✅ Every point in Qdrant carries `org_id` — cross-session retrieval by org is one function call away
+- ✅ Every document row carries `org_id` — future migration to Option 2 is a re-parent, not a re-tag
+- ✅ Reviewer story: "payload supports multi-tenant; we just haven't wired the UI/dedupe/auth for it yet"
+- ⚠ Docs are still uploaded per-session. Uploading `password_policy.pdf` in Session A and Session B for the same org creates two doc rows, two chunk sets, two Qdrant vector sets. Costs 2× ingest.
+- ⚠ No auth boundary — anyone with a session URL still sees that session's data regardless of org
+- ⚠ Session `org_id` is derived from `target_org` by slugification (`"Acme Corp" → "acme-corp"`). Typos in the name create separate "orgs". Not enforced against a real orgs collection because that collection doesn't exist yet.
+
+### Demo-Q&A talking points
+- "The payload is multi-tenant-ready — every chunk carries `org_id` in addition to `session_id`. What we haven't built yet is the org-scoped doc pool, dedupe across sessions, and the per-org access boundary. That's a Phase 6 refactor in the roadmap and it's tracked as ADR-0006 in the decision log."
+- "The demo shows one org, one session, but the retrieval helper `search_org(org_id, query)` already exists and works — swapping the specialists over to that is a one-line change once the doc-reuse story lands."
+
+### Revisit-when
+- Any real design partner runs a second assessment (they will want doc reuse immediately)
+- Cross-tenant workloads land in the same GCP project (need real IAM boundaries, not URL-guessability)

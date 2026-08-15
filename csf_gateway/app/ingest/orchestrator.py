@@ -30,6 +30,7 @@ async def ingest_one(
     filename: str,
     doc_type: DocType,
     data: bytes,
+    org_id: str = "",
 ) -> None:
     """
     Full ingest pipeline for one document. Assumes:
@@ -98,6 +99,7 @@ async def ingest_one(
                 id=r.chunk_id,
                 vector=v,
                 payload={
+                    "org_id": org_id,
                     "session_id": session_id,
                     "doc_id": doc_id,
                     "chunk_id": r.chunk_id,

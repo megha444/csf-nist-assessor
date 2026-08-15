@@ -17,7 +17,7 @@ from fastapi import APIRouter, HTTPException
 from google.cloud.firestore import AsyncClient
 
 from .config import get_settings
-from .schema import CreateSessionRequest, SessionState
+from .schema import CreateSessionRequest, SessionState, slugify_org
 
 log = logging.getLogger("csf-gateway.sessions")
 
@@ -44,17 +44,30 @@ def _client_get() -> AsyncClient:
 # ---------------------------------------------------------------------------
 
 
-async def create_session(target_org: str = "Northwind Financial") -> SessionState:
-    """Create a new session document in Firestore and return the state."""
+async def create_session(
+    target_org: str = "Northwind Financial",
+    org_id: str | None = None,
+) -> SessionState:
+    """
+    Create a new session document in Firestore and return the state.
+
+    org_id: if omitted, derived from target_org via slugification. Pass explicitly
+    to guarantee cross-session consistency for the same tenant.
+    """
     session_id = str(uuid.uuid4())
+    resolved_org_id = org_id or slugify_org(target_org)
     state = SessionState(
         session_id=session_id,
         target_org=target_org,
+        org_id=resolved_org_id,
         created_at=datetime.now(timezone.utc),
     )
     doc_ref = _client_get().collection(SESSIONS_COLLECTION).document(session_id)
     await doc_ref.set(state.model_dump())
-    log.info("created session %s (target=%s)", session_id, target_org)
+    log.info(
+        "created session %s (target=%s, org_id=%s)",
+        session_id, target_org, resolved_org_id,
+    )
     return state
 
 
@@ -84,7 +97,7 @@ async def post_session(payload: CreateSessionRequest | None = None) -> SessionSt
     Send `{"target_org": "Acme Corp"}` (or any other name) to assess a different org.
     """
     payload = payload or CreateSessionRequest()
-    return await create_session(target_org=payload.target_org)
+    return await create_session(target_org=payload.target_org, org_id=payload.org_id)
 
 
 @router.get("/{session_id}", response_model=SessionState)

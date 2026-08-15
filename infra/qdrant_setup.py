@@ -35,6 +35,7 @@ COLLECTION = os.environ.get("QDRANT_COLLECTION", "csf_chunks")
 EMBEDDING_DIM = 768  # text-embedding-004 output dimension
 
 PAYLOAD_INDEXES: list[tuple[str, qmodels.PayloadSchemaType]] = [
+    ("org_id", qmodels.PayloadSchemaType.KEYWORD),
     ("session_id", qmodels.PayloadSchemaType.KEYWORD),
     ("doc_id", qmodels.PayloadSchemaType.KEYWORD),
     ("chunk_id", qmodels.PayloadSchemaType.KEYWORD),
@@ -45,7 +46,7 @@ PAYLOAD_INDEXES: list[tuple[str, qmodels.PayloadSchemaType]] = [
 
 
 def get_client() -> QdrantClient:
-    return QdrantClient(url=QDRANT_URL, api_key=QDRANT_API_KEY)
+    return QdrantClient(url=QDRANT_URL, api_key=QDRANT_API_KEY, check_compatibility=False)
 
 
 def collection_exists(client: QdrantClient, name: str) -> bool:

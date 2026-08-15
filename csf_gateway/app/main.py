@@ -103,7 +103,12 @@ def _check_qdrant() -> str:
         from qdrant_client import QdrantClient
 
         s = get_settings()
-        client = QdrantClient(url=s.qdrant_url, api_key=s.qdrant_api_key, timeout=2.0)
+        client = QdrantClient(
+            url=s.qdrant_url,
+            api_key=s.qdrant_api_key,
+            timeout=2.0,
+            check_compatibility=False,
+        )
         info = client.get_collection(s.qdrant_collection)
         return f"ok ({info.points_count} points)"
     except Exception as e:  # noqa: BLE001 — health check must never raise

@@ -7,14 +7,33 @@ write them yet — keeps future services import-compatible from day one.
 """
 from __future__ import annotations
 
+import re
 from datetime import datetime
 from enum import Enum
 from typing import Literal
 
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from .csf_catalog import Function  # Literal alias
 from .doctype_taxonomy import DocType
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+
+_SLUG_RE = re.compile(r"[^a-z0-9]+")
+
+
+def slugify_org(name: str) -> str:
+    """
+    Convert a free-form org name to a stable, filesystem-safe slug.
+    'Northwind Financial' → 'northwind-financial'
+    'AT&T Inc.'           → 'at-t-inc'
+    """
+    slug = _SLUG_RE.sub("-", name.lower()).strip("-")
+    return slug or "unknown-org"
 
 
 # ---------------------------------------------------------------------------
@@ -73,6 +92,7 @@ class SessionState(BaseModel):
 
     session_id: str
     target_org: str = "Northwind Financial"   # demo default; overridable via CreateSessionRequest
+    org_id: str = ""                          # stable slug of target_org; empty on legacy rows
     status: SessionStatus = SessionStatus.collecting_inputs
     created_at: datetime
     doc_ids: list[str] = Field(default_factory=list)
@@ -89,6 +109,26 @@ class CreateSessionRequest(BaseModel):
         min_length=1,
         max_length=200,
     )
+    org_id: str | None = Field(
+        default=None,
+        description=(
+            "Optional stable identifier for the organization. If omitted, derived "
+            "from target_org via slugification (e.g. 'Acme Corp' → 'acme-corp'). "
+            "Pass this explicitly when consistency across sessions matters "
+            "(e.g. tying multiple assessments to the same underlying tenant)."
+        ),
+        max_length=100,
+    )
+
+    @field_validator("org_id")
+    @classmethod
+    def _validate_org_id(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
+        # Enforce slug-safe: lowercase, alphanumeric + dash
+        if not re.fullmatch(r"[a-z0-9-]+", v):
+            raise ValueError("org_id must be lowercase alphanumeric with dashes only")
+        return v
 
 
 # ---------------------------------------------------------------------------
@@ -102,6 +142,7 @@ class DocumentSummary(BaseModel):
     doc_id: str
     filename: str
     doc_type: DocType = DocType.other
+    org_id: str = ""                      # inherited from session on write
     page_count: int = 0
     chunk_count: int = 0
     uploaded_at: datetime
