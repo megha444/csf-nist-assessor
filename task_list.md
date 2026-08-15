@@ -24,9 +24,9 @@ Legend: **[M]** = Megha (tech), **[T]** = Teammate (KPMG domain). Check off as c
 - [ ] **[Both]** by 9:30 PM ET — status shared in shared doc
 
 ### Fri Aug 14
-- [ ] **[M]** by 12 PM ET — ingest pipeline: FastAPI accepts PDF/DOCX, section-aware chunker, raw → Cloud Storage, chunks + metadata → Firestore
-- [ ] **[M]** by 6 PM ET — Vector store ready + embedding pipeline running (text-embedding-004). **Progress:** Qdrant Cloud managed cluster + `csf_chunks` collection created (superseded from Vertex Vector Search — see [ADR-0001](docs/decisions.md)); embedding pipeline pending in Phase E7.
-- [ ] **[M]** by 9 PM ET — ingest tested with 3 SANS policy templates end to end
+- [x] **[M]** by 12 PM ET — ingest pipeline: FastAPI `POST /sessions/{sid}/documents` accepts multipart PDF/DOCX with per-file `doc_types`, section-aware Gemini-multimodal parser + chunker (Phase E5), raw → GCS (`storage.upload_raw`), chunks + metadata → Firestore (`firestore_writer.write_document` + `write_chunks`). Full HTTP → GCS → Firestore → Qdrant flow verified.
+- [x] **[M]** by 6 PM ET — Vector store ready + embedding pipeline running. Qdrant Cloud `csf_chunks` collection live (Phase A, superseded from Vertex — see [ADR-0001](docs/decisions.md)) + async embedder via google-genai using text-embedding-004 (Phase E7) + Qdrant upsert wrapper (Phase E8). Verified end-to-end by ingesting a real SANS PDF: chunks flow through embedder → Qdrant with correct 768-dim vectors and session-scoped payload filters.
+- [x] **[M]** by 9 PM ET — ingest tested with 3 SANS policy templates end-to-end via `POST /sessions/{sid}/documents`. All 3 reached `ingest_status: ready` in ~26s (well under the informal 60s target). Duplicate + oversized + wrong-extension validation paths all verified in the same test.
 - [ ] **[T]** by 9 PM ET — complete CMMI rubric for remaining Govern Categories (~3 more, ~15 cells) + finish 8 Govern interview questions
 - [ ] **[T]** by 9 PM ET — draft CMMI rubric for 3 highest-priority Identify Categories (~15 cells)
 - [ ] **[T]** by 9 PM ET — draft 8 interview questions for Identify
@@ -34,7 +34,7 @@ Legend: **[M]** = Megha (tech), **[T]** = Teammate (KPMG domain). Check off as c
 
 ### Sat Aug 15 (weekend — deep work day)
 - [ ] **[M]** by 3 PM ET — first Govern agent stub in ADK, wired to Vertex AI + Vector Search + Firestore
-- [ ] **[M]** by 3 PM ET — Pydantic output schema: `{category_id, cmmi_level, confidence, evidence_citation, reasoning}`
+- [x] **[M]** by 3 PM ET — Pydantic output schema shipped early in [csf_gateway/app/schema.py](csf_gateway/app/schema.py): `ScoreOutput{category_id, function, cmmi_level, confidence, evidence_citations, interview_evidence, reasoning, no_doc_evidence}` + `EvidenceCitation`, `TierResult`, `JudgeResult`
 - [ ] **[M]** by 9 PM ET — Govern agent runs on a single Category, returns valid structured output (quality not required yet)
 - [ ] **[T]** by 12 PM ET — complete CMMI rubric for remaining Identify Categories
 - [ ] **[T]** by 3 PM ET — Northwind Financial doc package delivered (5-7 policies, org chart, asset inventory, risk register, incident log, vendor list)

@@ -123,9 +123,15 @@ class ChunkRecord(BaseModel):
     candidate_categories: list[str] = Field(default_factory=list)
 
 
+class UploadedFile(BaseModel):
+    filename: str
+    doc_id: str
+    was_duplicate: bool = False
+
+
 class DocumentUploadResponse(BaseModel):
-    doc_ids: list[str]
-    status: Literal["processing"] = "processing"
+    files: list[UploadedFile]
+    status: Literal["processing", "complete"] = "processing"
 
 
 class DocumentStatusResponse(BaseModel):

@@ -21,12 +21,17 @@ BATCH_SIZE = 400  # under Firestore's 500-op commit limit for headroom
 _client: AsyncClient | None = None
 
 
-def _client_get() -> AsyncClient:
+def get_client() -> AsyncClient:
+    """Shared AsyncClient for ingest-side Firestore access."""
     global _client
     if _client is None:
         s = get_settings()
         _client = AsyncClient(project=s.google_cloud_project, database=s.firestore_database)
     return _client
+
+
+# Backwards-compat alias for the private-looking name used elsewhere in this module
+_client_get = get_client
 
 
 def _doc_ref(session_id: str, doc_id: str):

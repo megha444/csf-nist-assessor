@@ -14,8 +14,10 @@ import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.openapi.utils import get_openapi
 
 from .config import get_settings
+from . import documents as documents_module
 from . import sessions as sessions_module
 
 logging.basicConfig(
@@ -44,6 +46,42 @@ app = FastAPI(
 )
 
 app.include_router(sessions_module.router)
+app.include_router(documents_module.router)
+
+
+def _swagger_friendly_openapi() -> dict:
+    """
+    Rewrite the auto-generated OpenAPI so Swagger UI renders file-upload fields
+    as real file pickers (multi-select) instead of text inputs.
+
+    FastAPI (OpenAPI 3.1) emits `type: string, contentMediaType: application/octet-stream`
+    for binary payloads. Swagger UI's file picker still keys off the older
+    `format: binary`. We patch the schema in place to add that alias.
+    """
+    if app.openapi_schema:
+        return app.openapi_schema
+    schema = get_openapi(
+        title=app.title,
+        version=app.version,
+        description=app.description,
+        routes=app.routes,
+    )
+    for comp in schema.get("components", {}).get("schemas", {}).values():
+        if not isinstance(comp, dict):
+            continue
+        for prop in comp.get("properties", {}).values():
+            # array-of-files case
+            items = prop.get("items")
+            if isinstance(items, dict) and items.get("contentMediaType") == "application/octet-stream":
+                items["format"] = "binary"
+            # single-file case
+            if prop.get("contentMediaType") == "application/octet-stream":
+                prop["format"] = "binary"
+    app.openapi_schema = schema
+    return schema
+
+
+app.openapi = _swagger_friendly_openapi
 
 
 @app.get("/health")
