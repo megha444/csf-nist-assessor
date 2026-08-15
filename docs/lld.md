@@ -68,7 +68,13 @@ sessions/{session_id}
     │   ├─ reasoning: str
     │   ├─ scored_by_agent: str
     │   ├─ scored_at: timestamp
-    │   └─ no_doc_evidence: bool
+    │   ├─ no_doc_evidence: bool
+    │   └─ subcategory_gaps: [                                # ADR-0007
+    │         { subcategory_id: str,                          # e.g. "PR.AA-05"
+    │           expected_practice: str,                       # NIST Ex1/Ex2/... text
+    │           evidence_status: "absent"|"partial"|"present",
+    │           notes: str }
+    │       ]
     │
     ├─ tiers/{function}
     │   ├─ function: str
@@ -309,6 +315,14 @@ class ScoreOutput(BaseModel):
     interview_evidence: list[str]  # answer_ids
     reasoning: str
     no_doc_evidence: bool = False
+    subcategory_gaps: list["SubcategoryGap"] = []   # ADR-0007
+
+class SubcategoryGap(BaseModel):
+    """Per-Subcategory finding under a Category — drives recommendations in the report."""
+    subcategory_id: str                                          # e.g. "PR.AA-05"
+    expected_practice: str                                       # NIST Ex1/Ex2/... reference
+    evidence_status: Literal["absent", "partial", "present"]
+    notes: str                                                   # 1-2 sentences
 
 class EvidenceCitation(BaseModel):
     doc_id: str
@@ -346,7 +360,8 @@ class SpecialistAgent:
     """
     function: Function
     category_ids: list[str]
-    rubric: dict[str, RubricLevels]   # category_id → 5 CMMI level descriptions
+    rubric: dict[str, RubricLevels]   # category_id → 5 CMMI level descriptions (Sakina's NIST Rubrics.xlsx)
+    implementation_examples: dict[str, list[SubcategoryExample]]  # subcategory_id → NIST Ex1/Ex2/... (ADR-0007)
     system_prompt: str = SPECIALIST_SYSTEM_PROMPT
 
     def handle_dispatch(self, msg: DispatchMessage) -> None:
@@ -374,14 +389,62 @@ class SpecialistAgent:
             where=[("category_hint", "startswith", cat_id.split(".")[0])]  # match Function prefix
         )
 
-        # 3. Score via one Gemini Flash call
+        # 3. Score via one Gemini Flash call — prompt asks for BOTH:
+        #    (a) Category CMMI level 1-5 against Sakina's rubric text
+        #    (b) per-Subcategory gap findings against NIST Implementation Examples (ADR-0007)
         response = gemini_flash.generate(
             system_prompt=self.system_prompt,
-            user_prompt=self.build_scoring_prompt(cat_id, chunks, answers, self.rubric[cat_id]),
-            response_schema=ScoreOutput,
+            user_prompt=self.build_scoring_prompt(
+                cat_id,
+                chunks,
+                answers,
+                rubric=self.rubric[cat_id],
+                subcategory_examples=self.implementation_examples.get(cat_id, []),
+            ),
+            response_schema=ScoreOutput,   # includes subcategory_gaps: list[SubcategoryGap]
             temperature=0.1,
         )
         return response.parsed
+```
+
+**Prompt shape (informal — actual template in `csf-specialists/prompts/score.txt`):**
+
+```
+You are scoring a customer on the NIST CSF 2.0 Category {cat_id} ({category_name}).
+
+CMMI rubric (Sakina-authored, Category-level):
+  Level 1: {rubric[1]}
+  Level 2: {rubric[2]}
+  Level 3: {rubric[3]}
+  Level 4: {rubric[4]}
+  Level 5: {rubric[5]}
+
+Subcategories under this Category, with NIST Implementation Examples that describe
+what a mature organization would do for each. Use these to identify per-Subcategory gaps.
+  {subcategory_id_1}: {name}
+    Ex1: ...
+    Ex2: ...
+  {subcategory_id_2}: {name}
+    Ex1: ...
+  ...
+
+Evidence retrieved from uploaded docs (top-5 chunks):
+  [1] {doc_title} §{section} (p.{pages}): {chunk_text}
+  ...
+
+Interview answers relevant to this Function:
+  Q: {question}
+  A: {answer}
+  ...
+
+Output strict JSON matching ScoreOutput:
+  - cmmi_level (1-5) based on the rubric
+  - confidence (0-1); below 0.6 means "insufficient evidence to score"
+  - evidence_citations: which chunks supported your call
+  - interview_evidence: which answer_ids supported your call
+  - reasoning: 2-3 sentences tying evidence to the rubric level
+  - subcategory_gaps: for each Subcategory where evidence is absent/partial vs the Implementation Examples,
+    give {subcategory_id, expected_practice (one Ex text), evidence_status, 1-2 sentence notes}
 ```
 
 **Config file (`csf-specialists/agents/govern.py`):**
@@ -502,25 +565,60 @@ def cmmi_to_tier(avg: float) -> int:
     return 4
 ```
 
-### 8.3 Roadmap ranking (Report, Stage 7)
+### 8.3 Roadmap ranking (Report, Stage 7)  — ADR-0007
+
+Findings are Subcategory-level. Ranking is target-informed (closes distance to
+Northwind's target profile). Recommendation text is incremental (next 1-2 CMMI
+levels only, never "reach 5").
 
 ```python
-def build_roadmap(tiers: list[TierResult], scores: list[ScoreOutput], top_n: int = 10) -> list[Finding]:
-    findings = []
-    for s in scores:
-        target_tier = TARGET_PROFILE[s.function]        # Northwind's expected T3/T2/... per Function
-        current_tier = tiers_by_function[s.function].tier
-        tier_gap = max(0, target_tier - current_tier)
-        importance = category_importance(s.category_id)
-        priority = tier_gap * importance
-        findings.append(Finding(
-            category_id=s.category_id,
-            current_cmmi=s.cmmi_level,
-            target_cmmi=cmmi_from_tier(target_tier),
-            priority=priority,
-            recommendation=lookup_recommendation(s.category_id, s.cmmi_level),
-        ))
-    return sorted(findings, key=lambda f: (-f.priority, f.current_cmmi, f.category_id))[:top_n]
+def build_roadmap(
+    tiers: list[TierResult],
+    scores: list[ScoreOutput],
+    top_n: int = 10,
+) -> list[Finding]:
+    findings: list[Finding] = []
+    tiers_by_fn = {t.function: t for t in tiers}
+
+    for score in scores:
+        target_tier   = TARGET_PROFILE[score.function]        # e.g. Northwind Govern = T3
+        current_tier  = tiers_by_fn[score.function].tier
+        tier_gap      = max(0, target_tier - current_tier)
+        current_cmmi  = score.cmmi_level
+
+        for gap in score.subcategory_gaps:                    # per-Subcategory
+            if gap.evidence_status == "present":
+                continue                                       # not a finding
+
+            importance   = subcategory_importance(gap.subcategory_id)  # 1-3 weight from Sakina
+            priority     = tier_gap * importance
+            next_level   = min(5, current_cmmi + 1)            # incremental N→N+1
+            aspirational = min(5, current_cmmi + 2)            # optional N+2 shown as stretch
+
+            findings.append(Finding(
+                subcategory_id   = gap.subcategory_id,
+                category_id      = score.category_id,
+                current_cmmi     = current_cmmi,
+                next_level       = next_level,
+                aspirational     = aspirational if aspirational > next_level else None,
+                priority         = priority,
+                expected_practice= gap.expected_practice,
+                evidence_status  = gap.evidence_status,
+                # Look up Sakina's template. Missing template → generic fallback + log.
+                recommendation   = lookup_recommendation(gap.subcategory_id, current_cmmi, next_level)
+                                    or generic_recommendation(gap, current_cmmi, next_level),
+            ))
+
+    # rank: highest priority first; ties broken by absent > partial, then subcategory_id
+    return sorted(
+        findings,
+        key=lambda f: (-f.priority, f.evidence_status != "absent", f.subcategory_id),
+    )[:top_n]
+
+
+def lookup_recommendation(sub_id: str, current: int, next_level: int) -> str | None:
+    """Sakina's templates are keyed by (subcategory_id, "N→N+1"). Returns None if unmatched."""
+    return RECOMMENDATION_TEMPLATES.get((sub_id, f"{current}→{next_level}"))
 ```
 
 ---
@@ -716,6 +814,59 @@ Incident Response Plan:
   - RS.RP
   - RS.CO
 ...
+```
+
+### Recommendation templates (`csf-specialists/recommendations/{function}.yaml`) — ADR-0007
+
+Keyed by `(subcategory_id, level_transition)`. Each template describes ONE
+incremental CMMI step. Sakina writes templates for the ~20-30 highest-priority
+Subcategories (must include `PR.AA-05` for the demo). Unmatched Subcategories
+fall back to a generic template at render time.
+
+```yaml
+PR.AA-05:
+  name: "Authentication and access are managed and enforced"
+  importance: 3        # 1-3 weight for roadmap ranking
+  transitions:
+    "1→2": |
+      Deploy MFA for the ~12 named privileged accounts (admin, root, service). Document
+      exceptions with a defined expiry. Track adoption in the CISO monthly report.
+    "2→3": |
+      Roll out MFA org-wide via IdP conditional-access policy. Add a quarterly attestation
+      to GV.OV oversight reporting. Retire local admin passwords.
+    "3→4": |
+      Add measurable coverage KPIs (target 99% MFA on privileged, 95% workforce). Automate
+      exception expiry and re-attestation. Report threshold breaches to the risk committee.
+    # 4→5 is optional; Sakina writes only if she wants; otherwise never surfaced.
+
+PR.AA-01:
+  name: "Identities and credentials for authorized users are managed"
+  importance: 2
+  transitions:
+    "2→3": |
+      Formalize quarterly access reviews with named reviewers per system tier.
+      Log review outcomes centrally; treat missed reviews as policy exceptions.
+    "3→4": |
+      ...
+```
+
+### Executive summary templates (`csf-specialists/exec_summary/{function}.yaml`)
+
+Keyed by `(function, tier)` — 24 total (6 functions × 4 tiers). Assembled by
+lookup at render time; no LLM in the exec-summary path.
+
+```yaml
+govern:
+  tier_1: |
+    Northwind's Governance function operates at Tier 1 (Partial). Cybersecurity
+    strategy is ad hoc, oversight is reactive, and vendor risk is not systematically
+    managed. Immediate priorities are ...
+  tier_2: |
+    ...
+  tier_3: |
+    ...
+  tier_4: |
+    ...
 ```
 
 ---

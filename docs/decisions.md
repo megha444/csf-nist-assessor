@@ -229,3 +229,44 @@ Ship **Option 1** for the hackathon. Explicitly note **Option 2 as planned, not 
 ### Revisit-when
 - Any real design partner runs a second assessment (they will want doc reuse immediately)
 - Cross-tenant workloads land in the same GCP project (need real IAM boundaries, not URL-guessability)
+
+---
+
+## ADR-0007 — Recommendations at Subcategory level, incremental N→N+1 text   🟢
+
+**Date:** 2026-08-15
+
+### Context
+Original design (implicit) put both CMMI scoring **and** recommendations at the Category level. Two things broke that assumption once we started building against Sakina's actual reference materials:
+
+1. **The demo money-shot is a Subcategory.** `PR.AA-05` (MFA on privileged accounts) is what a CISO cares about — not "Category PR.AA needs work." Category-only recommendations are too vague to demo.
+2. **Sakina's `Implementation Examples` file is Subcategory-granular.** Every Subcategory carries `Ex1, Ex2, ...` concrete practices from NIST. That's the natural key for "have you done this specific thing? no → gap." Losing that granularity throws away her authored material.
+3. **Sakina's real-world consulting practice is incremental.** She never writes "here's how to go from CMMI 2 to CMMI 5." She writes "here's what to do next to go from 2 to 3, and if you have appetite, from 3 to 4." Any "reach the maximum level" recommendation reads as fantasy, not consulting.
+
+### Decision
+- **CMMI scoring stays at Category level** — ADR-0002 unchanged. Sakina's rubric authoring burden does not grow.
+- **Specialist agent output extended** with a per-Category `subcategory_gaps: list[SubcategoryGap]` field. The agent identifies which Subcategories under this Category show weak/absent evidence, using the NIST Implementation Examples as its reference for "what should be present."
+- **Recommendation templates** (Sakina's Wed Aug 19 deliverable) are keyed by `(subcategory_id, level_transition)` — e.g. `("PR.AA-05", "1→2")`, `("PR.AA-05", "2→3")`. Text describes the next 1-2 CMMI-level moves only. Never "reach 5."
+- **Roadmap ranking** (report phase) still uses target-based math: `priority = (target_tier - current_tier) × subcategory_importance`. This tells us *which* gaps matter most (closes distance to Northwind's expected profile). The template text tells us *what to do next* (incremental).
+- **Radar chart** unchanged — still Function/Tier level with target overlay.
+
+### Alternatives considered
+1. **Both scoring AND recommendations at Subcategory.** Truest to Sakina's practice but ~5× rubric authoring burden. Blows past 19-day timeline. Rejected (ADR-0002 already said no).
+2. **Recommendations at Category with "which subcategories drove this score" as a footnote.** Half-measure. The report's actionability lives in the recommendation text; if that text says "Category PR.AA at CMMI 2," it's not a demo-worthy finding. Rejected.
+3. **Recommendation text that describes reaching the target tier in full.** Sakina says: not how consulting works. Rejected.
+
+### Consequences
+- ✅ Demo money-shot works: click PR.AA-05 in the report → see current gap (no MFA) → see next-level remediation
+- ✅ Sakina's Implementation Examples file is used natively as agent context
+- ✅ Sakina's rubric authoring stays at Category granularity (unchanged from ADR-0002)
+- ✅ Recommendation template count stays around 30 (per-Subcategory-of-interest for the demo, not all 106) — she picks the ~20-30 most-likely gap subcategories to write templates for; unmatched gaps get a generic fallback text
+- ⚠ One extra field per Category-scoring output; the agent's LLM prompt gains a "identify weak Subcategories" instruction. Adds ~30% to prompt length; cost impact negligible at 22 calls/run.
+- ⚠ Template lookup logic: report needs to match identified `subcategory_gaps[].subcategory_id` + `(current_level → next_level)` transition against Sakina's template map. Missing template → generic fallback + log warning.
+- ⚠ Sakina now decides which ~20-30 Subcategories to write templates for. The demo needs at least PR.AA-05 covered. Document this priority in her working doc.
+
+### Demo-Q&A talking points
+- "We score at Category to keep the rubric authoring realistic, but we identify gaps and give recommendations at Subcategory — because a CISO doesn't act on 'improve PR.AA,' they act on 'MFA is missing on privileged accounts.' The agent uses NIST's official Implementation Examples as its reference for what specific practices should be in place per Subcategory."
+- "Every remediation is incremental — 'to move from CMMI 2 to CMMI 3, do X.' Not 'here's how to reach CMMI 5.' That matches how KPMG delivers these engagements: a customer can absorb one or two maturity steps per cycle, not a moonshot."
+
+### Revisit-when
+- If a customer wants CMMI scoring at Subcategory granularity, we already have the gap-identification infrastructure — just enforces one score per Subcategory in aggregation. Rubric authoring is the blocker, not the code.

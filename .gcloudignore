@@ -1,0 +1,42 @@
+# Everything Cloud Build shouldn't upload for `gcloud run deploy --source .`.
+# Mirrors most of .gitignore + excludes the SANS test corpus and other services
+# that don't belong in the gateway image.
+
+# Version control
+.git/
+.gitignore
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+dist/
+*.egg-info/
+
+# OS / IDE
+.DS_Store
+.vscode/
+.idea/
+
+# Secrets + local dev
+.env
+**/.env
+
+# Docs / meta (not needed in the image)
+docs/
+task_list.md
+test_commands.md
+README.md
+
+# Test corpus (huge, not needed in prod)
+SANS-Security-Policy-Templates-main/
+SANS-Security-Policy-Templates-main.zip
+
+# Other services (deployed separately, not part of the gateway image)
+hello_agent/
+infra/
+
+# Build outputs
+build/

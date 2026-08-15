@@ -80,7 +80,7 @@ After Day 1 architecture planning, one significant scope change was locked:
 Architecture, all code, ADK orchestration, ingestion, evidence extraction, scoring engine (uses her rubrics), report generation, UI, deploy, demo video production, README, architecture diagram.
 
 ### Teammate owns (domain)
-CSF 2.0 rubrics (~22 Categories, CMMI 1-5 levels each ≈ 110 cells), CSF Tier aggregation ranges, interview question bank (~50 questions total), evidence taxonomy (what doc types satisfy what Categories), demo target company documents, golden test set, findings and recommendation language templates, executive summary tone, domain accuracy review after every phase.
+CSF 2.0 rubrics (~22 Categories, CMMI 1-5 levels each ≈ 110 cells), CSF Tier aggregation ranges, interview question bank (~50 questions total), evidence taxonomy (what doc types satisfy what Categories), demo target company documents, golden test set, findings and recommendation language templates (Subcategory-level, incremental per [ADR-0007](../docs/decisions.md)), executive summary tone, domain accuracy review after every phase.
 
 **Rule:** She never writes Python. Megha never invents rubrics. Cross that line and the moat collapses.
 
@@ -275,7 +275,7 @@ Working assumption: ~3.5 hrs/day weekdays + ~9 hrs one weekend day per person. ~
 
 **Teammate (evening ~2 hrs)**
 - [by 10 PM ET Wed Aug 19] CMMI rubric for Respond (10 subcategories, 50 cells) + 8 Respond interview questions
-- [by 10 PM ET Wed Aug 19] Recommendation template: for each CMMI Level 1 or Level 2 finding, standard remediation language (30 templates)
+- [by 10 PM ET Wed Aug 19] Recommendation templates — see [ADR-0007](../docs/decisions.md). Keyed by `(subcategory_id, level_transition)` (e.g. `("PR.AA-05", "1→2")`). Text is incremental — the next 1-2 CMMI moves only, never "reach 5." Target: ~20-30 templates covering the highest-priority Subcategories (MUST include `PR.AA-05` for the demo). Unmatched Subcategories fall back to generic scaffolding at render time.
 
 #### Thu Aug 20 (teammate at KPMG, evening work only)
 

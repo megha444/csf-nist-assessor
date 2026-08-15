@@ -1,0 +1,25 @@
+# Docker build context exclusions. Kept in sync with .gcloudignore so `docker build`
+# locally produces the same image as Cloud Build.
+.git/
+.gitignore
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+dist/
+*.egg-info/
+.DS_Store
+.vscode/
+.idea/
+.env
+**/.env
+docs/
+task_list.md
+test_commands.md
+README.md
+SANS-Security-Policy-Templates-main/
+SANS-Security-Policy-Templates-main.zip
+hello_agent/
+infra/
+build/

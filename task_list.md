@@ -16,7 +16,7 @@ Legend: **[M]** = Megha (tech), **[T]** = Teammate (KPMG domain). Check off as c
 - [x] **[M]** by 3 PM ET — billing alerts set at $30, $60, $100, $140
 - [x] **[M]** by 6 PM ET — GitHub repo created (private for now), Python 3.11 + poetry/uv scaffolded
 - [x] **[M]** by 9 PM ET — ADK "hello world" agent running locally + deployed to Cloud Run
-- [ ] **[M]** follow-up — redeploy hello-agent under a clean service name (currently `adk-default-service-name` due to ADK CLI arg-parsing quirk swallowing `--service_name`); `gcloud run services delete adk-default-service-name --region=us-central1` then redeploy
+- [x] **[M]** follow-up — resolved by superseding: `adk-default-service-name` deleted (Aug 15), replaced by cleanly-named `csf-gateway` Cloud Run service via `infra/deploy_gateway.sh`. Hello-agent proof-of-life served its purpose.
 - [ ] **[T]** by 12 PM ET — read hackathon Fortified track requirements end to end
 - [ ] **[T]** by 9 PM ET — draft CMMI 1-5 rubric for 3 highest-priority Govern **Categories** (15 cells)
 - [ ] **[T]** by 9 PM ET — draft 8 interview questions for Govern
@@ -43,14 +43,14 @@ Legend: **[M]** = Megha (tech), **[T]** = Teammate (KPMG domain). Check off as c
 - [ ] **[T]** by 9 PM ET — start Protect CMMI rubric (Categories, if time permits)
 
 ### Phase 1 Gate (Sat EOD Aug 15)
-- [ ] GCP fully set up, credits active
-- [ ] ADK hello-world deployed
-- [ ] Ingest pipeline working end to end
-- [ ] Govern + Identify CMMI rubrics locked (all Categories, ~40 cells)
-- [ ] Interview questions locked for Govern + Identify (16 questions)
-- [ ] Northwind Financial doc package received in full
-- [ ] Golden test set v1 exists (~30 tuples for Govern)
-- [ ] Govern agent produces structured output
+- [x] GCP fully set up, credits active — project, APIs, buckets, Firestore, Pub/Sub, Secret Manager, Artifact Registry all provisioned via `infra/setup.sh`; billing alerts live.
+- [x] ADK hello-world deployed — superseded by `csf-gateway` on Cloud Run (deployed Aug 15, live at `https://csf-gateway-jdogd2dq2q-uc.a.run.app`). Original hello-agent removed.
+- [x] Ingest pipeline working end to end — verified locally (Phase A-G, all Phase G test items green) AND against the deployed `csf-gateway` URL (H5 smoke test: SANS PDF → GCS → Gemini multimodal parse → chunker → embeddings → Qdrant + Firestore in ~15s).
+- [ ] Govern + Identify CMMI rubrics locked (all Categories, ~40 cells) — **[T]** Sakina
+- [ ] Interview questions locked for Govern + Identify (16 questions) — **[T]** Sakina
+- [ ] Northwind Financial doc package received in full — **[T]** Sakina (Sat Aug 15 3 PM ET)
+- [ ] Golden test set v1 exists (~30 tuples for Govern) — **[T]** Sakina (Sat Aug 15 6 PM ET)
+- [ ] Govern agent produces structured output — **[M]** Sat Aug 15 (blocked on Sakina's rubric + Northwind docs to test against, though Pydantic schema already exists)
 
 ---
 
