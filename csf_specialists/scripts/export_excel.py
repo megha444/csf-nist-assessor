@@ -1,0 +1,133 @@
+"""
+Export a session's persisted Category/Subcategory scores to a client-facing
+Excel workbook — one row per Subcategory.
+
+Columns: Function | Category | Subcategory | Notes/Observations | GapsFindings
+| Recommendations | Scores. Reads `sessions/{sid}/runs/{rid}/scores/*`
+(persisted ScoreOutput docs, so `score_category` must have been called with a
+real `run_id` first).
+
+Usage:
+  poetry run python csf_specialists/scripts/export_excel.py --session <sid> --run <rid>
+  poetry run python csf_specialists/scripts/export_excel.py --session <sid> --run <rid> --out findings.xlsx
+"""
+from __future__ import annotations
+
+import argparse
+import asyncio
+import sys
+from pathlib import Path
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+from google.cloud.firestore import AsyncClient
+from openpyxl import Workbook
+from openpyxl.styles import Alignment, Font
+from openpyxl.utils import get_column_letter
+
+from csf_gateway.app.config import get_settings
+from csf_gateway.app.csf_catalog import CATEGORIES, FUNCTION_NAMES
+from csf_specialists.loaders import load_implementation_examples
+
+COLUMNS = [
+    "Function", "Category", "Subcategory",
+    "Notes/Observations", "GapsFindings", "Recommendations", "Scores",
+]
+COLUMN_WIDTHS = [12, 34, 48, 50, 50, 50, 8]
+
+
+async def fetch_scores(session_id: str, run_id: str) -> list[dict]:
+    s = get_settings()
+    client = AsyncClient(project=s.google_cloud_project, database=s.firestore_database)
+    coll = (
+        client.collection("sessions").document(session_id)
+        .collection("runs").document(run_id)
+        .collection("scores")
+    )
+    return [snap.to_dict() async for snap in coll.stream()]
+
+
+def build_rows(scores: list[dict]) -> list[list]:
+    rows: list[list] = []
+    for score in sorted(scores, key=lambda s: s["category_id"]):
+        function = score["function"]
+        category_id = score["category_id"]
+        function_name = FUNCTION_NAMES.get(function, function)
+        category = CATEGORIES.get(category_id)
+        category_label = f"{category_id} — {category.name}" if category else category_id
+        examples = load_implementation_examples(function)
+
+        for ss in sorted(score.get("subcategory_scores", []), key=lambda s: s["subcategory_id"]):
+            sub_id = ss["subcategory_id"]
+            sub_meta = examples.get(sub_id)
+            subcategory_label = f"{sub_id} — {sub_meta.name}" if sub_meta else sub_id
+            rows.append([
+                function_name,
+                category_label,
+                subcategory_label,
+                ss.get("observations", ""),
+                ss.get("gap", ""),
+                ss.get("recommendation", ""),
+                ss["cmmi_level"],
+            ])
+    return rows
+
+
+def write_workbook(rows: list[list], out_path: Path) -> None:
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "CSF Findings"
+
+    ws.append(COLUMNS)
+    for cell in ws[1]:
+        cell.font = Font(bold=True)
+        cell.alignment = Alignment(wrap_text=True, vertical="top")
+
+    for row in rows:
+        ws.append(row)
+
+    for i, width in enumerate(COLUMN_WIDTHS, start=1):
+        ws.column_dimensions[get_column_letter(i)].width = width
+
+    for row in ws.iter_rows(min_row=2):
+        for cell in row:
+            cell.alignment = Alignment(wrap_text=True, vertical="top")
+
+    ws.freeze_panes = "A2"
+    wb.save(out_path)
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument("--session", required=True, help="session_id")
+    parser.add_argument("--run", required=True, dest="run_id", help="run_id (must have persisted scores)")
+    parser.add_argument("--out", type=Path, default=Path("csf_findings.xlsx"))
+    args = parser.parse_args()
+
+    scores = asyncio.run(fetch_scores(args.session, args.run_id))
+    if not scores:
+        print(f"[error] no scores at sessions/{args.session}/runs/{args.run_id}/scores", file=sys.stderr)
+        return 1
+
+    rows = build_rows(scores)
+    write_workbook(rows, args.out)
+    print(f"wrote {len(rows)} Subcategory rows ({len(scores)} Categories) -> {args.out}")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
+
+
+# ---------------------------------------------------------------------------
+# Cosmetic / polish backlog (not implemented — deferred)
+# ---------------------------------------------------------------------------
+# - One sheet per Function instead of a single flat "CSF Findings" sheet:
+#   group rows by Function, create/name a workbook sheet per group. Matters
+#   once more than one Function is being scored in the same run.
+# - Excel formatting: header fill color, cell borders, alternating row bands,
+#   auto-filter on the header row, conditional formatting / color scale on
+#   the Scores column (e.g. red-to-green by CMMI level 1-5), center-aligned
+#   Scores column.

@@ -122,6 +122,7 @@ csf-nist/
 │   ├── __init__.py
 │   ├── loaders.py                  load_rubric + load_implementation_examples (cached)
 │   ├── agent_base.py               SpecialistAgent class (retrieval, prompt, Gemini, persist)
+│   ├── aggregate.py                cmmi_to_tier + aggregate_function (Category-weighted, lld.md §8.2) + persist_tier
 │   ├── agents/govern.py            govern_agent singleton
 │   ├── prompts/score.txt           2.4KB scoring prompt template
 │   ├── rubrics/
@@ -205,11 +206,12 @@ Full detail (F1-F7, discovered follow-ups) in `docs/govern_build_tasks.md`.
 - Phase F: fresh session, 3 real docs uploaded + scored end-to-end with a persisted `run_id`; fixed a real `docx_parser.py` bug found along the way (`para.style` can be `None`)
 - Phase G: this handoff update — logged the docx bug, the `.doc`-format gap, the `session.doc_ids` gap, the aggregation-formula discrepancy (Category- vs Subcategory-weighted, disagree by a full Tier on real data), and the PRA/FCA content conflict
 
+- Built `csf_specialists/aggregate.py`: Category-weighted `aggregate_function` (per `lld.md §8.2`) is now real code, not just a doc sketch. Verified against `sessions/23a53272-.../runs/phaseF`: Tier 3, matches the locked Northwind target. Persists to `runs/{run_id}/tiers/{function}`.
+
 ### Megha ⏳ pending (in priority order)
-1. Decide the aggregation formula (Category- vs Subcategory-weighted — see §8) and build `aggregate_function` for real — was Aug 18-19 in the plan, but we now have real data to build/test it against
-2. Genericize the Govern agent shape for Identify/Protect/etc — the base class already supports it; just need `csf_specialists/agents/identify.py` and rubric YAML (Identify rubric already extracted; other 4 wait on Sakina)
-3. Judge / report — Aug 18-25 in the plan
-4. Deploy `csf_specialists` as its own Cloud Run service — Aug 22 in the plan
+1. Genericize the Govern agent shape for Identify/Protect/etc — the base class already supports it; just need `csf_specialists/agents/identify.py` and rubric YAML (Identify rubric already extracted; other 4 wait on Sakina)
+2. Judge / report — Aug 18-25 in the plan. Report will consume `csf_specialists/aggregate.py`'s `TierResult` once it exists.
+3. Deploy `csf_specialists` as its own Cloud Run service — Aug 22 in the plan
 
 ### Sakina ⏳ pending (ALL still owed; she's been catching up on rubrics only)
 - **URGENT — confirm Northwind's actual regulatory jurisdiction.** `SANS-Security-Policy-Templates-main/10. Information_Security_Policy.docx` turned out to be real Northwind content (not a template) describing Northwind as UK dual-regulated (PRA/FCA). The locked demo persona says US-regulated (GLBA/NYDFS 500/PCI-DSS/SOX). One of these is wrong — needs resolving before the demo narrative locks further.
@@ -239,7 +241,7 @@ Full detail (F1-F7, discovered follow-ups) in `docs/govern_build_tasks.md`.
 - **`docx_parser.py`'s `_paragraph_to_md` assumed `para.style` is never `None`** — it can be, for paragraphs without a named Word style (common in programmatically-generated/externally-exported `.docx`). Crashed with `AttributeError: 'NoneType' object has no attribute 'name'` on a real file where 10/27 paragraphs had `style=None`. Fixed: null-check `para.style` itself, not just `.style.name`.
 - **`.doc` (legacy binary Word) is accepted by upload validation but not actually parseable** — `python-docx` only reads modern `.docx`. Not fixed (would need a conversion step like LibreOffice headless). If Sakina ever sends a true old-format `.doc`, tell her to re-save as `.docx` or `.pdf` instead.
 - **`sessions/{sid}.doc_ids` is never populated by `documents.py` on upload** — confirmed empty on a session with 3 real documents in the `documents` subcollection. Nothing reads it today, but `lld.md`'s `runs/{run_id}.snapshot.doc_ids` provenance field implies something eventually will.
-- **Two different Function-aggregation formulas exist in the docs and disagree.** `lld.md §8.2`'s `aggregate_function` is Category-weighted (mean of the 6 Category `cmmi_level`s). The Aug 15 ad hoc "1.19" figure was Subcategory-weighted (all 31 Subs pooled). On real Phase F data these land on different Tiers (3 vs. 2) — not hypothetical. Pick one before building real aggregation code.
+- **RESOLVED — Function-aggregation formula.** `lld.md §8.2`'s Category-weighted `aggregate_function` is now real code: `csf_specialists/aggregate.py`. Chosen over the Aug 15 ad hoc Subcategory-weighted "1.19" figure because it matches the original architectural intent (ADR-0002: Category is the scoring/reporting unit; Judge + report consume `ScoreOutput` at Category granularity), not because of which number it produces. Verified against `sessions/23a53272-.../runs/phaseF`: avg_cmmi=3.333 → Tier 3, persisted to `runs/phaseF/tiers/govern`.
 
 ---
 
@@ -306,4 +308,4 @@ The `~/.claude/projects/-Users-meghaagarwal-Desktop-Codes-Personal-csf-nist/memo
 
 **Paste this into the new Claude Code session:**
 
-> Read `docs/HANDOFF.md`. The Govern specialist agent build for the CSF Assessor Fleet hackathon (deadline Mon Aug 31) is fully done through Phase G — Phases A-F verified end-to-end on a real session (`23a53272-...`, real docs, persisted `run_id='phaseF'`, Tier 3 result matching the locked target). Two open items: (1) pick a Function-aggregation formula — `lld.md §8.2`'s Category-weighted method vs. the ad hoc Subcategory-weighted one, they disagree by a full Tier on real data (see §8) — and (2) decide the next build target: genericize to the Identify agent, or build real aggregation code now that we have data to test it against (see §7). Also flag to Sakina: found a real regulatory-jurisdiction conflict (UK PRA/FCA vs. the locked US-regs persona) in content she may have authored — needs her input before the demo narrative locks further.
+> Read `docs/HANDOFF.md`. The Govern specialist agent build for the CSF Assessor Fleet hackathon (deadline Mon Aug 31) is done through Phase G, and Function-level aggregation is now real code too — `csf_specialists/aggregate.py` (Category-weighted, per `lld.md §8.2`), verified against session `23a53272-...`: Tier 3, matching the locked Northwind target, persisted to `runs/phaseF/tiers/govern`. Next up: genericize to the Identify agent (`csf_specialists/agents/identify.py`, rubric already extracted), or start on Judge/report. Also still open with Sakina: a real regulatory-jurisdiction conflict (UK PRA/FCA vs. the locked US-regs persona) found in content she may have authored — needs her input before the demo narrative locks further.

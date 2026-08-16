@@ -43,7 +43,19 @@ For each Subcategory listed above, output one entry in `subcategory_scores` with
     if none are supported by evidence.
   - expected_practice: pick ONE representative NIST Implementation Example text
     (paraphrase is fine) describing what a mature org would do here.
-  - notes: 1-2 sentences citing SPECIFIC evidence and justifying the score.
+  - observations: 1-2 sentences, FACTUAL — what does the evidence show this org
+    actually does today for this Subcategory? Cite SPECIFIC evidence. No judgment
+    about what's missing here, just what IS happening.
+  - gap: 1-2 sentences — what SPECIFICALLY is missing relative to the next
+    maturity level? Not a restatement of expected_practice — say what's missing
+    for THIS org given THIS evidence (e.g. "no reassessment after onboarding,"
+    not "vendor risk should be monitored ongoing"). If evidence_status is
+    "present," this can be brief (e.g. "no material gap at this level").
+  - recommendation: 1-2 sentences — concrete action(s) to move from the current
+    cmmi_level to the next 1-2 levels ONLY (e.g. current=2 → describe what gets
+    them to 3, optionally what gets them to 4; never describe reaching Level 5
+    directly). Ground this in the rubric level text and NIST examples above —
+    don't invent practices that aren't implied by either.
 
 CRITICAL: emit an entry for EVERY Subcategory listed above, not just the ones with
 gaps. The Category CMMI is computed downstream as the mean of your Subcategory scores.

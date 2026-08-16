@@ -246,7 +246,15 @@ class SubcategoryScore(BaseModel):
     expected_practice: str = Field(
         ..., description="One representative NIST Implementation Example text describing what a mature org would do"
     )
-    notes: str = Field(..., description="1-2 sentences justifying the score / describing what's missing")
+    observations: str = Field(
+        ..., description="1-2 sentences, factual: what the evidence shows this org actually does today for this Subcategory"
+    )
+    gap: str = Field(
+        ..., description="1-2 sentences: specifically what is missing relative to the next maturity level — not the generic NIST example, the delta for THIS org's evidence"
+    )
+    recommendation: str = Field(
+        ..., description="1-2 sentences: concrete incremental action(s) to move from the current cmmi_level to the next 1-2 levels only (never 'reach Level 5'), grounded in the rubric level text and NIST examples above"
+    )
 
 
 class ScoreOutput(BaseModel):
