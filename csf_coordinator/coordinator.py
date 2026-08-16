@@ -34,13 +34,18 @@ ADK_APP_NAME = "csf-coordinator"
 ADK_USER_ID = "csf-assessor"
 
 
-async def run_govern_only(session_id: str, category_ids: list[str]) -> TierResult:
+async def run_govern_only(session_id: str, category_ids: list[str]) -> tuple[str, TierResult]:
     """
     Dispatch Govern-only scoring for a session, wait for the specialist's
     completion message, aggregate to a Tier. Requires csf_specialists/worker.py
     (or an equivalent consumer) to be pulling csf-dispatch-govern concurrently.
+
+    Returns (run_id, TierResult) — run_id is generated here, not caller-supplied,
+    so it must be returned or the caller has no way to look up
+    sessions/{sid}/runs/{run_id}/* afterward (e.g. for the Excel export).
     """
     run_id = str(uuid.uuid4())
+    print(f"[coordinator] run_id={run_id}")
 
     agent = SequentialAgent(
         name="csf_coordinator",
@@ -82,4 +87,4 @@ async def run_govern_only(session_id: str, category_ids: list[str]) -> TierResul
         .collection("tiers").document("govern")
     )
     snap = await tier_ref.get()
-    return TierResult.model_validate(snap.to_dict())
+    return run_id, TierResult.model_validate(snap.to_dict())
