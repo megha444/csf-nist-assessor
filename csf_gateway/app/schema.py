@@ -227,7 +227,9 @@ class EvidenceCitation(BaseModel):
     section: str = ""
     page_start: int = 1
     page_end: int = 1
-    snippet: str = Field(..., max_length=300)
+    snippet: str  # UI truncates at render — no Pydantic-side length cap (LLM
+                  # occasionally emits 400-600 chars and cosmetic rejection breaks
+                  # the whole ScoreOutput parse for a stochastic reason)
 
 
 class SubcategoryGap(BaseModel):

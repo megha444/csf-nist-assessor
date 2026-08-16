@@ -30,7 +30,7 @@ Legend: **[M]** = Megha (tech), **[T]** = Teammate (KPMG domain). Check off as c
 - [x] **[T]** by 9 PM ET — complete CMMI rubric for remaining Govern Categories (~3 more, ~15 cells) + finish 8 Govern interview questions — **Rubric part: done** (all 6 Categories in `Ref Docs/NIST Rubrics.xlsx`). **Interview questions: PENDING from Sakina.**
 - [x] **[T]** by 9 PM ET — draft CMMI rubric for 3 highest-priority Identify Categories (~15 cells) — **delivered all 3 Identify Categories** in the same file. Extraction pending on Megha side (Identify rubric YAML not yet built).
 - [ ] **[T]** by 9 PM ET — draft 8 interview questions for Identify — **PENDING from Sakina**
-- [ ] **[T]** by 9 PM ET — evidence taxonomy v1: table mapping doc types to Categories they satisfy — **PENDING from Sakina**
+- [ ] **[T]** by 9 PM ET — evidence taxonomy v1: table mapping doc types to Categories they satisfy — **PENDING from Sakina**. **When delivered → immediately wire into `vector_store.search_session(..., doc_type_filter=...)`** to filter Qdrant retrieval per-Category. `search_session` already accepts the parameter — just needs the taxonomy data to key off of. Biggest single precision-improvement lever available, larger than any `top_k` tuning. See `docs/govern_build_tasks.md` follow-ups.
 
 ### Sat Aug 15 (weekend — deep work day)
 - [ ] **[M]** by 3 PM ET — first Govern agent stub in ADK, wired to Vertex AI + Vector Search + Firestore. Detailed sub-tasks in [docs/govern_build_tasks.md](docs/govern_build_tasks.md) (Phases A-D).
