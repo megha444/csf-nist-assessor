@@ -50,7 +50,7 @@ Legend: **[M]** = Megha (tech), **[T]** = Teammate (KPMG domain). Check off as c
 - [ ] Interview questions locked for Govern + Identify (16 questions) — **[T]** Sakina
 - [ ] Northwind Financial doc package received in full — **[T]** Sakina (Sat Aug 15 3 PM ET)
 - [ ] Golden test set v1 exists (~30 tuples for Govern) — **[T]** Sakina (Sat Aug 15 6 PM ET)
-- [ ] Govern agent produces structured output — **[M]** Sat Aug 15 (blocked on Sakina's rubric + Northwind docs to test against, though Pydantic schema already exists)
+- [x] Govern agent produces structured output — **[M]** verified Aug 15-16 across `b8bc86d2-...` and `23a53272-...` (persisted `run_id='phaseF'` run, Tier 3 result matching the locked target). **Caveat:** validated against Megha-authored preseed Q&A + partial real docs, not Sakina's actual Northwind doc package or golden test set — both still owed.
 
 ---
 

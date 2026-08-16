@@ -34,7 +34,8 @@ def _paragraph_to_md(para: Paragraph) -> str:
     text = para.text.strip()
     if not text:
         return ""
-    style_name = (para.style.name or "").strip()
+    style_name = (para.style.name if para.style is not None else "") or ""
+    style_name = style_name.strip()
     if style_name.startswith("Heading"):
         parts = style_name.split()
         try:
