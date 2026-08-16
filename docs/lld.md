@@ -741,7 +741,7 @@ sequenceDiagram
 ```
 # common
 GOOGLE_CLOUD_PROJECT=csf-assessor-hackathon
-GOOGLE_CLOUD_LOCATION=us-central1
+GOOGLE_CLOUD_LOCATION=global          # Gemini 3.x isn't served on regional endpoints for this project (ADR-0005)
 GOOGLE_GENAI_USE_VERTEXAI=TRUE
 
 # csf-gateway
@@ -750,13 +750,13 @@ GCS_RAW_BUCKET=csf-assessor-hackathon-raw-docs
 GCS_ARTIFACTS_BUCKET=csf-assessor-hackathon-artifacts
 VECTOR_SEARCH_INDEX_ID=csf-assessor-index
 VECTOR_SEARCH_ENDPOINT_ID=<from setup>
-GEMINI_FLASH_MODEL=gemini-2.5-flash
+GEMINI_FLASH_MODEL=gemini-3.5-flash   # ADR-0005 (was gemini-2.5-flash)
 EMBEDDING_MODEL=text-embedding-004
 
 # csf-coordinator
-GEMINI_PRO_MODEL=gemini-2.5-pro
-PUBSUB_DISPATCH_PREFIX=csf-dispatch-
-PUBSUB_RESULTS_TOPIC=csf-results
+GEMINI_PRO_MODEL=gemini-3.7-flash     # ADR-0005 — 3.x has no Pro tier; newer Flash plays the Judge role (was gemini-2.5-pro)
+PUBSUB_DISPATCH_PREFIX=csf-dispatch-  # real, provisioned by infra/setup.sh — csf_coordinator/config.py
+PUBSUB_RESULTS_TOPIC=csf-results      # real, provisioned by infra/setup.sh — csf_coordinator/config.py
 
 # csf-specialists
 IMPERSONATE_SA_TEMPLATE=csf-agent-{function}@csf-assessor-hackathon.iam.gserviceaccount.com

@@ -6,6 +6,7 @@ and provides `get_settings()` as a cached accessor.
 """
 from __future__ import annotations
 
+import os
 from functools import lru_cache
 from pathlib import Path
 
@@ -62,5 +63,20 @@ class Settings(BaseSettings):
 
 @lru_cache
 def get_settings() -> Settings:
-    """Cached settings singleton. Safe to call from anywhere."""
-    return Settings()
+    """
+    Cached settings singleton. Safe to call from anywhere.
+
+    Also mirrors the Vertex AI vars into the real process environment
+    (os.environ). pydantic-settings only populates this Settings object from
+    `.env` — it never touches os.environ. But ADK's LlmAgent (and the raw
+    google-genai SDK, when auto-configuring) build their own internal client
+    by reading these exact env vars directly, not through our Settings class.
+    Without this, ADK-based agents fail with a "No API key was provided"
+    error even though `.env` has the right values — they're just invisible
+    to anything that isn't going through get_settings().
+    """
+    settings = Settings()
+    os.environ.setdefault("GOOGLE_CLOUD_PROJECT", settings.google_cloud_project)
+    os.environ.setdefault("GOOGLE_CLOUD_LOCATION", settings.google_cloud_location)
+    os.environ.setdefault("GOOGLE_GENAI_USE_VERTEXAI", "TRUE" if settings.google_genai_use_vertexai else "FALSE")
+    return settings

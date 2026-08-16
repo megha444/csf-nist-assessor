@@ -25,6 +25,7 @@ python-multipart = "*"
 aiofiles = "*"
 httpx = "*"
 openpyxl = "^3.1.5"
+google-cloud-pubsub = "^2.39.1"
 
 [build-system]
 requires = ["poetry-core"]

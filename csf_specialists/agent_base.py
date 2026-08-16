@@ -10,19 +10,22 @@ Public API:
     - Retrieves top-5 evidence chunks from Qdrant (session-scoped)
     - Fetches interview answers from Firestore filtered to this Function
     - Assembles the scoring prompt (rubric + examples + evidence + Q&A)
-    - Calls Gemini 3.5 Flash with strict response_schema=ScoreOutput
+    - Calls Gemini 3.5 Flash via a Google ADK LlmAgent, output_schema=ScoreOutput
     - Optionally persists to Firestore at sessions/{sid}/runs/{rid}/scores/{cat_id}
 """
 from __future__ import annotations
 
 import logging
 import statistics
+import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from google import genai
+from google.adk.agents import LlmAgent
+from google.adk.runners import Runner
+from google.adk.sessions import InMemorySessionService
 from google.cloud.firestore import AsyncClient
 from google.cloud.firestore_v1.base_query import FieldFilter
 from google.genai import types
@@ -44,21 +47,14 @@ log = logging.getLogger("csf-specialists")
 
 PROMPT_TEMPLATE_PATH = Path(__file__).parent / "prompts" / "score.txt"
 
-# Module-level Gemini + Firestore clients — reused across score_category calls.
-_genai_client: genai.Client | None = None
+# ADK Runner bookkeeping — one session per score_category call (stateless,
+# single-shot structured generation; no cross-call conversation needed).
+ADK_APP_NAME = "csf-specialists"
+ADK_USER_ID = "csf-assessor"
+ADK_OUTPUT_KEY = "score_result"
+
+# Module-level Firestore client — reused across score_category calls.
 _firestore_client: AsyncClient | None = None
-
-
-def _get_genai_client() -> genai.Client:
-    global _genai_client
-    if _genai_client is None:
-        s = get_settings()
-        _genai_client = genai.Client(
-            vertexai=True,
-            project=s.google_cloud_project,
-            location=s.google_cloud_location,
-        )
-    return _genai_client
 
 
 def _get_firestore_client() -> AsyncClient:
@@ -84,6 +80,9 @@ class SpecialistAgent:
     rubric: FunctionRubric = field(init=False)
     examples_by_category: dict[str, list[SubcategoryExamples]] = field(init=False)
     prompt_template: str = field(init=False)
+    _llm_agent: LlmAgent = field(init=False, repr=False)
+    _session_service: InMemorySessionService = field(init=False, repr=False)
+    _runner: Runner = field(init=False, repr=False)
 
     def __post_init__(self) -> None:
         self.rubric = load_rubric(self.function)
@@ -92,6 +91,31 @@ class SpecialistAgent:
             for code in self.rubric.categories
         }
         self.prompt_template = PROMPT_TEMPLATE_PATH.read_text(encoding="utf-8")
+
+        s = get_settings()
+        self._llm_agent = LlmAgent(
+            name=f"{self.function}_specialist",
+            model=s.gemini_flash_model,
+            output_schema=ScoreOutput,
+            output_key=ADK_OUTPUT_KEY,
+            generate_content_config=types.GenerateContentConfig(
+                temperature=0.1,
+                # Gemini 3.x is a thinking model. Left uncapped, `thoughts_token_count`
+                # can hit 20k+ on the same prompt and truncate the JSON output mid-object.
+                # Cap thinking to a fixed budget and give the structured output generous
+                # headroom so it always fits. (response_mime_type/response_schema are NOT
+                # set here — ADK's LlmAgent forbids that placement; output_schema= above
+                # is the ADK-native equivalent.)
+                thinking_config=types.ThinkingConfig(thinking_budget=8000),
+                max_output_tokens=24000,
+            ),
+        )
+        self._session_service = InMemorySessionService()
+        self._runner = Runner(
+            agent=self._llm_agent,
+            app_name=ADK_APP_NAME,
+            session_service=self._session_service,
+        )
         log.info(
             "SpecialistAgent(%s) ready: %d Categories, %d Subcategories total",
             self.function,
@@ -142,44 +166,58 @@ class SpecialistAgent:
         # 3. Prompt assembly
         prompt = self._build_prompt(category_code, chunks, answers)
 
-        # 4. Gemini structured-output call
-        s = get_settings()
-        client = _get_genai_client()
-        response = await client.aio.models.generate_content(
-            model=s.gemini_flash_model,
-            contents=prompt,
-            config=types.GenerateContentConfig(
-                temperature=0.1,
-                response_mime_type="application/json",
-                response_schema=ScoreOutput,
-                # Gemini 3.x is a thinking model. Left uncapped, `thoughts_token_count`
-                # can hit 20k+ on the same prompt and truncate the JSON output mid-object
-                # → response.parsed=None. Cap thinking to a fixed budget and give the
-                # structured output generous headroom so it always fits.
-                thinking_config=types.ThinkingConfig(thinking_budget=8000),
-                max_output_tokens=24000,
-            ),
+        # 4. ADK structured-output call. One fresh session per call — this is a
+        # stateless, single-shot structured generation, not a multi-turn conversation.
+        adk_session_id = str(uuid.uuid4())
+        await self._session_service.create_session(
+            app_name=ADK_APP_NAME, user_id=ADK_USER_ID, session_id=adk_session_id,
         )
 
-        result: ScoreOutput | None = response.parsed
-        if result is None:
-            usage = response.usage_metadata
-            raw = response.text or ""
-            # Try a manual parse to surface WHICH field the schema rejected.
-            manual_err = ""
-            try:
-                ScoreOutput.model_validate_json(raw)
-            except Exception as ve:
-                manual_err = f"\n    manual validate: {type(ve).__name__}: {str(ve)[:400]}"
+        final_event = None
+        last_text_seen = ""
+        try:
+            async for event in self._runner.run_async(
+                user_id=ADK_USER_ID,
+                session_id=adk_session_id,
+                new_message=types.Content(role="user", parts=[types.Part(text=prompt)]),
+            ):
+                if event.content and event.content.parts:
+                    text = "".join(
+                        p.text for p in event.content.parts if p.text and not p.thought
+                    )
+                    if text:
+                        last_text_seen = text
+                if event.is_final_response():
+                    final_event = event
+        except Exception as e:
             raise RuntimeError(
-                f"[{self.function}/{category_code}] Gemini returned no parseable ScoreOutput.\n"
+                f"[{self.function}/{category_code}] ADK runner raised during structured-output "
+                f"generation: {type(e).__name__}: {str(e)[:400]}\n"
+                f"    last raw text seen ({len(last_text_seen)} chars): {last_text_seen!r}"
+            ) from e
+
+        if final_event is None:
+            raise RuntimeError(
+                f"[{self.function}/{category_code}] ADK runner produced no final response event."
+            )
+
+        usage = final_event.usage_metadata
+        actions = getattr(final_event, "actions", None)
+        state_delta = (getattr(actions, "state_delta", None) or {}) if actions else {}
+        state_dict = state_delta.get(ADK_OUTPUT_KEY)
+
+        if state_dict is None:
+            raise RuntimeError(
+                f"[{self.function}/{category_code}] ADK agent returned a final event but no "
+                f"{ADK_OUTPUT_KEY!r} in state_delta — no parseable ScoreOutput.\n"
                 f"    usage: prompt={getattr(usage, 'prompt_token_count', '?')} "
                 f"thoughts={getattr(usage, 'thoughts_token_count', '?')} "
                 f"candidates={getattr(usage, 'candidates_token_count', '?')}\n"
-                f"    raw len: {len(raw)} chars\n"
-                f"    raw text: {raw!r}"
-                f"{manual_err}"
+                f"    raw len: {len(last_text_seen)} chars\n"
+                f"    raw text: {last_text_seen!r}"
             )
+
+        result = ScoreOutput.model_validate(state_dict)
 
         # 5. Deterministic Category CMMI = round(mean(subcategory scores)). See ADR-0007.
         #    LLM's own top-level cmmi_level is treated as a hint; the mean is authoritative
@@ -193,7 +231,6 @@ class SpecialistAgent:
                 )
                 result = result.model_copy(update={"cmmi_level": computed})
 
-        usage = response.usage_metadata
         log.info(
             "[%s/%s] scored CMMI=%d conf=%.2f subs=%d tokens in=%s out=%s",
             self.function, category_code,
