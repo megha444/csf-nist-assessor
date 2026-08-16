@@ -1,0 +1,66 @@
+[
+  {
+    "id": "GVQ-01",
+    "question": "How is the organization's mission and business strategy communicated to the people who make cybersecurity risk decisions, and how does that context actually shape risk prioritization?",
+    "function": "govern",
+    "category_hint": "GV.OC-01",
+    "importance": 2,
+    "expected_answer_type": "narrative"
+  },
+  {
+    "id": "GVQ-02",
+    "question": "What process tracks the legal, regulatory, and contractual cybersecurity requirements the organization is subject to, and who owns keeping that inventory current?",
+    "function": "govern",
+    "category_hint": "GV.OC-03",
+    "importance": 2,
+    "expected_answer_type": "narrative"
+  },
+  {
+    "id": "GVQ-03",
+    "question": "Is there a documented risk appetite or risk tolerance statement for cybersecurity risk, and how is it communicated to the business units making risk-relevant decisions?",
+    "function": "govern",
+    "category_hint": "GV.RM-02",
+    "importance": 2,
+    "expected_answer_type": "yes_no_with_detail"
+  },
+  {
+    "id": "GVQ-04",
+    "question": "What standardized methodology is used to calculate, document, and prioritize cybersecurity risks, and is it applied consistently across business units?",
+    "function": "govern",
+    "category_hint": "GV.RM-06",
+    "importance": 2,
+    "expected_answer_type": "narrative"
+  },
+  {
+    "id": "GVQ-05",
+    "question": "How is organizational leadership held accountable for cybersecurity risk, and what mechanisms foster a culture that is risk-aware and continually improving?",
+    "function": "govern",
+    "category_hint": "GV.RR-01",
+    "importance": 2,
+    "expected_answer_type": "narrative"
+  },
+  {
+    "id": "GVQ-06",
+    "question": "Are cybersecurity roles, responsibilities, and authorities formally documented (e.g. a RACI or governance charter), and is there a single named executive accountable for the program?",
+    "function": "govern",
+    "category_hint": "GV.RR-02",
+    "importance": 2,
+    "expected_answer_type": "yes_no_with_detail"
+  },
+  {
+    "id": "GVQ-07",
+    "question": "Does the organization maintain an inventory of suppliers and third parties prioritized by cybersecurity criticality, and how is that criticality tiering determined?",
+    "function": "govern",
+    "category_hint": "GV.SC-04",
+    "importance": 3,
+    "expected_answer_type": "yes_no_with_detail"
+  },
+  {
+    "id": "GVQ-08",
+    "question": "What cybersecurity due diligence is performed on a prospective vendor before a contract is signed, and does that apply consistently to every new supplier relationship regardless of size?",
+    "function": "govern",
+    "category_hint": "GV.SC-06",
+    "importance": 3,
+    "expected_answer_type": "narrative"
+  }
+]

@@ -1,0 +1,191 @@
+[
+  {
+    "id": "NWP-GV-01",
+    "question": "How is the organization's mission and business strategy communicated to the people who make cybersecurity risk decisions, and how does that context actually shape risk prioritization?",
+    "answer": "Northwind's strategic plan is reviewed at an annual offsite that Enterprise Risk and Information Security both attend; the FY26 plan's digital banking expansion was flagged there as the driver behind this year's identity and access management investment. That link is captured in the cover memo to the Enterprise Risk Register, but it isn't referenced anywhere else day-to-day.",
+    "function": "govern",
+    "category_hint": "GV.OC-01",
+    "provenance": "pre_seeded",
+    "importance": 2
+  },
+  {
+    "id": "NWP-GV-02",
+    "question": "Are internal and external stakeholders and their cybersecurity-related expectations identified and reviewed anywhere?",
+    "answer": "GRC maintains a stakeholder register covering the Board Risk Committee, primary regulators (NYDFS, state insurance departments), and major commercial banking clients who require SOC 2 reports. It's reviewed once a year alongside the risk appetite refresh, but individual business units don't maintain their own versions, so newer relationships — like a fintech partnership signed this spring — can lag before they're added.",
+    "function": "govern",
+    "category_hint": "GV.OC-02",
+    "provenance": "pre_seeded",
+    "importance": 2
+  },
+  {
+    "id": "NWP-GV-03",
+    "question": "What process tracks the legal, regulatory, and contractual cybersecurity requirements the organization is subject to, and who owns keeping that inventory current?",
+    "answer": "Legal & Compliance owns a regulatory obligations tracker covering GLBA, NYDFS 500, PCI-DSS, and SOX Section 404 IT controls, and Information Security reviews it quarterly to confirm each obligation still maps to a named control owner. The tracker doesn't yet cover state-level insurance cyber regulations for the two states Northwind expanded into last year — Compliance is aware and has it queued for the next update.",
+    "function": "govern",
+    "category_hint": "GV.OC-03",
+    "provenance": "pre_seeded",
+    "importance": 2
+  },
+  {
+    "id": "NWP-GV-04",
+    "question": "Are the outcomes, capabilities, and services the organization depends on — including external dependencies — understood and documented?",
+    "answer": "IT maintains a dependency map naming AWS (core hosting) and the third-party payment processor as the two dependencies a full outage would immediately affect; both are flagged in the Business Continuity Plan with defined recovery time objectives. Smaller SaaS dependencies used by individual business units, like a claims-adjuster scheduling tool, aren't captured in that map.",
+    "function": "govern",
+    "category_hint": "GV.OC-05",
+    "provenance": "pre_seeded",
+    "importance": 2
+  },
+  {
+    "id": "NWP-GV-05",
+    "question": "Is there a documented risk appetite or risk tolerance statement for cybersecurity risk, and how is it communicated to the business units making risk-relevant decisions?",
+    "answer": "Yes — the Board approved a Cybersecurity Risk Appetite Statement last year that sets quantitative thresholds: no more than 4 hours of unplanned downtime on core banking systems, and no unencrypted transmission of any regulated data class. It's referenced in the quarterly Technology Risk Committee deck, though most individual project teams haven't been walked through it directly.",
+    "function": "govern",
+    "category_hint": "GV.RM-02",
+    "provenance": "pre_seeded",
+    "importance": 2
+  },
+  {
+    "id": "NWP-GV-06",
+    "question": "Are cybersecurity risk findings integrated into the organization's broader enterprise risk management process?",
+    "answer": "Cybersecurity risk register entries feed into Northwind's ERM system on a monthly cycle, and the Technology Risk Committee — CISO, CIO, and COO — reviews the top items and sets remediation priority. Cyber risk shows up as its own category in the enterprise risk heat map presented to the Board twice a year.",
+    "function": "govern",
+    "category_hint": "GV.RM-03",
+    "provenance": "pre_seeded",
+    "importance": 2
+  },
+  {
+    "id": "NWP-GV-07",
+    "question": "What standardized methodology is used to calculate, document, and prioritize cybersecurity risks, and is it applied consistently across business units?",
+    "answer": "Risk is scored with a documented Likelihood x Impact matrix that's the same across every business unit — Legal, Compliance, and IT Security all use it, and it's referenced in the Risk Management Strategy document. It drives the order of the remediation backlog, though the underlying likelihood scores are still assigned qualitatively rather than from loss data.",
+    "function": "govern",
+    "category_hint": "GV.RM-06",
+    "provenance": "pre_seeded",
+    "importance": 2
+  },
+  {
+    "id": "NWP-GV-08",
+    "question": "When a risk crosses the organization's defined tolerance threshold, what happens — is there a documented escalation path?",
+    "answer": "The Risk Management Strategy defines escalation thresholds tied to the KRIs reported to the Technology Risk Committee — a breach triggers a mandatory review within 10 business days. Today that tracking is done by a risk analyst updating a spreadsheet rather than an automated workflow, so a breach could sit for a few days before someone notices.",
+    "function": "govern",
+    "category_hint": "GV.RM-04",
+    "provenance": "pre_seeded",
+    "importance": 2
+  },
+  {
+    "id": "NWP-GV-09",
+    "question": "How is organizational leadership held accountable for cybersecurity risk, and what mechanisms foster a culture that is risk-aware and continually improving?",
+    "answer": "The CISO reports to the CIO with a standing dotted line into the Board Risk Committee, and the CISO's own performance objectives include cybersecurity program KPIs like patch SLA and phishing-test results. The Board gets a quarterly cyber briefing, and the CISO has direct access to raise concerns outside that cadence if needed.",
+    "function": "govern",
+    "category_hint": "GV.RR-01",
+    "provenance": "pre_seeded",
+    "importance": 2
+  },
+  {
+    "id": "NWP-GV-10",
+    "question": "Are cybersecurity roles, responsibilities, and authorities formally documented (e.g. a RACI or governance charter), and is there a single named executive accountable for the program?",
+    "answer": "Yes — a RACI matrix for cybersecurity responsibilities lives in the Information Security Governance Charter and names accountable owners across IT, Legal, HR, and each business unit's security liaison. It was last reviewed in January; a couple of business units still don't have a named liaison filled, which the charter itself flags as an open gap.",
+    "function": "govern",
+    "category_hint": "GV.RR-02",
+    "provenance": "pre_seeded",
+    "importance": 2
+  },
+  {
+    "id": "NWP-GV-11",
+    "question": "Is cybersecurity built into HR practices — onboarding, background checks, role-based responsibilities in job descriptions?",
+    "answer": "Security awareness training and background checks are mandatory parts of onboarding for all 1,500 employees, and privileged-access roles (DBAs, network admins) have security responsibilities called out explicitly in their job descriptions. Training completion isn't tied to individual performance reviews yet, so a handful of managers have people running months overdue with no consequence.",
+    "function": "govern",
+    "category_hint": "GV.RR-04",
+    "provenance": "pre_seeded",
+    "importance": 2
+  },
+  {
+    "id": "NWP-GV-12",
+    "question": "Does the organization have a comprehensive, approved cybersecurity policy set, and does it cover the major domains (access control, data classification, incident response, acceptable use)?",
+    "answer": "Northwind's policy set covers access control, data classification, incident response, and acceptable use, each approved by the CISO and version-controlled in the GRC platform; every policy is mapped to the CSF Category it addresses. The set was last expanded eight months ago to add a dedicated cloud security policy after the AWS migration.",
+    "function": "govern",
+    "category_hint": "GV.PO-01",
+    "provenance": "pre_seeded",
+    "importance": 2
+  },
+  {
+    "id": "NWP-GV-13",
+    "question": "How often are policies formally reviewed, and is there a defined exception process?",
+    "answer": "Policies go through a formal annual review with sign-off tracked in the GRC platform, and exceptions require a documented business justification plus CISO approval. Exception approvals don't automatically expire, though, so a few exceptions granted two-plus years ago are technically still \"active\" with no one having revisited them.",
+    "function": "govern",
+    "category_hint": "GV.PO-02",
+    "provenance": "pre_seeded",
+    "importance": 2
+  },
+  {
+    "id": "NWP-GV-14",
+    "question": "How are policy updates communicated to the workforce, and is there any way to confirm people actually read them?",
+    "answer": "New or updated policies go out through a mandatory annual attestation campaign in the LMS; last cycle's completion rate was 94%, tracked down to the business-unit level so managers can chase stragglers. There's no comprehension check beyond the attestation click, though — no quiz or follow-up to confirm the content landed.",
+    "function": "govern",
+    "category_hint": "GV.PO-02",
+    "provenance": "pre_seeded",
+    "importance": 2
+  },
+  {
+    "id": "NWP-GV-15",
+    "question": "Is the cybersecurity strategy periodically reviewed and adjusted based on audit findings or incidents?",
+    "answer": "The Technology Risk Committee reviews strategy performance quarterly against a standard KPI/KRI dashboard. Last year's PCI-DSS audit findings directly triggered a re-scoped network segmentation project that's now on this year's roadmap — that's the clearest example of the review loop actually changing a decision.",
+    "function": "govern",
+    "category_hint": "GV.OV-02",
+    "provenance": "pre_seeded",
+    "importance": 2
+  },
+  {
+    "id": "NWP-GV-16",
+    "question": "What metrics does leadership see on cybersecurity performance, and how often?",
+    "answer": "The Board Risk Committee gets patch SLA compliance, phishing-test click rate, and MFA coverage percentage every quarter, presented as trend lines rather than single snapshots. Northwind hasn't benchmarked any of those numbers against peer financial institutions yet, so the Board can see if things are improving but not how Northwind compares to the industry.",
+    "function": "govern",
+    "category_hint": "GV.OV-03",
+    "provenance": "pre_seeded",
+    "importance": 2
+  },
+  {
+    "id": "NWP-GV-17",
+    "question": "Is there a defined path for escalating significant cybersecurity risks discovered through oversight activities, and does criteria for \"significant\" exist anywhere?",
+    "answer": "Yes — the Information Security Governance Charter defines what counts as a \"significant\" risk (anything that could breach the Board-approved risk appetite thresholds) and routes it from the Technology Risk Committee straight to the Board Risk Committee outside the normal quarterly cadence. That escalation path has been used twice in the past year.",
+    "function": "govern",
+    "category_hint": "GV.OV-01",
+    "provenance": "pre_seeded",
+    "importance": 2
+  },
+  {
+    "id": "NWP-GV-18",
+    "question": "Is there a documented supply chain cybersecurity risk management program, or is vendor risk handled some other way?",
+    "answer": "There's no dedicated supply-chain cybersecurity program — vendor risk activity is really driven by Procurement and Legal contract review, not by a defined Information Security process. Security gets looped in informally for the largest vendor contracts, but there's no written program document Security itself owns.",
+    "function": "govern",
+    "category_hint": "GV.SC-01",
+    "provenance": "pre_seeded",
+    "importance": 3
+  },
+  {
+    "id": "NWP-GV-19",
+    "question": "Does the organization maintain an inventory of suppliers and third parties prioritized by cybersecurity criticality, and how is that criticality tiering determined?",
+    "answer": "A vendor list exists in the procurement system, but it's organized by contract dollar value, not cybersecurity criticality — a small vendor with direct access to the claims database isn't flagged any differently than an office-supplies vendor. Nobody currently owns building a criticality tier on top of that list.",
+    "function": "govern",
+    "category_hint": "GV.SC-04",
+    "provenance": "pre_seeded",
+    "importance": 3
+  },
+  {
+    "id": "NWP-GV-20",
+    "question": "What cybersecurity due diligence is performed on a prospective vendor before a contract is signed, and does that apply consistently to every new supplier relationship regardless of size?",
+    "answer": "Vendors above a $250K annual contract threshold go through a security questionnaire and SOC 2 report review before signing. Vendors under that threshold — including at least two with system-level access we're aware of — onboard with no cybersecurity due diligence at all, because the threshold was set by Procurement for spend-approval reasons, not risk.",
+    "function": "govern",
+    "category_hint": "GV.SC-06",
+    "provenance": "pre_seeded",
+    "importance": 3
+  },
+  {
+    "id": "NWP-GV-21",
+    "question": "Once a vendor is onboarded, is their cybersecurity posture reassessed on any ongoing basis?",
+    "answer": "There's no periodic reassessment process. For most vendors the only cybersecurity review that ever happened was the one at contract signing — in a few cases that was three or four years ago, and nobody has gone back to check whether that vendor's posture has changed since.",
+    "function": "govern",
+    "category_hint": "GV.SC-07",
+    "provenance": "pre_seeded",
+    "importance": 3
+  }
+]
