@@ -232,18 +232,21 @@ class EvidenceCitation(BaseModel):
                   # the whole ScoreOutput parse for a stochastic reason)
 
 
-class SubcategoryGap(BaseModel):
+class SubcategoryScore(BaseModel):
     """
-    Per-Subcategory finding under a Category. Populated by the specialist agent
-    (ADR-0007). Drives Subcategory-level recommendations in the report:
-    templates are keyed by (subcategory_id, current→next_level).
+    Per-Subcategory scoring output from the specialist agent. Populated for EVERY
+    Subcategory under the Category (not just gaps). Category CMMI is derived as
+    the deterministic round(mean) of these. Templates are keyed by
+    (subcategory_id, current→next_level).  See ADR-0007.
     """
     subcategory_id: str = Field(..., description="e.g. 'PR.AA-05'")
-    expected_practice: str = Field(
-        ..., description="NIST Implementation Example text describing what a mature org would do"
-    )
+    cmmi_level: int = Field(..., ge=1, le=5, description="1=Initial through 5=Optimising, applied at Subcategory granularity using the Category rubric text as a maturity scale")
+    confidence: float = Field(..., ge=0.0, le=1.0)
     evidence_status: Literal["absent", "partial", "present"]
-    notes: str = Field(..., description="1-2 sentences explaining what's missing or weak")
+    expected_practice: str = Field(
+        ..., description="One representative NIST Implementation Example text describing what a mature org would do"
+    )
+    notes: str = Field(..., description="1-2 sentences justifying the score / describing what's missing")
 
 
 class ScoreOutput(BaseModel):
@@ -251,15 +254,15 @@ class ScoreOutput(BaseModel):
 
     category_id: str
     function: Function
-    cmmi_level: int = Field(..., ge=1, le=5)
+    cmmi_level: int = Field(..., ge=1, le=5, description="Category-level CMMI. Deterministically overridden by the agent to round(mean(subcategory_scores.cmmi_level)) when subcategory_scores is non-empty (see ADR-0007).")
     confidence: float = Field(..., ge=0.0, le=1.0)
     evidence_citations: list[EvidenceCitation] = Field(default_factory=list)
     interview_evidence: list[str] = Field(default_factory=list)  # answer_ids
     reasoning: str
     no_doc_evidence: bool = False
-    subcategory_gaps: list[SubcategoryGap] = Field(  # ADR-0007
+    subcategory_scores: list[SubcategoryScore] = Field(  # ADR-0007 (revised)
         default_factory=list,
-        description="Per-Subcategory gap findings; drives recommendation template lookup.",
+        description="One score per Subcategory under this Category. Category cmmi_level is round(mean(...)) of these.",
     )
 
 

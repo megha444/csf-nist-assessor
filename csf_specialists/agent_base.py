@@ -16,6 +16,7 @@ Public API:
 from __future__ import annotations
 
 import logging
+import statistics
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -160,7 +161,7 @@ class SpecialistAgent:
             ),
         )
 
-        result = response.parsed
+        result: ScoreOutput | None = response.parsed
         if result is None:
             usage = response.usage_metadata
             raw = response.text or ""
@@ -180,16 +181,28 @@ class SpecialistAgent:
                 f"{manual_err}"
             )
 
+        # 5. Deterministic Category CMMI = round(mean(subcategory scores)). See ADR-0007.
+        #    LLM's own top-level cmmi_level is treated as a hint; the mean is authoritative
+        #    so the aggregation math is transparent + auditable.
+        if result.subcategory_scores:
+            computed = round(statistics.mean(s.cmmi_level for s in result.subcategory_scores))
+            if computed != result.cmmi_level:
+                log.info(
+                    "[%s/%s] LLM Category cmmi=%d, computed mean=%d — using mean",
+                    self.function, category_code, result.cmmi_level, computed,
+                )
+                result = result.model_copy(update={"cmmi_level": computed})
+
         usage = response.usage_metadata
         log.info(
-            "[%s/%s] scored CMMI=%d conf=%.2f gaps=%d tokens in=%s out=%s",
+            "[%s/%s] scored CMMI=%d conf=%.2f subs=%d tokens in=%s out=%s",
             self.function, category_code,
-            result.cmmi_level, result.confidence, len(result.subcategory_gaps),
+            result.cmmi_level, result.confidence, len(result.subcategory_scores),
             getattr(usage, "prompt_token_count", "?"),
             getattr(usage, "candidates_token_count", "?"),
         )
 
-        # 5. Optional persistence
+        # 6. Optional persistence
         if run_id is not None:
             await self._persist_score(session_id, run_id, result)
 

@@ -6,16 +6,21 @@ schema. Do NOT write anything outside the JSON. Do NOT include the JSON schema. 
 
 ===================== CMMI RUBRIC (levels 1-5, authored by a KPMG consultant) =====================
 
+This rubric describes what the Category as a WHOLE looks like at each maturity level.
+Apply the same rubric text at the Subcategory level: for each Subcategory below, ask
+"does this specific Subcategory's practice meet Level X as described here?"
+
 {rubric_block}
 
 ===================== SUBCATEGORIES + NIST IMPLEMENTATION EXAMPLES =====================
 
 Each Subcategory below lists NIST's official Implementation Examples describing what a
-mature organization would demonstrate. Use these to identify per-Subcategory gaps.
+mature organization would demonstrate. Use these as the concrete "what to check for"
+when scoring each Subcategory.
 
 {subs_block}
 
-===================== DOCUMENT EVIDENCE (top-5 chunks) =====================
+===================== DOCUMENT EVIDENCE (top retrieved chunks) =====================
 
 {chunks_block}
 
@@ -25,27 +30,37 @@ mature organization would demonstrate. Use these to identify per-Subcategory gap
 
 ===================== INSTRUCTIONS =====================
 
-1. Read the rubric. Decide which of the 5 CMMI levels the evidence best supports.
-   Choose ONE integer 1-5.
-2. Set confidence honestly:
-     0.85-1.0  evidence clearly matches a rubric level
-     0.60-0.84 reasonable inference from partial evidence
-     0.30-0.59 you had to infer heavily
-     below 0.30 = do not score (set no_doc_evidence=true if applicable)
-3. evidence_citations: list ONLY the chunks (by chunk_id, doc_type, section) that
-   actually supported your call. Don't cite chunks that were irrelevant.
-4. interview_evidence: list the answer ids (from "Q (id): ..." above) that supported
-   your call. Empty list if none applied.
-5. reasoning: 2-3 sentences. Tie evidence to the rubric level. Quote specific evidence,
-   don't restate the rubric.
-6. subcategory_gaps: for each Subcategory above where evidence is ABSENT or PARTIAL
-   against the Implementation Examples, output an entry with:
-     - subcategory_id (e.g. "GV.OC-01")
-     - expected_practice: one representative Implementation Example text (paraphrased is fine)
-     - evidence_status: "absent" or "partial"
-     - notes: 1-2 sentences explaining what's missing
-   OMIT Subcategories where evidence is fully "present" — no need to list them.
-7. If NO relevant document evidence was retrieved AND no interview answers apply, set
-   no_doc_evidence=true and score conservatively (typically Level 1-2).
+For each Subcategory listed above, output one entry in `subcategory_scores` with:
+
+  - subcategory_id (e.g. "GV.OC-01")
+  - cmmi_level (integer 1-5): where does this SPECIFIC Subcategory's evidence sit
+    on the rubric's maturity scale? Interpret Levels 1-5 from the Category rubric
+    text and match this Subcategory's evidence to whichever level best fits.
+  - confidence (0.0-1.0): 0.85+ if evidence clearly supports the level; 0.6-0.85
+    if you had to infer; below 0.6 if evidence is genuinely thin.
+  - evidence_status: "present" if the NIST Implementation Examples for this
+    Subcategory are demonstrated by the evidence; "partial" if some are; "absent"
+    if none are supported by evidence.
+  - expected_practice: pick ONE representative NIST Implementation Example text
+    (paraphrase is fine) describing what a mature org would do here.
+  - notes: 1-2 sentences citing SPECIFIC evidence and justifying the score.
+
+CRITICAL: emit an entry for EVERY Subcategory listed above, not just the ones with
+gaps. The Category CMMI is computed downstream as the mean of your Subcategory scores.
+
+Also fill the top-level fields (this is the Category-level synthesis):
+
+  - cmmi_level (Category): your best estimate at Category level. Downstream code
+    will OVERRIDE this with round(mean(subcategory_scores.cmmi_level)) — you can
+    approximate the mean. This field exists for schema compatibility.
+  - confidence (Category): your overall confidence in the assessment.
+  - evidence_citations: list the specific chunks (by chunk_id, doc_type, section)
+    that supported your scoring. Do not cite irrelevant chunks.
+  - interview_evidence: list the answer ids (from "Q (id): ..." above) that
+    supported your scoring. Empty list if none applied.
+  - reasoning: 2-3 sentences summarizing across Subcategories — the "story" for
+    this Category. Quote specific evidence, don't restate the rubric.
+  - no_doc_evidence: true iff you scored the entire Category on interview answers
+    alone (no document chunks contributed).
 
 Return ONLY the JSON object.

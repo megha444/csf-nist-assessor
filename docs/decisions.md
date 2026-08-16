@@ -232,9 +232,9 @@ Ship **Option 1** for the hackathon. Explicitly note **Option 2 as planned, not 
 
 ---
 
-## ADR-0007 — Recommendations at Subcategory level, incremental N→N+1 text   🟢
+## ADR-0007 — Per-Subcategory CMMI scoring, Category CMMI as deterministic mean, recommendations at Subcategory   🟢
 
-**Date:** 2026-08-15
+**Date:** 2026-08-15 (revised same day — original gap-only flavor superseded)
 
 ### Context
 Original design (implicit) put both CMMI scoring **and** recommendations at the Category level. Two things broke that assumption once we started building against Sakina's actual reference materials:
@@ -243,12 +243,13 @@ Original design (implicit) put both CMMI scoring **and** recommendations at the 
 2. **Sakina's `Implementation Examples` file is Subcategory-granular.** Every Subcategory carries `Ex1, Ex2, ...` concrete practices from NIST. That's the natural key for "have you done this specific thing? no → gap." Losing that granularity throws away her authored material.
 3. **Sakina's real-world consulting practice is incremental.** She never writes "here's how to go from CMMI 2 to CMMI 5." She writes "here's what to do next to go from 2 to 3, and if you have appetite, from 3 to 4." Any "reach the maximum level" recommendation reads as fantasy, not consulting.
 
-### Decision
-- **CMMI scoring stays at Category level** — ADR-0002 unchanged. Sakina's rubric authoring burden does not grow.
-- **Specialist agent output extended** with a per-Category `subcategory_gaps: list[SubcategoryGap]` field. The agent identifies which Subcategories under this Category show weak/absent evidence, using the NIST Implementation Examples as its reference for "what should be present."
+### Decision (revised)
+- **LLM scores at Subcategory level.** The specialist agent's output has a `subcategory_scores: list[SubcategoryScore]` field where each entry carries `{subcategory_id, cmmi_level 1-5, confidence, evidence_status, expected_practice, notes}`. The Category CMMI is then a **deterministic Python-computed `round(mean(sub.cmmi_level for sub in subs))`**, NOT an LLM output. This matches Sakina's real practice (her draft data in `CSF 2.0-Implementation_Examples.xlsx` scored at Subcategory with `"Category = avg"`).
+- **Sakina's rubric authoring stays at Category level** — ADR-0002 unchanged. Her one 5-level rubric per Category is applied by the LLM at each Subcategory ("does this specific Subcategory's practice meet Level X as described by the Category rubric?"). NIST Implementation Examples provide the concrete "what mature looks like" for each Subcategory.
 - **Recommendation templates** (Sakina's Wed Aug 19 deliverable) are keyed by `(subcategory_id, level_transition)` — e.g. `("PR.AA-05", "1→2")`, `("PR.AA-05", "2→3")`. Text describes the next 1-2 CMMI-level moves only. Never "reach 5."
-- **Roadmap ranking** (report phase) still uses target-based math: `priority = (target_tier - current_tier) × subcategory_importance`. This tells us *which* gaps matter most (closes distance to Northwind's expected profile). The template text tells us *what to do next* (incremental).
-- **Radar chart** unchanged — still Function/Tier level with target overlay.
+- **Roadmap ranking** (report phase) uses target-based math: `priority = (target_tier - current_tier_for_function) × subcategory_importance`. Ranked at Subcategory level; templates supply the incremental text.
+- **Radar chart** unchanged — Function/Tier level with target overlay.
+- **LLM cost + latency unchanged** — still one LLM call per Category, one Category retrieval. The LLM just outputs richer structured data in the same call.
 
 ### Alternatives considered
 1. **Both scoring AND recommendations at Subcategory.** Truest to Sakina's practice but ~5× rubric authoring burden. Blows past 19-day timeline. Rejected (ADR-0002 already said no).
