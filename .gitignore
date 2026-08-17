@@ -28,3 +28,4 @@ docs/1_agent_working_e2e.md
 Ref Docs/
 docs/*task*
 *.xlsx
+docs/session-persistence-dataflow.md

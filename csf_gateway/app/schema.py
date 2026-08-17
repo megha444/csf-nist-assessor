@@ -82,9 +82,21 @@ class Defensibility(str, Enum):
 # ---------------------------------------------------------------------------
 
 
+class PendingQuestion(BaseModel):
+    """The question a session is currently awaiting an answer for. Persisted on
+    SessionState.chat_state so /chat/answer can record it correctly (question text,
+    provenance source, importance) without the client needing to echo it back."""
+    question_id: str
+    question: str
+    category_hint: str
+    source: Literal["seed", "generated"]
+    importance: int = 2
+
+
 class ChatState(BaseModel):
     questions_asked: int = 0
     done: bool = False
+    pending: PendingQuestion | None = None
 
 
 class SessionState(BaseModel):
@@ -213,6 +225,13 @@ class ChatQuestion(BaseModel):
 class ChatAnswerInput(BaseModel):
     question_id: str
     answer: str
+
+
+class ChatNextResponse(BaseModel):
+    """POST /sessions/{sid}/chat/next response — {question_id, question, category_hint}
+    | {done: true} per docs/lld.md §4, collapsed into one typed model."""
+    done: bool = False
+    question: ChatQuestion | None = None
 
 
 # ---------------------------------------------------------------------------
