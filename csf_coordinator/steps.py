@@ -140,11 +140,16 @@ class AggregateStep(BaseAgent):
         await persist_tier(self.session_id, self.run_id, result)
 
         client = _get_firestore_client()
-        run_ref = (
-            client.collection("sessions").document(self.session_id)
-            .collection("runs").document(self.run_id)
-        )
+        session_ref = client.collection("sessions").document(self.session_id)
+        run_ref = session_ref.collection("runs").document(self.run_id)
         await run_ref.update({"status": RunStatus.ready_for_report.value})
+
+        # SessionState.run_id exists precisely so a caller can GET /sessions/{sid}
+        # and know which run to report on, without tracking run_id separately.
+        # Not touching session-level `status` here — that field's ready_for_report
+        # semantics imply all dispatched Functions are in, which isn't meaningful
+        # yet for a Govern-only stub; revisit once the full fan-out exists.
+        await session_ref.update({"run_id": self.run_id})
 
         log.info("[%s] run_id=%s aggregated -> Tier %d (avg_cmmi=%.3f)", self.function, self.run_id, result.tier, result.avg_cmmi)
         yield _text_event(self.name, f"Tier {result.tier} (avg_cmmi={result.avg_cmmi:.3f}) for {self.function}, run_id={self.run_id}")

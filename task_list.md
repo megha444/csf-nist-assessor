@@ -57,23 +57,25 @@ Legend: **[M]** = Megha (tech), **[T]** = Teammate (KPMG domain). Check off as c
 ## PHASE 2: Vertical Slice (Sun Aug 16 → Fri Aug 21)
 
 ### Sun Aug 16 (weekend — deep work day)
-- [ ] **[Both]** 11:00 AM–12:30 PM ET — Sunday review: what shipped/slipped, rubric quality check, adjust Phase 2 plan
-- [ ] **[M]** by 3 PM ET — interview agent using ADK: conversational, asks questions from bank, stores answers in Firestore per session
-- [ ] **[M]** by 6 PM ET — Level 1 adaptive logic: LLM decides which questions to skip based on previous answers
-- [ ] **[M]** by 8 PM ET — session state persistence via Firestore, tested end to end
-- [ ] **[M]** by 9 PM ET — coordinator agent stub: routes to Govern only, publishes to Pub/Sub, subscribes to results
+- [ ] **[Both]** 11:00 AM–12:30 PM ET — Sunday review: what shipped/slipped, rubric quality check, adjust Phase 2 plan — **did not happen**, joint call, not something Megha can substitute
+- [x] **[M]** by 3 PM ET — interview agent using ADK: conversational, asks questions from bank, stores answers in Firestore per session — done late (evening, not by 3 PM). Real ADK `LlmAgent` decision per turn (`csf_coordinator/interview.py`), `POST /sessions/{sid}/chat/{next,answer,finish}` (`csf_gateway/app/chat.py`). Not a fixed bank — mixes unused seed questions (`sample_data/govern_questions.json`) with NIST-grounded generated ones (`Provenance.live_chat_generated`), verified live: 6 seed + 6 generated over a real 12-turn interview.
+- [x] **[M]** by 6 PM ET — Level 1 adaptive logic: LLM decides which questions to skip based on previous answers — same build as above (one LLM decision per turn does both). **Known limitation, logged as a TODO in `next_question.txt` + HANDOFF.md**: doesn't reliably prefer high-importance unused seed questions before generating new ones.
+- [x] **[M]** by 8 PM ET — session state persistence via Firestore, tested end to end — `chat_state` (questions_asked/done/pending) round-trips through the session's Firestore doc on every turn; verified a full 12-question transcript persisted and readable back correctly, and that the safety cap (`MAX_QUESTIONS=12`) correctly short-circuits without an LLM call once hit.
+- [x] **[M]** by 9 PM ET — coordinator agent stub: routes to Govern only, publishes to Pub/Sub, subscribes to results — done ahead of the other 3, and past "stub": real ADK `SequentialAgent` (`csf_coordinator/coordinator.py`) + real GCP Pub/Sub topics (not mocked), verified end-to-end round trip (dispatch → `csf_specialists/worker.py` scores → aggregate → Tier persisted).
 - [ ] **[T]** by 6 PM ET — CMMI rubric for all Protect Categories + 8 interview questions
 - [ ] **[T]** by 9 PM ET — expand golden test set: 3 more Northwind policies scored across Govern + Identify (~50 tuples total)
 
 ### Mon Aug 17 (teammate: evening only)
-- [ ] **[M]** by 6 PM ET — scoring engine: consumes agent outputs, aggregates CMMI per Category, computes Function-level average
-- [ ] **[M]** by 9 PM ET — report generator v1: JSON output listing scored Categories with CMMI level, evidence citations, reasoning
+- [x] **[M]** by 6 PM ET — scoring engine: consumes agent outputs, aggregates CMMI per Category, computes Function-level average — **done a day early**, Aug 16: `csf_specialists/aggregate.py`, verified Tier 3 on real data.
+- [x] **[M]** by 9 PM ET — report generator v1: JSON output listing scored Categories with CMMI level, evidence citations, reasoning — `csf_specialists/scripts/export_json.py`. Also includes the aggregated Tier + full per-Subcategory findings (observations/gap/recommendation) as a foundation for v2/v3. Verified against real persisted data.
+- [ ] **[M]** NEW, moved up from Thu Aug 20 — Identify agent genericization (`csf_specialists/agents/identify.py` + rubric already extracted). Base class already supports any Function; no reason to wait until Thu when it's now cheap. **Aug 17 resequencing** (see note below Fri Aug 21 gate) pulled this and one Fortified item forward to de-risk the Aug 22-24 crunch.
 - [ ] **[T]** by 10 PM ET — CMMI rubric for half of Detect Categories
 - [ ] **[T]** by 10 PM ET — review Govern agent scores against golden set, flag disagreements
 
 ### Tue Aug 18 (teammate: evening only)
 - [ ] **[M]** by 6 PM ET — report generator v2: HTML output via Jinja2, Plotly radar chart embedded
 - [ ] **[M]** by 9 PM ET — Streamlit app v1: upload docs, chat interview, view report
+- [ ] **[M]** NEW, pulled forward from Mon Aug 24 — Agent Observability v1: OpenTelemetry spans around the ADK calls in `agent_base.py` + `interview.py`. Cheapest real Fortified win (purely additive logging, no new IAM/security model) — doing it now while touching agent code anyway, rather than saving it for the Aug 24 crunch.
 - [ ] **[T]** by 10 PM ET — complete Detect Categories rubric + 8 Detect interview questions
 
 ### Wed Aug 19 (teammate: evening only)
@@ -85,7 +87,7 @@ Legend: **[M]** = Megha (tech), **[T]** = Teammate (KPMG domain). Check off as c
 ### Thu Aug 20 (teammate: evening only)
 - [ ] **[Both]** 12–1:30 PM ET — Aug 20 webinar (Self-Evolving Agents), live or recording
 - [ ] **[M]** by 6 PM ET — confidence threshold logic: below 0.6, agent flags "insufficient evidence"
-- [ ] **[M]** by 9 PM ET — deploy Identify agent (config-based off Govern template)
+- [ ] ~~**[M]** by 9 PM ET — deploy Identify agent~~ — **moved to Mon Aug 17** (Aug 17 resequencing) — check that day's checkbox instead, not this one.
 - [ ] **[T]** by 10 PM ET — CMMI rubric for all Recover Categories + 8 Recover interview questions **(COMPLETES ALL 6 FUNCTIONS)**
 - [ ] **[T]** by 10 PM ET — confirm CSF Tier aggregation ranges (CMMI avg → Tier mapping)
 
@@ -114,22 +116,22 @@ Legend: **[M]** = Megha (tech), **[T]** = Teammate (KPMG domain). Check off as c
 - [ ] **[M]** by 12 PM ET — deploy Protect + Detect specialist agents (4 primary Functions live)
 - [ ] **[M]** by 4 PM ET — deploy Respond + Recover agents (all 6 live)
 - [ ] **[M]** by 7 PM ET — full parallel coordinator via Pub/Sub: dispatches to all 6 agents, waits, aggregates
-- [ ] **[M]** by 9 PM ET — Agent Registry in Firestore: each agent publishes metadata (name, version, capabilities, owner Function, IAM identity)
+- [ ] **[M]** by 9 PM ET — Agent Registry in Firestore: each agent publishes metadata (name, version, capabilities, owner Function, IAM identity) — cheap/incremental; consider having each new Function agent self-register on deploy instead of one big-bang implementation this day.
 - [ ] **[T]** by 3 PM ET — review outputs from Identify, Protect, Detect on Northwind docs
 - [ ] **[T]** by 6 PM ET — review outputs from Respond + Recover on Northwind docs
 - [ ] **[T]** by 9 PM ET — golden test set expansion to ~66 tuples covering all 22 Categories
 
 ### Sun Aug 23 (weekend — deep work day)
 - [ ] **[Both]** 11:00 AM–12:30 PM ET — Sunday review: vertical slice + fleet running, CMMI agreement ≥ 70%?, adjust Phase 4
-- [ ] **[M]** by 3 PM ET — Agent Identity: IAM service account per agent, workload identity binding
-- [ ] **[M]** by 6 PM ET — Memory Bank: per-assessment canonical target-org state in Firestore (or Vertex Memory Bank if stable)
-- [ ] **[M]** by 9 PM ET — Model Armor / Cloud DLP: PII scrub before every LLM call, log redactions
+- [ ] **[M]** by 3 PM ET — Agent Identity: IAM service account per agent, workload identity binding — the hardest of the 3 originally crammed here; now has the day mostly to itself after Registry/Observability moved out (Aug 17 resequencing)
+- [ ] **[M]** by 6 PM ET — Memory Bank: per-assessment canonical target-org state in Firestore (or Vertex Memory Bank if stable) — arguably partially exists already via `runs/{run_id}.snapshot` (doc_ids/answer_ids), built Aug 17; confirm if that counts or needs more
+- [ ] **[M]** by 9 PM ET — Model Armor / Cloud DLP: PII scrub before every LLM call, log redactions — the other hard one; still same day as Identity, but no longer sharing with Registry too
 - [ ] **[T]** by 6 PM ET — draft demo script v1 (4 min, word-for-word)
 - [ ] **[T]** by 9 PM ET — pre-write 4 interview answers Northwind would give during demo
 
 ### Mon Aug 24 (teammate: evening only)
 - [ ] **[M]** by 6 PM ET — Agent Gateway: single FastAPI ingress that authenticates, rate-limits, routes to agents
-- [ ] **[M]** by 9 PM ET — Agent Observability: OpenTelemetry spans per agent call, exported to Cloud Trace
+- [ ] ~~**[M]** by 9 PM ET — Agent Observability: OpenTelemetry spans per agent call, exported to Cloud Trace~~ — **moved to Tue Aug 18** (Aug 17 resequencing), freeing this day down to just Gateway hardening
 - [ ] **[T]** by 10 PM ET — executive summary written for Northwind (3 paragraphs, sets tone the agent should match)
 
 ### Tue Aug 25 (teammate: evening only)
