@@ -85,10 +85,12 @@ class Defensibility(str, Enum):
 class PendingQuestion(BaseModel):
     """The question a session is currently awaiting an answer for. Persisted on
     SessionState.chat_state so /chat/answer can record it correctly (question text,
-    provenance source, importance) without the client needing to echo it back."""
+    provenance source, importance, which Function it belongs to) without the
+    client needing to echo it back."""
     question_id: str
     question: str
     category_hint: str
+    function: Function
     source: Literal["seed", "generated"]
     importance: int = 2
 

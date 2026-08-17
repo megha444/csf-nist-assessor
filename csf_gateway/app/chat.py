@@ -2,12 +2,13 @@
 Interview chat endpoints — conversational question/answer loop backed by
 csf_coordinator.interview (the Interview Director, ADK-based).
 
-Govern-only stub for now (hardcoded function="govern"), matching today's other
-stubs (csf_coordinator.coordinator, csf_specialists.worker) — generalizes once
-the other 5 Function specialists exist.
+`function` is an optional query param on /next (defaults to "govern" for
+backward compat with existing sessions/tests) — pass ?function=identify to
+interview about a different Function. interview.py's logic was already
+Function-generic; this just stops chat.py from hardcoding "govern" on the call.
 
-Contract (docs/lld.md §4):
-  POST /sessions/{sid}/chat/next    -> {question_id, question, category_hint} | {done: true}
+Contract (docs/lld.md §4, +function):
+  POST /sessions/{sid}/chat/next?function=govern  -> {question_id, question, category_hint} | {done: true}
   POST /sessions/{sid}/chat/answer  body: {question_id, answer} -> {stored: true, next_available: bool}
   POST /sessions/{sid}/chat/finish  -> {done: true}
 """
@@ -19,7 +20,9 @@ from fastapi import APIRouter, HTTPException
 
 from csf_coordinator import interview
 from csf_coordinator.interview import MAX_QUESTIONS
+from csf_specialists.agents import AGENTS
 
+from .csf_catalog import Function
 from .schema import ChatAnswerInput, ChatNextResponse, ChatQuestion, PendingQuestion
 from .sessions import SESSIONS_COLLECTION, _client_get, get_session
 
@@ -34,16 +37,20 @@ async def _save_session(session) -> None:
 
 
 @router.post("/next", response_model=ChatNextResponse)
-async def chat_next(session_id: str) -> ChatNextResponse:
+async def chat_next(session_id: str, function: Function = "govern") -> ChatNextResponse:
     """
-    Ask the Interview Director for the next question (or done). Persists the
-    pending question on the session so /chat/answer can record it correctly.
+    Ask the Interview Director for the next question (or done) for `function`.
+    Persists the pending question on the session so /chat/answer can record it
+    correctly without the caller needing to pass function again.
     """
+    if function not in AGENTS:
+        raise HTTPException(status_code=400, detail=f"no specialist agent registered for function={function!r}")
+
     session = await get_session(session_id)
     if session is None:
         raise HTTPException(status_code=404, detail=f"session {session_id} not found")
 
-    decision = await interview.decide_next_question(session_id, "govern")
+    decision = await interview.decide_next_question(session_id, function)
 
     if decision.done or decision.question is None:
         session.chat_state.done = True
@@ -55,6 +62,7 @@ async def chat_next(session_id: str) -> ChatNextResponse:
         question_id=decision.question_id,
         question=decision.question,
         category_hint=decision.category_hint or "",
+        function=function,
         source=decision.source or "generated",
     )
     await _save_session(session)
@@ -91,7 +99,7 @@ async def chat_answer(session_id: str, payload: ChatAnswerInput) -> dict:
         question_id=pending.question_id,
         question=pending.question,
         answer=payload.answer,
-        function="govern",
+        function=pending.function,
         category_hint=pending.category_hint,
         source=pending.source,
         importance=pending.importance,

@@ -1,8 +1,11 @@
 """
 Report generator v1 — JSON output for one run: every scored Category (CMMI level,
-evidence citations, reasoning, per-Subcategory findings) plus the aggregated Tier
-if it exists. Foundation for v2 (HTML+Plotly) and v3 (exec summary+roadmap) —
-those consume this same structure rather than re-querying Firestore from scratch.
+evidence citations, reasoning, per-Subcategory findings) plus the aggregated Tier,
+grouped per Function — a run can now cover more than one Function
+(csf_coordinator.coordinator.run_assessment), so the top level is keyed by
+Function, not a single flat function/tier pair. Foundation for v2 (HTML+Plotly)
+and v3 (exec summary+roadmap) — those consume this same structure rather than
+re-querying Firestore from scratch.
 
 Usage:
   poetry run python csf_specialists/scripts/export_json.py --session <sid> --run <rid>
@@ -38,33 +41,34 @@ async def build_report(session_id: str, run_id: str) -> dict:
         raise ValueError(f"no scores at sessions/{session_id}/runs/{run_id}/scores")
 
     scores.sort(key=lambda s: s["category_id"])
-    function = scores[0]["function"]
+    functions = sorted({s["function"] for s in scores})
 
-    tier_snap = await run_ref.collection("tiers").document(function).get()
-    tier = tier_snap.to_dict() if tier_snap.exists else None
+    result: dict = {"session_id": session_id, "run_id": run_id, "functions": {}}
+    for function in functions:
+        function_scores = [s for s in scores if s["function"] == function]
+        tier_snap = await run_ref.collection("tiers").document(function).get()
 
-    categories = [
-        {
-            "category_id": s["category_id"],
-            "cmmi_level": s["cmmi_level"],
-            "confidence": s["confidence"],
-            "reasoning": s["reasoning"],
-            "no_doc_evidence": s["no_doc_evidence"],
-            "evidence_citations": s.get("evidence_citations", []),
-            "interview_evidence": s.get("interview_evidence", []),
-            "subcategory_scores": s.get("subcategory_scores", []),
+        categories = [
+            {
+                "category_id": s["category_id"],
+                "cmmi_level": s["cmmi_level"],
+                "confidence": s["confidence"],
+                "reasoning": s["reasoning"],
+                "no_doc_evidence": s["no_doc_evidence"],
+                "evidence_citations": s.get("evidence_citations", []),
+                "interview_evidence": s.get("interview_evidence", []),
+                "subcategory_scores": s.get("subcategory_scores", []),
+            }
+            for s in function_scores
+        ]
+
+        result["functions"][function] = {
+            "tier": tier_snap.to_dict() if tier_snap.exists else None,
+            "category_count": len(categories),
+            "categories": categories,
         }
-        for s in scores
-    ]
 
-    return {
-        "session_id": session_id,
-        "run_id": run_id,
-        "function": function,
-        "tier": tier,
-        "category_count": len(categories),
-        "categories": categories,
-    }
+    return result
 
 
 def main() -> int:
@@ -81,9 +85,11 @@ def main() -> int:
         return 1
 
     text = json.dumps(report, indent=2, default=str)
+    total_categories = sum(f["category_count"] for f in report["functions"].values())
+    summary = ", ".join(f"{fn}={f['category_count']}" for fn, f in report["functions"].items())
     if args.out:
         args.out.write_text(text, encoding="utf-8")
-        print(f"wrote {len(report['categories'])} Categories -> {args.out}")
+        print(f"wrote {total_categories} Categories across {len(report['functions'])} Function(s) ({summary}) -> {args.out}")
     else:
         print(text)
     return 0

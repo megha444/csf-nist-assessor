@@ -41,13 +41,14 @@ def _text_event(author: str, text: str) -> Event:
     return Event(author=author, content=types.Content(role="model", parts=[types.Part(text=text)]))
 
 
-class DispatchStep(BaseAgent):
-    """Creates the runs/{run_id} parent doc, then publishes one dispatch message."""
+class CreateRunStep(BaseAgent):
+    """Creates the runs/{run_id} parent doc once per assessment, before any
+    per-Function DispatchStep publishes. Split out from DispatchStep so an
+    assessment covering N Functions creates exactly one run doc, not N."""
 
     run_id: str
     session_id: str
-    function: str
-    category_ids: list[str]
+    expected_agents: int
 
     async def _run_async_impl(self, ctx: InvocationContext):
         client = _get_firestore_client()
@@ -62,7 +63,7 @@ class DispatchStep(BaseAgent):
             "session_id": self.session_id,
             "dispatched_at": datetime.now(timezone.utc),
             "status": RunStatus.dispatched.value,
-            "expected_agents": 1,  # Govern-only stub; becomes 6 in the full fleet (Phase 3)
+            "expected_agents": self.expected_agents,
             "completed_agents": 0,
             "snapshot": {
                 "doc_ids": doc_ids,
@@ -70,8 +71,23 @@ class DispatchStep(BaseAgent):
                 "rubric_version": "v1",
             },
         })
-        log.info("[%s] created runs/%s (doc_ids=%d, answer_ids=%d)", self.function, self.run_id, len(doc_ids), len(answer_ids))
+        log.info(
+            "created runs/%s (expected_agents=%d, doc_ids=%d, answer_ids=%d)",
+            self.run_id, self.expected_agents, len(doc_ids), len(answer_ids),
+        )
+        yield _text_event(self.name, f"created run {self.run_id} (expecting {self.expected_agents} Function(s))")
 
+
+class DispatchStep(BaseAgent):
+    """Publishes one dispatch message for one Function. Assumes CreateRunStep
+    already created the runs/{run_id} parent doc."""
+
+    run_id: str
+    session_id: str
+    function: str
+    category_ids: list[str]
+
+    async def _run_async_impl(self, ctx: InvocationContext):
         await pubsub_client.publish_dispatch(self.function, {
             "run_id": self.run_id,
             "session_id": self.session_id,
@@ -90,7 +106,12 @@ class CollectResultsStep(BaseAgent):
     run_id: str
     expected_count: int = 1
     poll_timeout_s: float = 30.0
-    max_wait_s: float = 300.0
+    # 300s was too tight — observed live (Aug 17): a 6-Category Govern run alone
+    # regularly takes 4-6 min (GV.SC's 10 Subcategories are always the slowest),
+    # and a real run got cancelled mid-GV.SC when this cap fired at 5 min while
+    # Identify (3 Categories) had already finished. 900s gives real headroom for
+    # the largest Function without masking a genuinely hung worker forever.
+    max_wait_s: float = 900.0
 
     async def _run_async_impl(self, ctx: InvocationContext):
         import asyncio
