@@ -20,7 +20,7 @@ Legend: **[M]** = Megha (tech), **[T]** = Teammate (KPMG domain). Check off as c
 - [ ] **[T]** by 12 PM ET — read hackathon Fortified track requirements end to end
 - [x] **[T]** by 9 PM ET — draft CMMI 1-5 rubric for 3 highest-priority Govern **Categories** (15 cells) — **delivered all 6 Govern Categories** in `Ref Docs/NIST Rubrics.xlsx` sheet Govern (5 levels each). Extracted to `csf_specialists/rubrics/govern.yaml`.
 - [ ] **[T]** by 9 PM ET — draft 8 interview questions for Govern — **PENDING from Sakina**
-- [ ] **[T]** by 9 PM ET — confirm which regs apply to Northwind (GLBA, NYDFS, PCI, SOX, state insurance) — **PENDING from Sakina**
+- [x] **[T]** by 9 PM ET — confirm which regs apply to Northwind (GLBA, NYDFS, PCI, SOX, state insurance) — **resolved Aug 18, differently than this item assumed.** Answer isn't GLBA/NYDFS/PCI/SOX at all — the teammate's real 16-document delivery (Aug 15-17) confirms Northwind is UK dual-regulated: PRA/FCA, SM&CR, PRA PS6/21 & FCA PS21/3, SYSC 8/13, UK GDPR + DPA 2018 (ICO). Locked persona corrected — see `docs/HANDOFF.md`.
 - [ ] **[Both]** by 9:30 PM ET — status shared in shared doc — **PENDING**
 
 ### Fri Aug 14

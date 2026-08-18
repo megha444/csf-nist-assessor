@@ -218,7 +218,7 @@ Full detail (F1-F7, discovered follow-ups) in `docs/govern_build_tasks.md`.
 4. Deploy `csf_specialists`/`csf_coordinator` as real Cloud Run services — Aug 22 in the plan (today's Pub/Sub coordinator + interview agent are both still local-process stubs — real topics, but no deployed push-triggered services yet)
 
 ### Sakina ⏳ pending (ALL still owed; she's been catching up on rubrics only)
-- **URGENT — confirm Northwind's actual regulatory jurisdiction.** `SANS-Security-Policy-Templates-main/10. Information_Security_Policy.docx` turned out to be real Northwind content (not a template) describing Northwind as UK dual-regulated (PRA/FCA). The locked demo persona says US-regulated (GLBA/NYDFS 500/PCI-DSS/SOX). One of these is wrong — needs resolving before the demo narrative locks further.
+- ~~URGENT — confirm Northwind's actual regulatory jurisdiction~~ — **RESOLVED Aug 18: UK.** The teammate's full 16-document Northwind package (delivered Aug 15-17 into `02. Documents/`) consistently and deliberately describes Northwind as UK dual-regulated (PRA/FCA), including a filed SM&CR Statement of Responsibilities for a named CISO. The locked persona (memory + `docs/csf_assessor_hackathon_plan.md §5`) has been corrected to match. Old US-regs assumption (GLBA/NYDFS 500/PCI-DSS/SOX) is wrong, superseded.
 - Interview questions (all 6 Functions, ~8 each)
 - Northwind Financial doc package (5-7 policies + org chart + asset inventory + risk register + IR log + vendor list) — was Sat 3 PM
 - Golden test set v1 (Northwind + expert CMMI scores) — was Sat 6 PM
@@ -226,7 +226,7 @@ Full detail (F1-F7, discovered follow-ups) in `docs/govern_build_tasks.md`.
 - Protect / Detect / Respond / Recover CMMI rubrics
 - Recommendation templates keyed by (subcategory_id, transition) — due Wed Aug 19
 - Executive summary templates (24 = 4 Tiers × 6 Functions) — due Fri Aug 21
-- Northwind reg confirmation (GLBA/NYDFS/PCI/SOX)
+- ~~Northwind reg confirmation~~ — **RESOLVED Aug 18** (UK PRA/FCA, not the old US GLBA/NYDFS/PCI/SOX guess — see §7 Megha pending list)
 
 ---
 
@@ -289,11 +289,9 @@ asyncio.run(m())
 ```
 Expect `CMMI=1 conf=0.85 subs=5` if preseed hasn't been loaded into this session yet, or `CMMI=1 conf≈0.85+, interview_evidence non-empty` if it has (preseed was loaded into `b8bc86d2-...` during Phase E — GV.OC wasn't part of the before/after table in §2, so its exact numbers may have shifted too; GV.SC and GV.RM are the two verified data points).
 
-**Step 4:** Phases E-G are all done. Two things are open, undecided as of this handoff:
-1. **Aggregation formula decision** (§8) — Category-weighted vs. Subcategory-weighted, they disagree by a full Tier on real data.
-2. **Fork: genericize to Identify agent, or build real `aggregate_function` code** — both are viable next steps; no decision made yet, see §7 pending list.
+**Step 4:** Phases E-G are all done. The two forks originally flagged here are both resolved as of Aug 17: aggregation formula decided (Category-weighted, `csf_specialists/aggregate.py`, see §8) and the Identify agent has been genericized and verified (`csf_specialists/agents/identify.py`, see `task_list.md`'s Mon Aug 17 entry). Current open item: whether to build `.xlsx`/`.pptx` ingest support before testing the full 16-document Northwind package, or test with the 11 supported `.docx` files first (see §12).
 
-Also open with Sakina: the regulatory-jurisdiction conflict (§7 Sakina pending list) — needs her input, not something to resolve unilaterally.
+The regulatory-jurisdiction conflict is now resolved — UK (PRA/FCA), confirmed by the teammate's real 16-document delivery, locked persona corrected (see §7). `csf_specialists/sample_data/northwind_preseed_govern.json` still has 3 old US-regs-flavored answers (NWP-GV-02/03/15) — left as-is (historical artifact, already served its purpose), just don't preseed it into new sessions that also use the real 16-doc package, to avoid two contradictory Q&A voices in the same session.
 
 ---
 
@@ -314,4 +312,4 @@ The `~/.claude/projects/-Users-meghaagarwal-Desktop-Codes-Personal-csf-nist/memo
 
 **Paste this into the new Claude Code session:**
 
-> Read `docs/HANDOFF.md`. All 4 of Sun Aug 16's `[M]` tasks are done: aggregation is real code (`csf_specialists/aggregate.py`), the whole pipeline is retrofitted onto real Google ADK (not raw `google.genai`) with a real Pub/Sub coordinator (`csf_coordinator/`) verified against actual GCP topics, and the interview agent (`csf_coordinator/interview.py` + `csf_gateway/app/chat.py`) mixes seed questions with NIST-grounded generated ones, verified over a real 12-turn transcript on session `f56a9039-...`. Excel export also exists (`csf_specialists/scripts/export_excel.py`). Next up: genericize to the Identify agent, tune the Interview Director's seed-vs-generate prioritization (TODO left in `next_question.txt`), or start on Judge/report. Also still open with Sakina: a real regulatory-jurisdiction conflict (UK PRA/FCA vs. the locked US-regs persona) found in content she may have authored — needs her input before the demo narrative locks further.
+> Read `docs/HANDOFF.md`. All 4 of Sun Aug 16's `[M]` tasks are done, Identify agent is generalized and verified alongside Govern (`csf_specialists/agents/identify.py`, `csf_coordinator.run_assessment()` runs both), and the regulatory-jurisdiction question is resolved: Northwind is UK-regulated (PRA/FCA/SM&CR), confirmed by the teammate's real 16-document package in `02. Documents/` (delivered Aug 15-17) — the locked persona has been corrected to match. Two things need your attention: (1) `02. Documents/` has 5 files (3 `.xlsx`, 2 `.pptx`) that the ingest pipeline can't accept yet (`.pdf`/`.docx`/`.doc` only) — decide whether to build that support before testing the full package or test with the 11 supported `.docx` files first; (2) don't preseed `northwind_preseed_govern.json` into any new session that also uses the real doc package — it still has old US-regs-flavored answers, kept as a historical artifact, not patched.

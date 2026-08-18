@@ -89,9 +89,11 @@ CSF 2.0 rubrics (~22 Categories, CMMI 1-5 levels each ≈ 110 cells), CSF Tier a
 ## 5. Target Company Persona (LOCKED, do not change after Sat Aug 15)
 
 **Name:** Northwind Financial
-**Industry:** Financial services (banking and insurance group)
+**Industry:** Financial services — UK dual-regulated (PRA/FCA) banking and insurance group
 **Size:** ~1,500 employees
-**Applicable regs:** GLBA, NYDFS 500 (confirm with teammate), state insurance regs, PCI-DSS, SOX (confirm public/private with teammate)
+**Applicable regs:** PRA + FCA (dual-regulated firm); SM&CR (CISO holds a Senior Manager Function); PRA PS6/21 & FCA PS21/3 (Operational Resilience); SYSC 8 & 13 (outsourcing); UK GDPR + Data Protection Act 2018 (ICO); BS7858 (screening)
+
+**Corrected Aug 18 (was US: GLBA/NYDFS 500/PCI-DSS/SOX)** — the original guess predated any real Northwind content. The teammate's actual 16-document delivery (Aug 15-17) consistently describes Northwind as UK-regulated, including a filed SM&CR Statement of Responsibilities for a named CISO. See `docs/HANDOFF.md` for the full resolution note.
 
 **Maturity profile (target output):**
 - Govern: Tier 3
@@ -176,7 +178,7 @@ Working assumption: ~3.5 hrs/day weekdays + ~9 hrs one weekend day per person. ~
 - [by 12 PM ET Thu Aug 13] Read hackathon Fortified track requirements end to end
 - [by 9 PM ET Thu Aug 13] Draft CMMI 1-5 rubric for **5 highest-priority Govern subcategories** using the L1-L5 template pattern (25 cells, 3-5 lines each)
 - [by 9 PM ET Thu Aug 13] Draft 8 interview questions for Govern
-- [by 9 PM ET Thu Aug 13] Confirm which regs apply to Northwind Financial (GLBA, NYDFS, PCI, SOX, state insurance) so demo narrative can reference them
+- [by 9 PM ET Thu Aug 13] Confirm which regs apply to Northwind Financial (GLBA, NYDFS, PCI, SOX, state insurance) so demo narrative can reference them — **resolved Aug 18, differently than assumed: UK (PRA/FCA/SM&CR), not US. See §5 and `docs/HANDOFF.md`.**
 
 **Sync deliverable:** Both share status in shared doc [by 9:30 PM ET Thu Aug 13].
 
@@ -488,7 +490,7 @@ If Sunday Aug 23 shows <60% of Phase 2 gate met, execute contingency: **drop fro
 ## 10. Demo Script Structure (4 minutes, ~600 words spoken)
 
 **0:00 to 0:30, Problem framing (Teammate)**
-"CSF assessments at a Big 4 firm cost $80K and take 10 weeks. Every regulated company needs one. Northwind Financial, our demo target, is a 1,500-person banking and insurance group subject to GLBA and NYDFS 500. Most companies like them can't afford these assessments annually. I've done these engagements at KPMG. The process is repeatable. It's not the analysis that takes 10 weeks. It's the coordination."
+"CSF assessments at a Big 4 firm cost $80K and take 10 weeks. Every regulated company needs one. Northwind Financial, our demo target, is a 1,500-person UK banking and insurance group, dual-regulated by the PRA and FCA. Most companies like them can't afford these assessments annually. I've done these engagements at KPMG. The process is repeatable. It's not the analysis that takes 10 weeks. It's the coordination."
 
 **0:30 to 1:00, Solution framing (Megha)**
 "We built a fleet of 6 specialist AI agents, one per CSF 2.0 Function, coordinated by a supervisor agent, running on Google Cloud with the Agent Development Kit. Each agent has its own memory, its own CMMI rubric, its own tools. Same rigor, 1/1000th the time and cost."
