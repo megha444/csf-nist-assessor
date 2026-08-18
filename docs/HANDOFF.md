@@ -132,8 +132,13 @@ csf-nist/
 │   ├── sample_data/                Megha-authored stand-ins (Phase E), Sakina refines later
 │   │   ├── govern_questions.json   8 sample interview questions, 4 priority Categories
 │   │   └── northwind_preseed_govern.json  21 Northwind Q&A, all 6 Categories
+│   ├── templates/
+│   │   └── report.html.j2          Jinja2 template for report v2 (Aug 18) — radar + per-Category detail
 │   ├── scripts/
-│   │   └── preseed_govern.py       loads a PreseedRecord JSON file into sessions/{sid}/answers/
+│   │   ├── preseed_govern.py       loads a PreseedRecord JSON file into sessions/{sid}/answers/
+│   │   ├── export_json.py          report v1 — JSON, all Functions in a run
+│   │   ├── export_excel.py         client-facing Excel, one row per Subcategory
+│   │   └── export_html.py          report v2 (Aug 18) — HTML + embedded Plotly radar, built on export_json.build_report
 │   └── implementation_examples/    NIST Ex1/Ex2/... per Subcategory, all 6 Functions
 │       ├── govern.yaml   (31 subs, 119 examples)
 │       ├── identify.yaml (21, 74)
@@ -213,6 +218,7 @@ Full detail (F1-F7, discovered follow-ups) in `docs/govern_build_tasks.md`.
 - Built the **interview agent**: `csf_coordinator/interview.py`, one ADK LLM decision per turn — mixes unused seed questions with NIST-grounded generated ones (explains `Provenance.live_chat_generated`, which had sat unused in the schema all day), `POST /sessions/{sid}/chat/{next,answer,finish}` in `csf_gateway/app/chat.py`. This also completed "Level 1 adaptive logic" and "session persistence" — all 4 of Sun Aug 16's `[M]` tasks are now done (see `task_list.md`).
 - **Aug 17:** Identify agent genericized off the Govern template (`csf_specialists/agents/identify.py`), verified live on real doc evidence — see `task_list.md`'s Mon Aug 17 entry.
 - **Aug 18:** `csf_gateway/app/ingest/xlsx_parser.py` — openpyxl → markdown, one heading + table per non-empty sheet, same contract as `docx_parser.py`. Wired into `orchestrator.py` (new `.xlsx` branch) and `documents.py` (extension/content-type allowlist). Verified end-to-end against 3 of the teammate's real files (`Vendor_List.xlsx`, `Enterprise_Risk_Register_Extract.xlsx`, `Regulatory_Requirements_Register.xlsx`): all reached `ingest_status=ready`, and a live `GV.SC` scoring run against the fresh session cited all 3 as evidence (CMMI=2, conf=0.85, `no_doc_evidence=False`). `Regulatory_Requirements_Register.xlsx` turned out to be the strongest single piece of evidence for the Aug 18 UK-jurisdiction correction — it has a section literally titled "Regimes Assessed and Confirmed Not Applicable" explicitly ruling out GLBA/NYDFS/SOX/PCI-DSS with rationale. 14 of the 16 real Northwind files are now ingestable; **`.pptx` support (`Internal_Audit_Report`, `Risk_Appetite_Statement`) explicitly deferred as future scope**, not built.
+- **Aug 18 (later):** Report generator v2 — `csf_specialists/scripts/export_html.py` + `csf_specialists/templates/report.html.j2` (Jinja2, added `jinja2`/`plotly` to `pyproject.toml`). Renders one HTML file per run: exec-style header, a Plotly radar (one trace per scored Function, one spoke per its Categories, r=CMMI 1-5), per-Function Tier cards, and per-Category detail (CMMI pill, confidence, `no_doc_evidence` flag, reasoning, full Subcategory table, evidence citations, interview evidence ids). Built as a rendering layer on `export_json.build_report` — same Firestore read v1 already does, no second query path. Verified against the real persisted `23a53272-.../phaseF` run (6 Govern Categories) via headless-Chrome screenshot; caught a real bug where the Tier badge was interpolating the raw Firestore tier dict instead of its `tier` int field — fixed before calling it done.
 
 ### Megha ⏳ pending (in priority order)
 1. Tuning pass on the Interview Director's prompt (`csf_coordinator/prompts/next_question.txt`) — doesn't reliably prefer high-importance unused seed questions before generating new ones; TODO left in the file

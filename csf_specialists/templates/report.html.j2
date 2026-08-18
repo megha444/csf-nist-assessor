@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>NIST CSF 2.0 Assessment — {{ target_org }}</title>
+<style>
+  :root {
+    --ink: #1e2530;
+    --muted: #64748b;
+    --border: #e2e8f0;
+    --bg: #f8fafc;
+    --card: #ffffff;
+    --tier1: #dc2626;
+    --tier2: #d97706;
+    --tier3: #0891b2;
+    --tier4: #059669;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 40px 24px 80px; }
+  header.report-header {
+    border-bottom: 2px solid var(--ink);
+    padding-bottom: 20px;
+    margin-bottom: 28px;
+  }
+  header.report-header h1 { margin: 0 0 4px; font-size: 26px; }
+  header.report-header .sub { color: var(--muted); font-size: 13px; }
+  header.report-header .meta { color: var(--muted); font-size: 12px; margin-top: 6px; }
+
+  .tier-row { display: flex; flex-wrap: wrap; gap: 12px; margin: 24px 0; }
+  .tier-card {
+    flex: 1 1 140px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--fn-color, var(--muted));
+    border-radius: 8px;
+    padding: 14px 16px;
+  }
+  .tier-card .fn-name { font-weight: 600; font-size: 13px; }
+  .tier-card .tier-badge {
+    display: inline-block;
+    margin-top: 6px;
+    font-size: 22px;
+    font-weight: 700;
+  }
+  .tier-card .tier-label { color: var(--muted); font-size: 12px; }
+
+  .radar-block {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px;
+    margin: 8px 0 32px;
+  }
+
+  section.function-section { margin-bottom: 40px; }
+  section.function-section > h2 {
+    border-left: 5px solid var(--fn-color, var(--muted));
+    padding-left: 10px;
+    font-size: 19px;
+    margin: 0 0 14px;
+  }
+
+  .category-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px 20px;
+    margin-bottom: 16px;
+  }
+  .category-card h3 { margin: 0 0 4px; font-size: 16px; }
+  .category-card .cat-meta { color: var(--muted); font-size: 12px; margin-bottom: 10px; }
+  .cmmi-pill {
+    display: inline-block;
+    border-radius: 999px;
+    padding: 2px 10px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #fff;
+  }
+  .no-doc-flag {
+    display: inline-block;
+    background: #fef3c7;
+    color: #92400e;
+    border-radius: 4px;
+    padding: 1px 8px;
+    font-size: 11px;
+    margin-left: 6px;
+  }
+  .reasoning { font-size: 13px; color: var(--ink); margin: 10px 0; }
+
+  table.subs { width: 100%; border-collapse: collapse; font-size: 12.5px; margin-top: 10px; }
+  table.subs th, table.subs td { border: 1px solid var(--border); padding: 6px 8px; vertical-align: top; text-align: left; }
+  table.subs th { background: #f1f5f9; font-weight: 600; }
+  table.subs td.center { text-align: center; }
+
+  .evidence-list, .interview-list { font-size: 12px; color: var(--muted); margin-top: 10px; }
+  .evidence-list ul, .interview-list ul { margin: 4px 0 0; padding-left: 18px; }
+  .evidence-list li { margin-bottom: 4px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="report-header">
+    <h1>NIST CSF 2.0 Assessment — {{ target_org }}</h1>
+    <div class="sub">Session {{ session_id }} &middot; Run {{ run_id }}</div>
+    <div class="meta">Generated {{ generated_at }}</div>
+  </header>
+
+  <div class="tier-row">
+    {% for f in functions %}
+    <div class="tier-card" style="--fn-color: {{ f.color }}">
+      <div class="fn-name">{{ f.name }}</div>
+      {% if f.tier %}
+      <div class="tier-badge" style="color: var(--tier{{ f.tier }})">Tier {{ f.tier }}</div>
+      {% else %}
+      <div class="tier-badge" style="color: var(--muted)">&mdash;</div>
+      {% endif %}
+      <div class="tier-label">
+        {% if f.avg_cmmi is not none %}avg CMMI {{ "%.2f"|format(f.avg_cmmi) }} &middot; {% endif %}{{ f.categories | length }} Categories scored
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+  <div class="radar-block">
+    {{ radar_html | safe }}
+  </div>
+
+  {% for f in functions %}
+  <section class="function-section" style="--fn-color: {{ f.color }}">
+    <h2>{{ f.name }}{% if f.tier %} — Tier {{ f.tier }}{% endif %}</h2>
+
+    {% for c in f.categories %}
+    <div class="category-card">
+      <h3>{{ c.category_id }} — {{ c.name }}</h3>
+      <div class="cat-meta">
+        <span class="cmmi-pill" style="background: {{ cmmi_colors[c.cmmi_level] }}">
+          CMMI {{ c.cmmi_level }}
+        </span>
+        confidence {{ "%.0f"|format(c.confidence * 100) }}%
+        {% if c.no_doc_evidence %}<span class="no-doc-flag">no doc evidence</span>{% endif %}
+      </div>
+
+      <p class="reasoning">{{ c.reasoning }}</p>
+
+      {% if c.subcategory_scores %}
+      <table class="subs">
+        <thead>
+          <tr>
+            <th>Subcategory</th>
+            <th>CMMI</th>
+            <th>Evidence</th>
+            <th>Observations</th>
+            <th>Gap</th>
+            <th>Recommendation</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for s in c.subcategory_scores %}
+          <tr>
+            <td>{{ s.subcategory_id }}{% if s.name %} — {{ s.name }}{% endif %}</td>
+            <td class="center">{{ s.cmmi_level }}</td>
+            <td class="center">{{ s.evidence_status }}</td>
+            <td>{{ s.observations }}</td>
+            <td>{{ s.gap }}</td>
+            <td>{{ s.recommendation }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% endif %}
+
+      {% if c.evidence_citations %}
+      <div class="evidence-list">
+        <strong>Evidence citations</strong>
+        <ul>
+          {% for e in c.evidence_citations %}
+          <li>{{ e.doc_title }}{% if e.section %} &middot; {{ e.section }}{% endif %} (p.{{ e.page_start }}{% if e.page_end != e.page_start %}&ndash;{{ e.page_end }}{% endif %}) &mdash; &ldquo;{{ e.snippet }}&rdquo;</li>
+          {% endfor %}
+        </ul>
+      </div>
+      {% endif %}
+
+      {% if c.interview_evidence %}
+      <div class="interview-list">
+        <strong>Interview evidence</strong>: {{ c.interview_evidence | join(", ") }}
+      </div>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </section>
+  {% endfor %}
+
+</div>
+</body>
+</html>

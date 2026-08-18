@@ -30,3 +30,4 @@ docs/*task*
 *.xlsx
 docs/session-persistence-dataflow.md
 02.*
+report.html

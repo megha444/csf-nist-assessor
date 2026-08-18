@@ -74,7 +74,7 @@ Legend: **[M]** = Megha (tech), **[T]** = Teammate (KPMG domain). Check off as c
 
 ### Tue Aug 18 (teammate: evening only)
 - [x] **[M]** unplanned, ahead of scheduled items — `.xlsx` ingest support (`csf_gateway/app/ingest/xlsx_parser.py`). Unblocks 3 of the 5 previously-unsupported real Northwind files (Vendor List, Enterprise Risk Register, Regulatory Requirements Register). Verified end-to-end incl. a live `GV.SC` scoring run citing all 3 as evidence. `.pptx` (2 remaining files) explicitly deferred, not built — see `docs/HANDOFF.md`.
-- [ ] **[M]** by 6 PM ET — report generator v2: HTML output via Jinja2, Plotly radar chart embedded
+- [x] **[M]** by 6 PM ET — report generator v2: HTML output via Jinja2, Plotly radar chart embedded — `csf_specialists/scripts/export_html.py` + `csf_specialists/templates/report.html.j2`. Reuses `export_json.build_report` (same Firestore read, no second query path). Radar: one polar trace per scored Function, one spoke per its Categories, r=CMMI level 1-5. Per-Category cards: CMMI pill (own 5-color ramp, distinct from the 4-color Tier ramp), confidence, `no_doc_evidence` flag, reasoning, full Subcategory table (observations/gap/recommendation), evidence citations, interview evidence ids. Verified against real persisted data (`23a53272-.../phaseF`, 6 Govern Categories) via headless-Chrome screenshot — caught and fixed one real bug along the way (Tier badge was dumping the raw Firestore dict instead of the `tier` int).
 - [ ] **[M]** by 9 PM ET — Streamlit app v1: upload docs, chat interview, view report
 - [ ] **[M]** NEW, pulled forward from Mon Aug 24 — Agent Observability v1: OpenTelemetry spans around the ADK calls in `agent_base.py` + `interview.py`. Cheapest real Fortified win (purely additive logging, no new IAM/security model) — doing it now while touching agent code anyway, rather than saving it for the Aug 24 crunch.
 - [ ] **[T]** by 10 PM ET — complete Detect Categories rubric + 8 Detect interview questions
@@ -95,6 +95,7 @@ Legend: **[M]** = Megha (tech), **[T]** = Teammate (KPMG domain). Check off as c
 ### Fri Aug 21 (teammate: evening only)
 - [ ] **[M]** by 3 PM ET — vertical slice integration: upload → interview → Govern scores CMMI → aggregates to Tier → LLM-as-Judge validates → report with radar
 - [ ] **[M]** by 9 PM ET — fix all breakages found during first end-to-end run
+- [ ] **[M]** NEW, added Aug 18, flexible Aug 21-22 — refine report generator v2 (`csf_specialists/scripts/export_html.py` + `report.html.j2`, built today as a functional first pass): make it more comprehensive to view (drill-down/collapsible Category detail instead of one long scroll, roadmap-style gap prioritization, better print/scan layout) and integrate it into the Streamlit UI as a live view (`st.plotly_chart` for the radar / embedded HTML) rather than only a downloadable file. Do after the Streamlit app + vertical slice both exist, since this is UI-integration work, not a standalone script change.
 - [ ] **[T]** by 10 PM ET — executive summary language templates: one paragraph per Tier per Function (24 templates)
 - [ ] **[T]** by 10 PM ET — run vertical slice on Northwind docs, score Govern output herself, log disagreements
 
