@@ -19,7 +19,7 @@ from qdrant_client.http.models import PointStruct
 
 from ..doctype_taxonomy import DocType
 from ..schema import ChunkRecord, IngestStatus
-from . import chunker, docx_parser, embedder, firestore_writer, pdf_parser, tagger, vector_store
+from . import chunker, docx_parser, embedder, firestore_writer, pdf_parser, tagger, vector_store, xlsx_parser
 
 log = logging.getLogger("csf-gateway.ingest.orch")
 
@@ -56,6 +56,9 @@ async def ingest_one(
         elif lower.endswith((".docx", ".doc")):
             log.info("[%s] parsing DOCX (%s)", short, filename)
             markdown = docx_parser.docx_to_markdown(data)
+        elif lower.endswith(".xlsx"):
+            log.info("[%s] parsing XLSX (%s)", short, filename)
+            markdown = xlsx_parser.xlsx_to_markdown(data)
         else:
             raise ValueError(f"unsupported file extension: {filename}")
 

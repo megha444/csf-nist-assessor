@@ -10,7 +10,7 @@ Contract:
 
 Validation policy (all pre-checked before any side effect):
 - files length must equal doc_types length (if doc_types provided)
-- extension in {.pdf, .docx, .doc}
+- extension in {.pdf, .docx, .doc, .xlsx}
 - size <= settings.max_upload_bytes
 - doc_type must be a member of DocType
 - session must exist
@@ -57,6 +57,7 @@ _CONTENT_TYPES: dict[str, str] = {
     ".pdf":  "application/pdf",
     ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     ".doc":  "application/msword",
+    ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
 }
 _ALLOWED_EXTS = frozenset(_CONTENT_TYPES.keys())
 
@@ -69,7 +70,7 @@ _ALLOWED_EXTS = frozenset(_CONTENT_TYPES.keys())
 )
 async def post_documents(
     session_id: str,
-    files: Annotated[list[UploadFile], File(description="One or more PDF/DOCX files.")],
+    files: Annotated[list[UploadFile], File(description="One or more PDF/DOCX/XLSX files.")],
     doc_types: Annotated[
         list[str] | None,
         Form(

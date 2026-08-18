@@ -73,6 +73,7 @@ Legend: **[M]** = Megha (tech), **[T]** = Teammate (KPMG domain). Check off as c
 - [ ] **[T]** by 10 PM ET — review Govern agent scores against golden set, flag disagreements
 
 ### Tue Aug 18 (teammate: evening only)
+- [x] **[M]** unplanned, ahead of scheduled items — `.xlsx` ingest support (`csf_gateway/app/ingest/xlsx_parser.py`). Unblocks 3 of the 5 previously-unsupported real Northwind files (Vendor List, Enterprise Risk Register, Regulatory Requirements Register). Verified end-to-end incl. a live `GV.SC` scoring run citing all 3 as evidence. `.pptx` (2 remaining files) explicitly deferred, not built — see `docs/HANDOFF.md`.
 - [ ] **[M]** by 6 PM ET — report generator v2: HTML output via Jinja2, Plotly radar chart embedded
 - [ ] **[M]** by 9 PM ET — Streamlit app v1: upload docs, chat interview, view report
 - [ ] **[M]** NEW, pulled forward from Mon Aug 24 — Agent Observability v1: OpenTelemetry spans around the ADK calls in `agent_base.py` + `interview.py`. Cheapest real Fortified win (purely additive logging, no new IAM/security model) — doing it now while touching agent code anyway, rather than saving it for the Aug 24 crunch.
