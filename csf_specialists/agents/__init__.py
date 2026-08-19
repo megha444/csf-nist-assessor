@@ -10,8 +10,10 @@ from __future__ import annotations
 from csf_specialists.agent_base import SpecialistAgent
 from csf_specialists.agents.govern import govern_agent
 from csf_specialists.agents.identify import identify_agent
+from csf_specialists.agents.protect import protect_agent
 
 AGENTS: dict[str, SpecialistAgent] = {
     "govern": govern_agent,
     "identify": identify_agent,
+    "protect": protect_agent,
 }
