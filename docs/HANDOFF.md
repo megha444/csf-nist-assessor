@@ -71,7 +71,7 @@ Govern Function score = mean(31 Subs) = 1.19 → Tier 1 (Partial). Low scores ar
 7. **`task_list.md`** — daily strategic checkbox tracker
 
 **Ref materials from Sakina** (gitignored, in `Ref Docs/`):
-- `NIST Rubrics.xlsx` — 2 sheets so far (Govern, Identify); 6 + 3 Categories with 5-level CMMI text
+- `NIST Rubrics.xlsx` — 3 sheets so far (Govern, Identify, Protect — Protect added Aug 19); 6 + 3 + 5 Categories with 5-level CMMI text
 - `CSF 2.0-Implementation_Examples.xlsx` — NIST-provided per-Subcategory examples, all 6 Functions
 
 ---
@@ -253,7 +253,7 @@ Full detail (F1-F7, discovered follow-ups) in `docs/govern_build_tasks.md`.
 - ~~URGENT — confirm Northwind's actual regulatory jurisdiction~~ — **RESOLVED Aug 18: UK.** The teammate's full 16-document Northwind package (delivered Aug 15-17 into `02. Documents/`) consistently and deliberately describes Northwind as UK dual-regulated (PRA/FCA), including a filed SM&CR Statement of Responsibilities for a named CISO. The locked persona (memory + `docs/csf_assessor_hackathon_plan.md §5`) has been corrected to match. Old US-regs assumption (GLBA/NYDFS 500/PCI-DSS/SOX) is wrong, superseded.
 - ~~Northwind Financial doc package~~ — **RESOLVED.** Delivered Aug 15-17, 16 real documents in `02. Documents/`. (This line previously and incorrectly still listed it as owed — stale, fixed Aug 18.)
 - **Deprioritized Aug 18 (Megha's decision, not chasing further for now):** interview questions (all 6 Functions), evidence taxonomy v1 (doc_type → Category map), golden test set v1 (Northwind + expert CMMI scores). All three are genuinely still owed and genuinely valuable (evidence taxonomy in particular remains the biggest untapped retrieval-precision lever), but with Sakina running behind, Megha is proceeding independently using the existing Megha-authored stand-ins (`sample_data/govern_questions.json`, `northwind_preseed_govern.json`) rather than blocking on them. These stand-ins double as an interim internal testing/regression harness (structural checks — schema validity, retrieval sanity, run-to-run consistency — not true CMMI-accuracy validation, which still needs Sakina's expert judgment) until her real deliverables land and get merged in. This does **not** extend to CMMI rubrics — those stay a hard blocking dependency Megha cannot substitute for (division-of-labor hard rule: she never invents domain content).
-- Protect / Detect / Respond / Recover CMMI rubrics — still genuinely blocking; Sat Aug 22's agent deployments need these to exist first.
+- ~~Protect CMMI rubric~~ — **delivered Aug 19** (`Ref Docs/NIST Rubrics.xlsx` sheet Protect, 5 Categories, extracted to `csf_specialists/rubrics/protect.yaml` + `implementation_examples/protect.yaml`). Detect / Respond / Recover CMMI rubrics — still genuinely blocking; Sat Aug 22's agent deployments need these to exist first.
 - Recommendation templates keyed by (subcategory_id, transition) — due Wed Aug 19
 - Executive summary templates (24 = 4 Tiers × 6 Functions) — due Fri Aug 21
 - ~~Northwind reg confirmation~~ — **RESOLVED Aug 18** (UK PRA/FCA, not the old US GLBA/NYDFS/PCI/SOX guess — see §7 Megha pending list)

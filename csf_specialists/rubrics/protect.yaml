@@ -1,0 +1,151 @@
+function: protect
+categories:
+  PR.AA:
+    name: Identity Management, Authentication, and Access Control
+    importance: 2
+    levels:
+      1: No formal identity or access management process. Accounts are provisioned informally, often by
+        whoever has admin rights at the time, with no consistent approval step. Authentication relies
+        on passwords alone across the estate, including for privileged and administrative accounts. Access
+        is rarely revoked promptly on role change or termination, and there is no visibility into who
+        currently has access to what. Privileged accounts are not distinguished from standard user accounts
+        in how they're managed.
+      2: Basic account provisioning exists but is manual and inconsistent across systems — some platforms
+        have documented processes, others rely on tribal knowledge. Multi-factor authentication may be
+        enforced for some systems (often newer or cloud-based ones) but not consistently across legacy
+        or on-premises platforms, including privileged access to core systems. Access reviews happen occasionally
+        but are not scheduled, comprehensive, or evidenced. Least privilege is a stated intention rather
+        than an enforced practice.
+      3: A documented identity and access management process exists organization-wide, covering provisioning,
+        periodic access review, and timely de-provisioning on termination or role change. MFA is a defined
+        requirement for privileged and remote access, though enforcement may still have gaps on specific
+        legacy platforms pending remediation. Access is granted based on defined roles or job function
+        (least privilege as policy), and privileged accounts are identified and tracked separately from
+        standard accounts.
+      4: Access control effectiveness is measured — e.g., access review completion rates, time-to-revoke
+        on termination, and MFA coverage percentage across the estate are tracked against targets and
+        reported to oversight. Exceptions are logged, risk-accepted with a named owner, and tracked to
+        a remediation date rather than left open indefinitely. Privileged access is subject to enhanced
+        controls (e.g., just-in-time access, session monitoring) beyond standard account management.
+      5: Identity and access management is continuously informed by risk signals — anomalous access patterns,
+        threat intelligence on credential-based attacks, and incident learnings directly drive access
+        policy changes (e.g., a credential-compromise incident that led to broader adoption of passwordless
+        or phishing-resistant authentication). The organization can point to specific access model changes
+        driven by this data. Access control maturity is benchmarked and reported as a standing metric
+        to leadership, not just tracked operationally.
+  PR.AT:
+    name: Awareness and Training
+    importance: 2
+    levels:
+      1: No formal security awareness or training program. Staff receive no structured cybersecurity education
+        beyond whatever they pick up informally. There is no distinction between general workforce awareness
+        needs and the specialized training needs of technical or privileged-access staff. Training, where
+        it exists at all, is not tracked, and there is no way to know who has or hasn't received it.
+      2: General awareness training exists, typically delivered once at onboarding, but is not refreshed
+        on a recurring cycle and completion is not systematically tracked to individual level. Role-based
+        or specialized training for privileged users, developers, or other higher-risk roles is arranged
+        informally and reactively rather than following any defined curriculum. Phishing simulation or
+        similar practical reinforcement, if it happens, is ad hoc.
+      3: A documented awareness and training program exists, delivered to all staff on a recurring (typically
+        annual) cycle via a defined platform, with completion tracked to individual level and reported
+        to a named owner. Specialized or role-based training is identified as a distinct requirement for
+        privileged users and technical staff, even if the specific curriculum and cadence for that specialized
+        track isn't yet as mature as the general program. Phishing simulation runs periodically.
+      4: Training completion is measured against a defined KPI (e.g., percentage completion within a set
+        window of campaign launch) and reported to oversight on a recurring basis, with non-completion
+        escalated through a defined path. Specialized training for privileged and technical roles follows
+        a defined curriculum and refresh cadence, not just general-audience content. Phishing simulation
+        results are analyzed and used to target follow-up training at higher-risk individuals or teams.
+      5: Training content and targeting are continuously refined using incident data, phishing simulation
+        trends, and emerging threat patterns — the organization can point to specific curriculum changes
+        driven by this data (e.g., new module introduced after a specific attack technique succeeded in
+        simulation or in a real incident). Awareness effectiveness is measured through behavioral indicators
+        (e.g., reporting rates, simulation click-through trends over time) rather than completion alone,
+        and benchmarked against prior periods or peers.
+  PR.DS:
+    name: Data Security
+    importance: 2
+    levels:
+      1: No formal data classification or handling scheme exists. Data is not consistently identified
+        as sensitive or non-sensitive, and protection measures (encryption, access restriction) are applied
+        inconsistently or not at all, often depending on the system rather than the sensitivity of the
+        data itself. There's no organizational view of where sensitive data resides across the estate.
+      2: A data classification scheme may exist on paper but is inconsistently applied — some systems
+        or teams classify data, others don't, and there's no reliable way to confirm where sensitive data
+        actually lives. Encryption at rest and in transit is applied to some systems (often newer ones)
+        but not consistently across the full estate, including legacy platforms. Data handling requirements
+        are not consistently reflected in contracts or third-party arrangements.
+      3: A documented data classification scheme is applied organization-wide, with defined handling requirements
+        per classification tier (encryption, access restriction, retention). Encryption at rest and in
+        transit is a defined requirement and is applied consistently for new systems, with known and tracked
+        exceptions on legacy platforms where remediation is planned. Data handling requirements are incorporated
+        into standard contract language for third parties processing organizational data.
+      4: Data protection controls are measured — e.g., encryption coverage percentage across the estate,
+        data loss prevention alert volumes and resolution rates, and classification accuracy (spot-checked
+        or tooling-verified) are tracked and reported. Exceptions to encryption or classification requirements
+        are risk-accepted with a named owner and target remediation date rather than left indefinitely
+        open. Data minimization and retention limits are enforced, not just documented.
+      5: Data security controls are continuously informed by data discovery tooling, incident and near-miss
+        data, and evolving regulatory requirements, with a demonstrable feedback loop into classification
+        and handling policy (e.g., a new data type added to the classification scheme after a discovery
+        exercise surfaced unclassified sensitive data). The organization can show specific technical or
+        process changes driven by this data. Data protection posture is benchmarked and reported as a
+        standing metric.
+  PR.PS:
+    name: Platform Security
+    importance: 2
+    levels:
+      1: No formal configuration management, patching, or hardening standard exists. Systems are built
+        and maintained inconsistently, often depending on whichever administrator set them up. Vulnerabilities
+        are identified and remediated reactively, if at all, with no defined patch timeframes even for
+        critical vulnerabilities. No secure baseline configuration exists to build against or check drift
+        from.
+      2: Basic patching happens but without a defined SLA, particularly for legacy or harder-to-patch
+        platforms, where patching may lag significantly behind newer systems. A configuration or hardening
+        standard may exist for some platforms but is not consistently applied or verified across the estate.
+        Vulnerability scanning happens periodically but findings are not consistently tracked to remediation,
+        and there's no defined timeframe distinguishing critical from lower-severity findings.
+      3: A documented configuration and patch management standard exists organization-wide, including
+        defined patch timeframes scaled by severity, with known and tracked exceptions on legacy platforms
+        where remediation is constrained or planned. Vulnerability scanning runs on a defined schedule,
+        with findings logged, owned, and tracked to closure. Baseline secure configurations exist for
+        major platform types, including the legacy estate.
+      4: Patch compliance and vulnerability remediation are measured against defined SLAs, with overdue
+        rates tracked and escalated, and reported to oversight on a recurring basis. Configuration drift
+        from baseline is actively monitored, not just defined on paper. Legacy platform exceptions are
+        risk-accepted with a named owner, compensating controls, and a target remediation date rather
+        than left open indefinitely.
+      5: Platform security practices are continuously refined using vulnerability trend data, threat intelligence
+        on actively exploited vulnerabilities, and incident learnings, with SLAs and prioritization adjusted
+        based on this input (e.g., accelerated patch timeframes for a vulnerability class after it was
+        observed being exploited in the wild against similar organizations). The organization can point
+        to specific hardening or process changes driven by this data, and platform security posture is
+        benchmarked as a standing metric.
+  PR.IR:
+    name: Technology Infrastructure Resilience
+    importance: 2
+    levels:
+      1: No formal resilience architecture or redundancy planning exists for critical infrastructure.
+        Failover and redundancy mechanisms, where they exist at all, are undocumented and untested. There
+        is no defined relationship between infrastructure resilience design and business continuity or
+        operational resilience requirements — technology resilience and business impact tolerance are
+        managed by different people who don't talk to each other.
+      2: Some redundancy and failover capability exists for critical systems, but it is not consistently
+        documented, tested, or explicitly mapped to defined recovery objectives. Network segmentation
+        may exist in parts of the estate but is not applied consistently or based on a documented architecture
+        principle. Capacity planning happens reactively rather than as a scheduled, forward-looking exercise.
+      3: A documented resilience architecture exists for critical infrastructure, including defined network
+        segmentation principles and failover/redundancy design for systems supporting critical or important
+        business services. Capacity planning is performed on a defined schedule. Failover mechanisms are
+        exercised as part of routine operations, though testing directly against formally defined recovery
+        or impact tolerance targets may not yet be systematic.
+      4: Failover and redundancy mechanisms are tested against defined, measurable targets (e.g., recovery
+        time objectives or impact tolerances), with test results tracked and gaps remediated on a target
+        timeline. Capacity headroom is actively monitored against thresholds, not just planned annually.
+        Network segmentation effectiveness is periodically verified (e.g., through testing or architecture
+        review) rather than assumed from the original design.
+      5: Infrastructure resilience design is continuously informed by scenario testing outcomes, actual
+        incident/outage data, and evolving threat models (e.g., architecture changes driven by lessons
+        from a failover test that didn't meet its target, or from an actual outage). The organization
+        can demonstrate specific architectural changes traceable to this feedback loop. Resilience posture
+        is benchmarked against defined tolerances and reported as a standing metric to oversight.

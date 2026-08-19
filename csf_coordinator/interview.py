@@ -33,9 +33,10 @@ from csf_specialists.loaders import examples_for_category, load_rubric
 log = logging.getLogger("csf-coordinator.interview")
 
 PROMPT_TEMPLATE_PATH = Path(__file__).parent / "prompts" / "next_question.txt"
-SAMPLE_DATA_DIR = Path(__file__).resolve().parents[1] / "csf_specialists" / "sample_data"
+SAMPLE_DATA_DIR = Path(__file__).resolve(
+).parents[1] / "csf_specialists" / "sample_data"
 
-MAX_QUESTIONS = 12
+MAX_QUESTIONS = 35
 ADK_APP_NAME = "csf-coordinator-interview"
 ADK_USER_ID = "csf-assessor"
 
@@ -54,7 +55,8 @@ def _get_firestore_client() -> AsyncClient:
     global _firestore_client
     if _firestore_client is None:
         s = get_settings()
-        _firestore_client = AsyncClient(project=s.google_cloud_project, database=s.firestore_database)
+        _firestore_client = AsyncClient(
+            project=s.google_cloud_project, database=s.firestore_database)
     return _firestore_client
 
 
@@ -63,7 +65,8 @@ class NextQuestionDecision(BaseModel):
     done: bool
     question_id: str | None = None
     question: str | None = None
-    category_hint: str | None = Field(None, description="Subcategory id, e.g. 'GV.SC-07'")
+    category_hint: str | None = Field(
+        None, description="Subcategory id, e.g. 'GV.SC-07'")
     source: Literal["seed", "generated"] | None = None
     reasoning: str
 
@@ -84,13 +87,15 @@ def _get_runner() -> Runner:
             ),
         )
         _session_service = InMemorySessionService()
-        _runner = Runner(agent=_llm_agent, app_name=ADK_APP_NAME, session_service=_session_service)
+        _runner = Runner(agent=_llm_agent, app_name=ADK_APP_NAME,
+                         session_service=_session_service)
     return _runner
 
 
 async def _fetch_answers(session_id: str, function: Function) -> list[dict]:
     client = _get_firestore_client()
-    coll = client.collection("sessions").document(session_id).collection("answers")
+    coll = client.collection("sessions").document(
+        session_id).collection("answers")
     query = coll.where(filter=FieldFilter("function", "==", function))
     return [snap.to_dict() async for snap in query.stream()]
 
@@ -214,10 +219,13 @@ async def decide_next_question(session_id: str, function: Function) -> NextQuest
 
     coverage = await _compute_coverage(session_id, function)
     seed_questions = _load_seed_questions(function)
+    print(
+        f"[interview/{function}] coverage={coverage}, prior_qa={prior_qa}, seed_questions={seed_questions}")
     seed_ids = {q["id"] for q in seed_questions}
     asked_seed_ids = {a["id"] for a in prior_qa if a.get("id") in seed_ids}
 
-    prompt = _build_prompt(function, coverage, seed_questions, asked_seed_ids, prior_qa, questions_asked)
+    prompt = _build_prompt(function, coverage, seed_questions,
+                           asked_seed_ids, prior_qa, questions_asked)
 
     runner = _get_runner()
     adk_session_id = str(uuid.uuid4())
@@ -227,16 +235,19 @@ async def decide_next_question(session_id: str, function: Function) -> NextQuest
     async for event in runner.run_async(
         user_id=ADK_USER_ID,
         session_id=adk_session_id,
-        new_message=types.Content(role="user", parts=[types.Part(text=prompt)]),
+        new_message=types.Content(
+            role="user", parts=[types.Part(text=prompt)]),
     ):
         if event.is_final_response():
             final_event = event
 
     if final_event is None:
-        raise RuntimeError(f"[interview/{function}] ADK runner produced no final response event.")
+        raise RuntimeError(
+            f"[interview/{function}] ADK runner produced no final response event.")
 
     actions = getattr(final_event, "actions", None)
-    state_delta = (getattr(actions, "state_delta", None) or {}) if actions else {}
+    state_delta = (getattr(actions, "state_delta", None)
+                   or {}) if actions else {}
     state_dict = state_delta.get("decision")
     if state_dict is None:
         raw = "".join(
@@ -250,7 +261,8 @@ async def decide_next_question(session_id: str, function: Function) -> NextQuest
     decision = NextQuestionDecision.model_validate(state_dict)
 
     if decision.source == "generated" and not decision.question_id:
-        decision = decision.model_copy(update={"question_id": f"gen-{uuid.uuid4().hex[:8]}"})
+        decision = decision.model_copy(
+            update={"question_id": f"gen-{uuid.uuid4().hex[:8]}"})
 
     log.info(
         "[interview/%s] turn %d: done=%s source=%s question_id=%s",
@@ -273,7 +285,8 @@ async def record_answer(
     agent_base._fetch_answers already reads, so live-chat answers feed scoring
     identically to preseed, no changes needed there."""
     client = _get_firestore_client()
-    ref = client.collection("sessions").document(session_id).collection("answers").document(question_id)
+    ref = client.collection("sessions").document(
+        session_id).collection("answers").document(question_id)
     provenance = _SOURCE_TO_PROVENANCE[source]
     await ref.set({
         "id": question_id,
@@ -285,7 +298,8 @@ async def record_answer(
         "importance": importance,
         "answered_at": datetime.now(timezone.utc),
     })
-    log.info("[interview/%s] recorded answer %s (provenance=%s)", function, question_id, provenance.value)
+    log.info("[interview/%s] recorded answer %s (provenance=%s)",
+             function, question_id, provenance.value)
 
 
 async def list_all_answers(session_id: str) -> list[dict]:
@@ -294,9 +308,11 @@ async def list_all_answers(session_id: str) -> list[dict]:
     a session is reopened, since nothing about it lives only in Streamlit state).
     Records written before answered_at existed sort first (missing key ~ None)."""
     client = _get_firestore_client()
-    coll = client.collection("sessions").document(session_id).collection("answers")
+    coll = client.collection("sessions").document(
+        session_id).collection("answers")
     answers = [snap.to_dict() async for snap in coll.stream()]
-    answers.sort(key=lambda a: a.get("answered_at") or datetime.min.replace(tzinfo=timezone.utc))
+    answers.sort(key=lambda a: a.get("answered_at")
+                 or datetime.min.replace(tzinfo=timezone.utc))
     return answers
 
 
