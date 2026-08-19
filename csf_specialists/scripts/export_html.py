@@ -1,8 +1,16 @@
 """
-Report generator v2 — HTML output for one run: exec-style header, a Plotly
-radar chart (CMMI level per Category, one trace per Function), and full
-per-Category detail (Subcategory table, evidence citations, interview
-evidence). Renders `csf_specialists/templates/report.html.j2` via Jinja2.
+Report generator v2 — HTML output for one run: exec-style header, two Plotly
+radars, and full per-Category detail (Subcategory table, evidence citations,
+interview evidence). Renders `csf_specialists/templates/report.html.j2` via
+Jinja2.
+
+Two radars, matching the plan's two-layer scoring model (`docs/
+csf_assessor_hackathon_plan.md` §2/§3/§10 — "radar chart (Tier) + heatmap
+(CMMI)"): the Tier radar is the board-level view (one spoke per Function, r =
+Tier 1-4); the Category radar is the practitioner drill-down (one spoke per
+Category grouped by Function, r = CMMI 1-5). Kept as two separate charts
+deliberately — collapsing them into one Category-only radar was a v2.0 bug,
+since it dropped the executive-layer view the plan calls for.
 
 Reuses `export_json.build_report` for the Firestore-sourced structure v1
 already produces — v2 is a rendering layer on top, not a second query path.
@@ -54,8 +62,29 @@ _CMMI_COLORS: dict[int, str] = {
 }
 
 
-def _radar_figure(report: dict) -> go.Figure:
-    """One polar trace per scored Function, one spoke per its Categories, r = CMMI level (1-5)."""
+def _tier_radar_figure(report: dict) -> go.Figure:
+    """Executive view: one spoke per scored Function, r = Tier (1-4). Blank spokes
+    (r=0) mark Functions with Category scores but no aggregated Tier yet."""
+    functions = [fn for fn in FUNCTION_NAMES if fn in report["functions"]]
+    labels = [FUNCTION_NAMES[fn] for fn in functions]
+    tiers = [(report["functions"][fn]["tier"] or {}).get("tier") or 0 for fn in functions]
+
+    fig = go.Figure()
+    fig.add_trace(go.Scatterpolar(
+        r=tiers + tiers[:1], theta=labels + labels[:1],
+        fill="toself", line=dict(color="#1e2530"), name="Tier",
+    ))
+    fig.update_layout(
+        polar=dict(radialaxis=dict(visible=True, range=[0, 4], dtick=1)),
+        showlegend=False,
+        margin=dict(l=40, r=40, t=30, b=30),
+        height=380,
+    )
+    return fig
+
+
+def _category_radar_figure(report: dict) -> go.Figure:
+    """Practitioner view: one polar trace per scored Function, one spoke per its Categories, r = CMMI level (1-5)."""
     fig = go.Figure()
     for function, data in report["functions"].items():
         cat_by_id = {c["category_id"]: c for c in data["categories"]}
@@ -119,13 +148,17 @@ def _build_context(report: dict, target_org: str) -> dict:
 
 
 def render_html(report: dict, target_org: str) -> str:
-    fig = _radar_figure(report)
-    radar_html = fig.to_html(full_html=False, include_plotlyjs="cdn", config={"displayModeBar": False})
+    tier_fig = _tier_radar_figure(report)
+    category_fig = _category_radar_figure(report)
+    # Load plotly.js once (first chart only) — the second reuses the same page-level script.
+    tier_radar_html = tier_fig.to_html(full_html=False, include_plotlyjs="cdn", config={"displayModeBar": False})
+    category_radar_html = category_fig.to_html(full_html=False, include_plotlyjs=False, config={"displayModeBar": False})
 
     env = Environment(loader=FileSystemLoader(TEMPLATE_DIR), autoescape=select_autoescape(["html"]))
     template = env.get_template("report.html.j2")
     ctx = _build_context(report, target_org)
-    ctx["radar_html"] = radar_html
+    ctx["tier_radar_html"] = tier_radar_html
+    ctx["category_radar_html"] = category_radar_html
     return template.render(**ctx)
 
 

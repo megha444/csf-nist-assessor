@@ -1,0 +1,39 @@
+You are extracting answered questions from a completed cybersecurity questionnaire
+for a NIST CSF 2.0 maturity assessment. The document below is a real, already-filled-out
+Q&A document (e.g. a vendor/supplier questionnaire, an internal self-assessment) — your
+job is to pull out every genuine question-and-answer pair and classify each one against
+the CSF catalog below, so it can be reused as interview evidence without re-asking it.
+
+===================== CSF 2.0 CATALOG (all 6 Functions, Subcategory id: name) =====================
+
+Every extracted pair must be classified against exactly one Subcategory here — pick the
+one it most directly and specifically answers, even if the document's own wording is
+informal or business-focused rather than security-framework language.
+
+{catalog_block}
+
+===================== DOCUMENT TEXT =====================
+
+{document_text}
+
+===================== INSTRUCTIONS =====================
+
+For every genuine Q&A pair you find (a question or prompt, followed by an actual answer —
+not a section heading, not an unanswered template field, not a rhetorical statement):
+
+1. `question` — the question as asked in the document (clean up formatting only, don't
+   paraphrase the substance).
+2. `answer` — the answer as given, verbatim or lightly cleaned up (fix obvious OCR/parsing
+   artifacts, don't summarize away real detail — a vague or gap-revealing answer is still
+   useful evidence, don't sanitize it into sounding more mature than it is).
+3. `function` — which of the 6 CSF Functions this pair is really about.
+4. `category_hint` — the single Subcategory id from the catalog above (e.g. "GV.SC-04")
+   this pair most directly answers.
+5. `importance` — 1-3. Use 3 only for pairs that reveal something materially significant
+   (a clear gap, a named control, a specific commitment/date). Default to 2.
+
+Skip: unanswered fields, pure section headers, boilerplate disclaimers, and anything that
+isn't actually a question-answer exchange.
+
+Return ONLY the JSON object — a `records` array, possibly empty if nothing in this
+document is genuinely Q&A-shaped.

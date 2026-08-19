@@ -80,6 +80,16 @@ async def get_session(session_id: str) -> SessionState | None:
     return SessionState.model_validate(snap.to_dict())
 
 
+async def list_sessions(limit: int = 50) -> list[SessionState]:
+    """Most-recent-first session list, for the UI's session picker."""
+    query = (
+        _client_get().collection(SESSIONS_COLLECTION)
+        .order_by("created_at", direction="DESCENDING")
+        .limit(limit)
+    )
+    return [SessionState.model_validate(snap.to_dict()) async for snap in query.stream()]
+
+
 # ---------------------------------------------------------------------------
 # HTTP router — mounted at /sessions in main.py
 # ---------------------------------------------------------------------------
@@ -98,6 +108,12 @@ async def post_session(payload: CreateSessionRequest | None = None) -> SessionSt
     """
     payload = payload or CreateSessionRequest()
     return await create_session(target_org=payload.target_org, org_id=payload.org_id)
+
+
+@router.get("", response_model=list[SessionState])
+async def list_sessions_endpoint(limit: int = 50) -> list[SessionState]:
+    """Most-recent-first session list — backs the UI's session picker."""
+    return await list_sessions(limit=limit)
 
 
 @router.get("/{session_id}", response_model=SessionState)

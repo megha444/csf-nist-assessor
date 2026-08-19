@@ -13,6 +13,7 @@ from __future__ import annotations
 import json
 import logging
 import uuid
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Literal
 
@@ -282,5 +283,56 @@ async def record_answer(
         "category_hint": category_hint,
         "provenance": provenance.value,
         "importance": importance,
+        "answered_at": datetime.now(timezone.utc),
     })
     log.info("[interview/%s] recorded answer %s (provenance=%s)", function, question_id, provenance.value)
+
+
+async def list_all_answers(session_id: str) -> list[dict]:
+    """Every answer across every Function, oldest first — reconstructs a session's
+    full chat history (the UI's Chat view uses this to rebuild the transcript when
+    a session is reopened, since nothing about it lives only in Streamlit state).
+    Records written before answered_at existed sort first (missing key ~ None)."""
+    client = _get_firestore_client()
+    coll = client.collection("sessions").document(session_id).collection("answers")
+    answers = [snap.to_dict() async for snap in coll.stream()]
+    answers.sort(key=lambda a: a.get("answered_at") or datetime.min.replace(tzinfo=timezone.utc))
+    return answers
+
+
+async def decide_next_question_auto(session_id: str) -> tuple[Function | None, NextQuestionDecision]:
+    """Cross-Function meta-decision — the UI never picks a Function itself. For
+    every Function with a live agent, compute its top per-Subcategory need_score
+    (same formula _build_prompt already uses internally: category_importance /
+    (1 + coverage)), skip any Function already at MAX_QUESTIONS, and delegate to
+    the existing decide_next_question() for whichever Function is neediest.
+    decide_next_question() itself is untouched — this only decides which Function
+    to call it for, so anything calling it directly with an explicit Function
+    (tests, test_commands.md) keeps working unchanged."""
+    from csf_specialists.agents import AGENTS  # local import — csf_coordinator.coordinator does the same
+
+    best_function: Function | None = None
+    best_score = -1.0
+    for function in AGENTS:
+        prior_qa = await _fetch_answers(session_id, function)
+        if len(prior_qa) >= MAX_QUESTIONS:
+            continue
+        coverage = await _compute_coverage(session_id, function)
+        rubric = load_rubric(function)
+        top_need = max(
+            (
+                cat.importance / (1 + coverage.get(sub.subcategory_id, 0))
+                for cat_code, cat in rubric.categories.items()
+                for sub in examples_for_category(function, cat_code)
+            ),
+            default=0.0,
+        )
+        if top_need > best_score:
+            best_score = top_need
+            best_function = function
+
+    if best_function is None:
+        return None, NextQuestionDecision(done=True, reasoning="every Function has hit its question cap")
+
+    decision = await decide_next_question(session_id, best_function)
+    return best_function, decision

@@ -19,6 +19,7 @@ from fastapi.openapi.utils import get_openapi
 from .config import get_settings
 from . import chat as chat_module
 from . import documents as documents_module
+from . import qna as qna_module
 from . import sessions as sessions_module
 
 logging.basicConfig(
@@ -49,6 +50,7 @@ app = FastAPI(
 app.include_router(sessions_module.router)
 app.include_router(documents_module.router)
 app.include_router(chat_module.router)
+app.include_router(qna_module.router)
 
 
 def _swagger_friendly_openapi() -> dict:

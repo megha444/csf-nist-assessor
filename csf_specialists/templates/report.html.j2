@@ -50,13 +50,15 @@
   }
   .tier-card .tier-label { color: var(--muted); font-size: 12px; }
 
+  .radar-row { display: flex; flex-wrap: wrap; gap: 16px; margin: 8px 0 32px; align-items: stretch; }
   .radar-block {
     background: var(--card);
     border: 1px solid var(--border);
     border-radius: 8px;
     padding: 8px;
-    margin: 8px 0 32px;
+    flex: 1 1 360px;
   }
+  .radar-block h4 { margin: 6px 0 0 12px; font-size: 13px; color: var(--muted); font-weight: 600; }
 
   section.function-section { margin-bottom: 40px; }
   section.function-section > h2 {
@@ -129,8 +131,15 @@
     {% endfor %}
   </div>
 
-  <div class="radar-block">
-    {{ radar_html | safe }}
+  <div class="radar-row">
+    <div class="radar-block">
+      <h4>Overall maturity — Tier per Function</h4>
+      {{ tier_radar_html | safe }}
+    </div>
+    <div class="radar-block">
+      <h4>Category detail — CMMI per Category</h4>
+      {{ category_radar_html | safe }}
+    </div>
   </div>
 
   {% for f in functions %}
