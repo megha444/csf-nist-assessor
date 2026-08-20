@@ -6,12 +6,26 @@ per govern_build_tasks.md) — this generalizes the mechanism now so it needs no
 further coordinator changes as more agents land, just a new AGENTS entry.
 
 Composes CreateRunStep -> DispatchStep(s) -> CollectResultsStep -> AggregateStep(s)
-as a SequentialAgent (ADK's agent-composition primitive for deterministic,
-non-LLM-backed workflow steps), run through the same ADK Runner/session pattern
-used by csf_specialists.agent_base. Functions are dispatched sequentially within
-one ADK run, not across concurrent worker processes — real parallel dispatch
-needs one worker process per Function (see csf_specialists/worker.py --function),
-which is a deployment concern deferred to Phase 3, not a limit of this code.
+-> JudgeStep(s) as a SequentialAgent (ADK's agent-composition primitive for
+deterministic, non-LLM-backed workflow steps), run through the same ADK
+Runner/session pattern used by csf_specialists.agent_base. Functions are
+dispatched sequentially within one ADK run, not across concurrent worker
+processes — real parallel dispatch needs one worker process per Function (see
+csf_specialists/worker.py --function), which is a deployment concern deferred
+to Phase 3, not a limit of this code.
+
+Aggregate and Judge have no real dependency on each other (both just read the
+same persisted scores) — docs/lld.md's original sequence diagram shows them
+running in parallel via ADK's ParallelAgent. Kept sequential here instead:
+ParallelAgent isn't used anywhere else in this codebase yet, and the time
+saved is negligible (Aggregate is a cheap Firestore read+compute; Judge's LLM
+calls are the only slow part either way). Revisit if wall-clock ever matters
+enough to justify the extra primitive.
+
+Judge roughly doubles the number of LLM calls per Function (one Judge call per
+Category, same count as the original scoring calls) — a Govern run alone now
+makes 12 calls instead of 6, so total wall-clock for "Run assessment" goes up
+noticeably. Worth knowing before assuming a slow run is broken.
 
 NOTE: SequentialAgent is deprecated in google-adk 2.6.3 in favor of a new
 `Workflow`/FunctionNode API, but still fully functional and part of the public
@@ -30,7 +44,7 @@ from google.cloud.firestore import AsyncClient
 from google.genai import types
 
 from csf_coordinator.config import get_settings
-from csf_coordinator.steps import AggregateStep, CollectResultsStep, CreateRunStep, DispatchStep
+from csf_coordinator.steps import AggregateStep, CollectResultsStep, CreateRunStep, DispatchStep, JudgeStep
 from csf_gateway.app.schema import TierResult
 from csf_specialists.agents import AGENTS
 from csf_specialists.loaders import load_rubric
@@ -82,6 +96,10 @@ async def run_assessment(
     for function in functions:
         sub_agents.append(AggregateStep(
             name=f"aggregate_{function}", session_id=session_id, run_id=run_id, function=function,
+        ))
+    for function in functions:
+        sub_agents.append(JudgeStep(
+            name=f"judge_{function}", session_id=session_id, run_id=run_id, function=function,
         ))
 
     agent = SequentialAgent(name="csf_coordinator", sub_agents=sub_agents)

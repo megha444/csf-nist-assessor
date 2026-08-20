@@ -24,6 +24,7 @@ from pydantic import BaseModel, Field
 
 from csf_gateway.app.config import get_settings
 from csf_gateway.app.csf_catalog import FUNCTION_NAMES, Function
+from csf_gateway.app.llm import gemini_model
 from csf_gateway.app.schema import PreseedRecord, Provenance
 from csf_specialists.loaders import load_implementation_examples
 
@@ -68,7 +69,7 @@ def _get_runner() -> Runner:
         s = get_settings()
         _llm_agent = LlmAgent(
             name="qna_extractor",
-            model=s.gemini_flash_model,
+            model=gemini_model(s.gemini_flash_model),
             output_schema=QnAExtractionResult,
             output_key=ADK_OUTPUT_KEY,
             generate_content_config=types.GenerateContentConfig(

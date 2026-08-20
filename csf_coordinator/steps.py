@@ -11,6 +11,7 @@ there's no inter-step data-passing to reason about; each step is self-contained.
 from __future__ import annotations
 
 import logging
+from collections import Counter
 from datetime import datetime, timezone
 
 from google.adk.agents import BaseAgent
@@ -23,6 +24,7 @@ from csf_coordinator import pubsub_client
 from csf_coordinator.config import get_settings
 from csf_gateway.app.schema import RunStatus
 from csf_specialists.aggregate import aggregate_function, persist_tier
+from csf_specialists.judge import judge_run
 
 log = logging.getLogger("csf-coordinator.steps")
 
@@ -174,3 +176,23 @@ class AggregateStep(BaseAgent):
 
         log.info("[%s] run_id=%s aggregated -> Tier %d (avg_cmmi=%.3f)", self.function, self.run_id, result.tier, result.avg_cmmi)
         yield _text_event(self.name, f"Tier {result.tier} (avg_cmmi={result.avg_cmmi:.3f}) for {self.function}, run_id={self.run_id}")
+
+
+class JudgeStep(BaseAgent):
+    """Runs the LLM-as-Judge (csf_specialists.judge) over every Category
+    already scored for one Function in this run, persisting a defensibility
+    verdict per Category. Reads the same persisted scores AggregateStep does —
+    no real dependency between the two, ordered after it here purely so the
+    log narrative reads score -> aggregate -> judge, matching how a report
+    would present Tier alongside its defensibility review."""
+
+    session_id: str
+    run_id: str
+    function: str
+
+    async def _run_async_impl(self, ctx: InvocationContext):
+        results = await judge_run(self.session_id, self.run_id, self.function)
+        counts = Counter(r.defensibility for r in results)
+        summary = ", ".join(f"{k}={v}" for k, v in sorted(counts.items()))
+        log.info("[%s] run_id=%s judged %d Categories (%s)", self.function, self.run_id, len(results), summary)
+        yield _text_event(self.name, f"judged {len(results)} Categories for {self.function}: {summary}")

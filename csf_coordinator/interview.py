@@ -27,6 +27,7 @@ from pydantic import BaseModel, Field
 
 from csf_gateway.app.config import get_settings
 from csf_gateway.app.csf_catalog import Function
+from csf_gateway.app.llm import gemini_model
 from csf_gateway.app.schema import Provenance
 from csf_specialists.loaders import examples_for_category, load_rubric
 
@@ -77,7 +78,7 @@ def _get_runner() -> Runner:
         s = get_settings()
         _llm_agent = LlmAgent(
             name="interview_director",
-            model=s.gemini_flash_model,
+            model=gemini_model(s.gemini_flash_model),
             output_schema=NextQuestionDecision,
             output_key="decision",
             generate_content_config=types.GenerateContentConfig(

@@ -34,6 +34,7 @@ from csf_gateway.app.config import get_settings
 from csf_gateway.app.csf_catalog import CATEGORIES
 from csf_gateway.app.ingest.embedder import embed_query
 from csf_gateway.app.ingest.vector_store import search_session
+from csf_gateway.app.llm import gemini_model
 from csf_gateway.app.schema import EvidenceCitation, ScoreOutput
 from csf_specialists.loaders import (
     Category,
@@ -95,7 +96,7 @@ class SpecialistAgent:
         s = get_settings()
         self._llm_agent = LlmAgent(
             name=f"{self.function}_specialist",
-            model=s.gemini_flash_model,
+            model=gemini_model(s.gemini_flash_model),
             output_schema=ScoreOutput,
             output_key=ADK_OUTPUT_KEY,
             generate_content_config=types.GenerateContentConfig(

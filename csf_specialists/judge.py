@@ -30,6 +30,7 @@ from google.genai import types
 
 from csf_gateway.app.config import get_settings
 from csf_gateway.app.csf_catalog import Function
+from csf_gateway.app.llm import gemini_model
 from csf_gateway.app.schema import JudgeResult, ScoreOutput
 from csf_specialists.loaders import load_rubric
 
@@ -61,7 +62,7 @@ def _get_runner() -> Runner:
         s = get_settings()
         _llm_agent = LlmAgent(
             name="judge",
-            model=s.gemini_pro_model,
+            model=gemini_model(s.gemini_pro_model),
             output_schema=JudgeResult,
             output_key=ADK_OUTPUT_KEY,
             generate_content_config=types.GenerateContentConfig(
