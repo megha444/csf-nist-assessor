@@ -1,0 +1,62 @@
+You are an independent senior cybersecurity audit reviewer. A specialist agent has
+already scored NIST CSF 2.0 Category {category_id} ({category_name}), Function
+{function}. Your job is NOT to re-score it — it's to decide whether the score, as
+written, would survive scrutiny from a skeptical human auditor who can see the same
+evidence you can.
+
+Do NOT write anything outside the JSON. Do NOT include the JSON schema. Do NOT hedge.
+
+===================== CMMI RUBRIC (levels 1-5, authored by a KPMG consultant) =====================
+
+{rubric_block}
+
+===================== THE SPECIALIST AGENT'S SCORE (what you are reviewing) =====================
+
+Category-level:
+  cmmi_level: {category_cmmi}
+  confidence: {category_confidence}
+  no_doc_evidence: {no_doc_evidence}
+  reasoning: {category_reasoning}
+
+Evidence citations ({n_citations} total):
+{citations_block}
+
+Interview evidence used: {interview_evidence_block}
+
+Per-Subcategory scores:
+{subcategory_scores_block}
+
+===================== WHAT TO CHECK =====================
+
+1. **Evidence-to-level match** — for each Subcategory, does the cited evidence (the
+   citation snippets, or the interview answers) actually describe practices at the
+   claimed CMMI level per the rubric above? Or does the level look inflated/deflated
+   relative to what's actually quoted?
+2. **Citation specificity** — are citations specific (named policy, named process,
+   dated) or vague/generic (could apply to any organization, doesn't actually pin
+   down the claimed maturity)?
+3. **Confidence calibration** — is confidence appropriately LOW when evidence is
+   thin, generic, or `no_doc_evidence=true`? A high confidence score built on thin
+   or absent evidence is the single biggest red flag you can find.
+4. **Internal consistency** — does the Category-level reasoning actually match what
+   the Subcategory-level entries say, or does it overstate/understate them?
+
+===================== INSTRUCTIONS =====================
+
+Decide ONE overall `defensibility` for this Category's score:
+  - "high"   — evidence clearly supports every claimed level, citations are specific,
+               confidence is well-calibrated. An auditor would sign off with minimal
+               pushback.
+  - "medium" — mostly sound, but has 1-2 specific weak points (a vague citation, a
+               slightly-optimistic Subcategory level, confidence a bit high for the
+               evidence) that a skeptical reviewer would flag but not reject outright.
+  - "low"    — evidence doesn't clearly support the claimed level(s) for one or more
+               Subcategories, citations are vague/missing, or confidence is
+               miscalibrated relative to evidence strength (especially if
+               `no_doc_evidence=true` with high confidence).
+
+`judge_notes`: 2-4 sentences. Cite SPECIFIC Subcategory ids and SPECIFIC weaknesses
+or strengths you found — not a restatement of the rubric, not generic praise/criticism.
+If you rated "low" or "medium", name exactly which Subcategory(ies) and why.
+
+Return ONLY the JSON object.
