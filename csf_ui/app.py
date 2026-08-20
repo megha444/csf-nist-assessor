@@ -131,10 +131,16 @@ def _switch_session(new_sid: str | None) -> None:
 
 with st.sidebar:
     st.header("Sessions")
-    if st.button("+ New session", type="primary", width="stretch"):
-        data = _api("POST", "/sessions", json={})
-        _switch_session(data["session_id"])
-        st.rerun()
+    with st.form("new_session_form", clear_on_submit=True, border=False):
+        new_org_name = st.text_input(
+            "Company name", placeholder="e.g. Acme Corp — leave blank for the demo default",
+            label_visibility="collapsed",
+        )
+        if st.form_submit_button("+ New session", type="primary", width="stretch"):
+            body = {"target_org": new_org_name.strip()} if new_org_name.strip() else {}
+            data = _api("POST", "/sessions", json=body)
+            _switch_session(data["session_id"])
+            st.rerun()
 
     st.divider()
     for s in _api("GET", "/sessions"):
@@ -182,8 +188,28 @@ if view == "Docs":
             resp = _api("POST", f"/sessions/{sid}/documents", files=files_payload, data=data_payload)
             st.success(f"Uploaded {len(resp['files'])} file(s) — status: {resp['status']}")
 
-    docs = _api("GET", f"/sessions/{sid}/documents")
-    if docs:
+    # Cheap pre-check, outside the fragment, purely to decide whether the
+    # fragment's own timer should be armed for this render. st.rerun() cannot
+    # bootstrap a fragment-scoped rerun loop on a fragment's first/full-script
+    # run — Streamlit raises StreamlitAPIException if you try (confirmed live
+    # Aug 20) — run_every is the only sanctioned way to auto-poll a fragment.
+    # Gating it here means polling actually stops once nothing's in flight,
+    # instead of run_every="2s" firing forever for the rest of the session.
+    _docs_preview = _api("GET", f"/sessions/{sid}/documents")
+    _any_in_flight = any(d["ingest_status"] not in ("ready", "failed") for d in _docs_preview)
+
+    @st.fragment(run_every="2s" if _any_in_flight else None)
+    def _render_docs_status(session_id: str) -> None:
+        docs = _api("GET", f"/sessions/{session_id}/documents")
+        if not docs:
+            st.caption("No documents uploaded yet.")
+            return
+
+        in_flight = [d for d in docs if d["ingest_status"] not in ("ready", "failed")]
+        for d in in_flight:
+            status = _api("GET", f"/sessions/{session_id}/documents/{d['doc_id']}/status")
+            st.progress(status["progress_pct"] / 100, text=f"{d['filename']} — {status['ingest_status']}")
+
         st.dataframe(
             [
                 {
@@ -197,9 +223,8 @@ if view == "Docs":
             hide_index=True,
             width="stretch",
         )
-        st.button("Refresh status")
-    else:
-        st.caption("No documents uploaded yet.")
+
+    _render_docs_status(sid)
 
     st.divider()
     # Mutating a widget's session_state key after that widget has already been
@@ -217,6 +242,27 @@ if view == "Docs":
 # ---------------------------------------------------------------------------
 
 elif view == "Chat":
+    def _go_to_reports_and_run() -> None:
+        # Navigate first, run second: this only flips two session_state flags
+        # (fast, no blocking work) so the user actually lands on the Reports
+        # page before the slow part starts, instead of watching a spinner on
+        # the Chat page and getting teleported to Reports only once it's
+        # done. The Reports view (below) checks pending_run_assessment and
+        # does the actual _run_assessment_sync call there, with its own
+        # spinner, natively on the page the user is now looking at. Same
+        # StreamlitAPIException trap as the Docs "Next -> Chat" button applies
+        # to active_view — must be set from an on_click callback, not the
+        # normal post-click body, since segmented_control(key="active_view")
+        # has already rendered this run.
+        st.session_state.active_view = "Reports"
+        st.session_state.pending_run_assessment = True
+
+    header_col, button_col = st.columns([3, 1])
+    with header_col:
+        st.caption("Answer as many questions as you'd like — or run the assessment now with what's already covered.")
+    with button_col:
+        st.button("Run assessment now", width="stretch", on_click=_go_to_reports_and_run)
+
     with st.expander("📎 Upload a completed Q&A questionnaire (optional)"):
         qna_file = st.file_uploader(
             "A filled-out questionnaire (PDF/DOCX/XLSX) — Q&A pairs are extracted and attached as evidence.",
@@ -275,6 +321,14 @@ elif view == "Chat":
 # ---------------------------------------------------------------------------
 
 elif view == "Reports":
+    if st.session_state.pop("pending_run_assessment", False):
+        # Set by the Chat view's "Run assessment now" button — navigation
+        # already happened (we're on Reports now), this is the actual slow
+        # part, running natively on this page instead of back on Chat.
+        with st.spinner("Dispatching specialist agents — this can take several minutes..."):
+            _run_assessment_sync(sid)
+        st.rerun()
+
     run_id = session.get("run_id")
     if not run_id:
         st.info("No assessment has been run for this session yet.")
@@ -313,10 +367,12 @@ elif view == "Reports":
                 delta = f"avg CMMI {f['avg_cmmi']:.2f}" if f["avg_cmmi"] is not None else None
                 col.metric(f["name"], tier_label, delta)
             st.plotly_chart(_tier_radar_figure(report), width="stretch", config={"displayModeBar": False})
-            st.plotly_chart(_category_radar_figure(report), width="stretch", config={"displayModeBar": False})
 
         for tab, f in zip(tabs[1:], ctx["functions"]):
             with tab:
+                cat_fig = _category_radar_figure(report, f["function"])
+                if cat_fig is not None:
+                    st.plotly_chart(cat_fig, width="stretch", config={"displayModeBar": False})
                 for c in f["categories"]:
                     header = f"{c['category_id']} — {c['name']}  ·  CMMI {c['cmmi_level']}  ·  conf {c['confidence'] * 100:.0f}%"
                     with st.expander(header):

@@ -36,6 +36,9 @@ from csf_gateway.app.ingest.embedder import embed_query
 from csf_gateway.app.ingest.vector_store import search_session
 from csf_gateway.app.llm import gemini_model
 from csf_gateway.app.schema import EvidenceCitation, ScoreOutput
+from csf_gateway.app.tracing import get_tracer
+
+_tracer = get_tracer("csf-specialists")
 from csf_specialists.loaders import (
     Category,
     FunctionRubric,
@@ -140,7 +143,29 @@ class SpecialistAgent:
         If `run_id` is provided, the returned ScoreOutput is also persisted to
         `sessions/{sid}/runs/{rid}/scores/{cat}`. If None, no Firestore write —
         useful for adhoc testing (Phase F).
+
+        Thin span-wrapping shim around _score_category_impl (Agent Observability
+        v1) — kept separate so the actual scoring logic below never had to be
+        reindented under a `with` block.
         """
+        with _tracer.start_as_current_span("csf.specialist.score_category") as span:
+            span.set_attribute("csf.function", self.function)
+            span.set_attribute("csf.category_id", category_code)
+            span.set_attribute("csf.session_id", session_id)
+            if run_id:
+                span.set_attribute("csf.run_id", run_id)
+            result = await self._score_category_impl(category_code, session_id, run_id)
+            span.set_attribute("csf.cmmi_level", result.cmmi_level)
+            span.set_attribute("csf.confidence", result.confidence)
+            span.set_attribute("csf.no_doc_evidence", result.no_doc_evidence)
+            return result
+
+    async def _score_category_impl(
+        self,
+        category_code: str,
+        session_id: str,
+        run_id: str | None = None,
+    ) -> ScoreOutput:
         self._assert_owns(category_code)
         cat = self.rubric.categories[category_code]
 

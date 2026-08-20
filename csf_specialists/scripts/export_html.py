@@ -1,16 +1,20 @@
 """
-Report generator v2 — HTML output for one run: exec-style header, two Plotly
+Report generator v2 — HTML output for one run: exec-style header, Plotly
 radars, and full per-Category detail (Subcategory table, evidence citations,
 interview evidence). Renders `csf_specialists/templates/report.html.j2` via
 Jinja2.
 
-Two radars, matching the plan's two-layer scoring model (`docs/
+Two radar SCOPES, matching the plan's two-layer scoring model (`docs/
 csf_assessor_hackathon_plan.md` §2/§3/§10 — "radar chart (Tier) + heatmap
-(CMMI)"): the Tier radar is the board-level view (one spoke per Function, r =
-Tier 1-4); the Category radar is the practitioner drill-down (one spoke per
-Category grouped by Function, r = CMMI 1-5). Kept as two separate charts
-deliberately — collapsing them into one Category-only radar was a v2.0 bug,
-since it dropped the executive-layer view the plan calls for.
+(CMMI)"): one Tier radar, board-level (one spoke per Function, r = Tier 1-4),
+shown once near the top; and one Category radar PER FUNCTION, practitioner
+drill-down (one spoke per that Function's own Categories, r = CMMI 1-5), shown
+inside that Function's own section. Originally the Category radar was a
+single chart overlaying every Function's Categories together — redesigned Aug
+20 (found via live testing) since that read as one confusing merged shape
+instead of a clean per-Function drill-down; `_category_radar_figure` is now
+scoped to one Function per call, matching how the Streamlit Reports view
+already splits Overview vs. per-Function tabs.
 
 Reuses `export_json.build_report` for the Firestore-sourced structure v1
 already produces — v2 is a rendering layer on top, not a second query path.
@@ -79,30 +83,51 @@ def _tier_radar_figure(report: dict) -> go.Figure:
         showlegend=False,
         margin=dict(l=40, r=40, t=30, b=30),
         height=380,
+        autosize=True,
     )
     return fig
 
 
-def _category_radar_figure(report: dict) -> go.Figure:
-    """Practitioner view: one polar trace per scored Function, one spoke per its Categories, r = CMMI level (1-5)."""
+def _category_radar_figure(report: dict, function: str) -> go.Figure | None:
+    """Practitioner view for ONE Function: one spoke per its scored Categories,
+    r = CMMI level (1-5). Returns None if that Function has no scored
+    Categories in this report — caller should skip rendering entirely rather
+    than show an empty chart.
+
+    A single scored Category can't form a polygon (theta would repeat the
+    same angle twice, closing a zero-area loop that Plotly renders as an
+    invisible/empty-looking circle — the exact bug reported live Aug 19).
+    Rendered as a single marker instead in that case; 2+ Categories still use
+    the normal filled polygon."""
+    data = report["functions"].get(function)
+    if not data:
+        return None
+    cat_by_id = {c["category_id"]: c for c in data["categories"]}
+    ordered_ids = [c.code for c in categories_for_function(function) if c.code in cat_by_id]
+    if not ordered_ids:
+        return None
+
+    color = _FUNCTION_COLORS.get(function, "#64748b")
     fig = go.Figure()
-    for function, data in report["functions"].items():
-        cat_by_id = {c["category_id"]: c for c in data["categories"]}
-        ordered_ids = [c.code for c in categories_for_function(function) if c.code in cat_by_id]
-        if not ordered_ids:
-            continue
+    if len(ordered_ids) == 1:
+        fig.add_trace(go.Scatterpolar(
+            r=[cat_by_id[ordered_ids[0]]["cmmi_level"]], theta=ordered_ids,
+            mode="markers", marker=dict(size=14, color=color), name=FUNCTION_NAMES.get(function, function),
+        ))
+    else:
         theta = ordered_ids + ordered_ids[:1]  # close the loop
         r = [cat_by_id[cid]["cmmi_level"] for cid in ordered_ids]
         r = r + r[:1]
         fig.add_trace(go.Scatterpolar(
             r=r, theta=theta, name=FUNCTION_NAMES.get(function, function),
-            fill="toself", line=dict(color=_FUNCTION_COLORS.get(function, "#64748b")),
+            fill="toself", line=dict(color=color),
         ))
     fig.update_layout(
         polar=dict(radialaxis=dict(visible=True, range=[0, 5], dtick=1)),
-        showlegend=len(report["functions"]) > 1,
+        showlegend=False,
         margin=dict(l=40, r=40, t=30, b=30),
-        height=460,
+        height=380,
+        autosize=True,
     )
     return fig
 
@@ -148,17 +173,29 @@ def _build_context(report: dict, target_org: str) -> dict:
 
 
 def render_html(report: dict, target_org: str) -> str:
+    # responsive=True is what actually makes an embedded Plotly div respect its
+    # container width — without it, each chart renders at Plotly's own fixed
+    # default (~700px) regardless of the .radar-block flex column it sits in,
+    # which is what caused the layout to bleed into the sibling column (bug
+    # reported live Aug 19).
+    _PLOTLY_CONFIG = {"displayModeBar": False, "responsive": True}
+
     tier_fig = _tier_radar_figure(report)
-    category_fig = _category_radar_figure(report)
-    # Load plotly.js once (first chart only) — the second reuses the same page-level script.
-    tier_radar_html = tier_fig.to_html(full_html=False, include_plotlyjs="cdn", config={"displayModeBar": False})
-    category_radar_html = category_fig.to_html(full_html=False, include_plotlyjs=False, config={"displayModeBar": False})
+    # Load plotly.js once (first chart only) — every other chart on the page
+    # reuses that same page-level script via include_plotlyjs=False.
+    tier_radar_html = tier_fig.to_html(full_html=False, include_plotlyjs="cdn", config=_PLOTLY_CONFIG)
 
     env = Environment(loader=FileSystemLoader(TEMPLATE_DIR), autoescape=select_autoescape(["html"]))
     template = env.get_template("report.html.j2")
     ctx = _build_context(report, target_org)
     ctx["tier_radar_html"] = tier_radar_html
-    ctx["category_radar_html"] = category_radar_html
+
+    for f in ctx["functions"]:
+        cat_fig = _category_radar_figure(report, f["function"])
+        f["category_radar_html"] = (
+            cat_fig.to_html(full_html=False, include_plotlyjs=False, config=_PLOTLY_CONFIG) if cat_fig else None
+        )
+
     return template.render(**ctx)
 
 

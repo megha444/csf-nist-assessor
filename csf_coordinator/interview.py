@@ -29,9 +29,11 @@ from csf_gateway.app.config import get_settings
 from csf_gateway.app.csf_catalog import Function
 from csf_gateway.app.llm import gemini_model
 from csf_gateway.app.schema import Provenance
+from csf_gateway.app.tracing import get_tracer
 from csf_specialists.loaders import examples_for_category, load_rubric
 
 log = logging.getLogger("csf-coordinator.interview")
+_tracer = get_tracer("csf-coordinator")
 
 PROMPT_TEMPLATE_PATH = Path(__file__).parent / "prompts" / "next_question.txt"
 SAMPLE_DATA_DIR = Path(__file__).resolve(
@@ -211,7 +213,22 @@ def _build_prompt(
 
 async def decide_next_question(session_id: str, function: Function) -> NextQuestionDecision:
     """Public entry point — one LLM decision per turn: seed question, generated
-    question, or done."""
+    question, or done.
+
+    Thin span-wrapping shim around _decide_next_question_impl (Agent
+    Observability v1) — kept separate so the actual decision logic below
+    never had to be reindented under a `with` block."""
+    with _tracer.start_as_current_span("csf.interview.decide_next_question") as span:
+        span.set_attribute("csf.function", function)
+        span.set_attribute("csf.session_id", session_id)
+        decision = await _decide_next_question_impl(session_id, function)
+        span.set_attribute("csf.decision.done", decision.done)
+        if decision.source:
+            span.set_attribute("csf.decision.source", decision.source)
+        return decision
+
+
+async def _decide_next_question_impl(session_id: str, function: Function) -> NextQuestionDecision:
     prior_qa = await _fetch_answers(session_id, function)
     questions_asked = len(prior_qa)
 

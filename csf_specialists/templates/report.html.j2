@@ -50,15 +50,18 @@
   }
   .tier-card .tier-label { color: var(--muted); font-size: 12px; }
 
-  .radar-row { display: flex; flex-wrap: wrap; gap: 16px; margin: 8px 0 32px; align-items: stretch; }
   .radar-block {
     background: var(--card);
     border: 1px solid var(--border);
     border-radius: 8px;
     padding: 8px;
-    flex: 1 1 360px;
+    max-width: 100%;
+    min-width: 0;
+    overflow: hidden;
   }
   .radar-block h4 { margin: 6px 0 0 12px; font-size: 13px; color: var(--muted); font-weight: 600; }
+  .radar-block.tier-overview { max-width: 480px; margin: 8px auto 32px; }
+  .radar-block.category-detail { max-width: 460px; margin: 0 0 20px; }
 
   section.function-section { margin-bottom: 40px; }
   section.function-section > h2 {
@@ -131,20 +134,21 @@
     {% endfor %}
   </div>
 
-  <div class="radar-row">
-    <div class="radar-block">
-      <h4>Overall maturity — Tier per Function</h4>
-      {{ tier_radar_html | safe }}
-    </div>
-    <div class="radar-block">
-      <h4>Category detail — CMMI per Category</h4>
-      {{ category_radar_html | safe }}
-    </div>
+  <div class="radar-block tier-overview">
+    <h4>Overall maturity — Tier per Function</h4>
+    {{ tier_radar_html | safe }}
   </div>
 
   {% for f in functions %}
   <section class="function-section" style="--fn-color: {{ f.color }}">
     <h2>{{ f.name }}{% if f.tier %} — Tier {{ f.tier }}{% endif %}</h2>
+
+    {% if f.category_radar_html %}
+    <div class="radar-block category-detail">
+      <h4>Category detail — CMMI per Category</h4>
+      {{ f.category_radar_html | safe }}
+    </div>
+    {% endif %}
 
     {% for c in f.categories %}
     <div class="category-card">
