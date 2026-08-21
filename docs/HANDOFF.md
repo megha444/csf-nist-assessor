@@ -224,12 +224,13 @@ Found via a live `429 RESOURCE_EXHAUSTED` failure (triggered by Protect joining 
 |---|---|
 | Agent Observability | ✅ built + verified today (§7.8) |
 | Agent Registry | ❌ not started. Design: each agent self-registers metadata into Firestore on construction — cheap, same pattern as the Protect agent's own genericization. Planned Sat Aug 22. |
+| Agent Runtime | ❌ not started as a *tracked* item — 7th component, previously missing from this table entirely (see caveat below). Ingest pipeline already qualifies as-is (`asyncio.create_task` + Docs-view status polling) — no new code needed there. Assessment-run pipeline doesn't yet: `coordinator.run_assessment()` is internally parallel (Pub/Sub fan-out to specialist workers) but externally blocking — the Reports view calls it synchronously and spinners for up to 900s. Plan: a `run_id`-returning endpoint + backgrounded coordinator + Reports-view polling, same pattern already proven for Docs. Planned Mon Aug 24 (`task_list.md`). |
 | Agent Identity | ❌ not started. Per-agent IAM SA impersonation. Planned Sun Aug 23. |
 | Memory Bank | ❌ not started as its own thing — arguably partially covered by `runs/{run_id}.snapshot` (doc_ids/answer_ids), built Aug 17; worth confirming if that counts before building more. Planned Sun Aug 23. |
 | Agent Gateway | ❌ not started. Single authenticating/rate-limiting FastAPI ingress. Planned Mon Aug 24. |
 | Model Armor / Cloud DLP | ❌ not started. PII scrub before every LLM call. Planned Sun Aug 23. |
 
-**Caveat inherited from Day 1, still true:** this whole 6-item list is Megha's own reading of the hackathon requirements page from Aug 12, never independently re-verified against the actual official spec (deprioritized since Sakina was behind). Low risk so far (nothing's blocked on it), but worth a solo re-read before the Aug 22-24 Fortified crunch.
+**Caveat resolved Aug 20:** this list was Megha's own reading of the hackathon requirements from Aug 12, never independently re-verified against the actual official spec. Verified today against the live Devpost page — it was undercounting: the real spec names **7** components, not 6, grouped as Discovery & Lifecycle (Agent Registry), Core Execution & State (**Agent Runtime** + Memory Bank), Security & Governance (Agent Identity, Agent Gateway, Model Armor), and Telemetry (Agent Observability). Agent Runtime is now added to this table and to `task_list.md`'s Mon Aug 24 + Phase 3 Gate entries. Everything else on this page (model version, ADK, GCP infra choices, submission requirements) was already compliant.
 
 ---
 

@@ -25,6 +25,11 @@ from csf_gateway.app.schema import TierResult
 
 log = logging.getLogger("csf-specialists.aggregate")
 
+# Below this, a Category/Subcategory score counts as "insufficient evidence"
+# rather than a scorable data point. Single source of truth — report/UI layers
+# import this rather than re-hardcoding 0.6.
+CONFIDENCE_THRESHOLD = 0.6
+
 _firestore_client: AsyncClient | None = None
 
 
@@ -72,7 +77,7 @@ async def aggregate_function(session_id: str, run_id: str, function: Function) -
             f"no scores found at sessions/{session_id}/runs/{run_id}/scores for function={function!r}"
         )
 
-    scorable = [s for s in scores if s["confidence"] >= 0.6]
+    scorable = [s for s in scores if s["confidence"] >= CONFIDENCE_THRESHOLD]
     insufficient = len(scores) - len(scorable)
     avg_cmmi = (sum(s["cmmi_level"] for s in scorable) / len(scorable)) if scorable else 1.0
 

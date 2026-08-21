@@ -365,7 +365,12 @@ elif view == "Reports":
             for col, f in zip(cols, ctx["functions"]):
                 tier_label = f"Tier {f['tier']}" if f["tier"] else "—"
                 delta = f"avg CMMI {f['avg_cmmi']:.2f}" if f["avg_cmmi"] is not None else None
-                col.metric(f["name"], tier_label, delta)
+                n_insufficient = f["insufficient_evidence_count"]
+                help_text = (
+                    f"{n_insufficient} Categor{'y' if n_insufficient == 1 else 'ies'} below confidence threshold"
+                    if n_insufficient else None
+                )
+                col.metric(f["name"], tier_label, delta, help=help_text)
             st.plotly_chart(_tier_radar_figure(report), width="stretch", config={"displayModeBar": False})
 
         for tab, f in zip(tabs[1:], ctx["functions"]):
@@ -375,7 +380,11 @@ elif view == "Reports":
                     st.plotly_chart(cat_fig, width="stretch", config={"displayModeBar": False})
                 for c in f["categories"]:
                     header = f"{c['category_id']} — {c['name']}  ·  CMMI {c['cmmi_level']}  ·  conf {c['confidence'] * 100:.0f}%"
+                    if c["low_confidence"]:
+                        header += "  ·  ⚠ insufficient evidence"
                     with st.expander(header):
+                        if c["low_confidence"]:
+                            st.warning("Confidence below threshold — treat this Category's score as provisional.")
                         if c["no_doc_evidence"]:
                             st.warning("No document evidence for this Category.")
                         st.write(c["reasoning"])
@@ -386,6 +395,7 @@ elif view == "Reports":
                                         "Subcategory": f"{s['subcategory_id']} — {s['name']}" if s.get("name") else s["subcategory_id"],
                                         "CMMI": s["cmmi_level"],
                                         "Evidence": s["evidence_status"],
+                                        "Confidence": f"{s['confidence'] * 100:.0f}%" + (" ⚠" if s["low_confidence"] else ""),
                                         "Observations": s["observations"],
                                         "Gap": s["gap"],
                                         "Recommendation": s["recommendation"],

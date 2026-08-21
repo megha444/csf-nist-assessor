@@ -29,13 +29,14 @@ from openpyxl.utils import get_column_letter
 
 from csf_gateway.app.config import get_settings
 from csf_gateway.app.csf_catalog import CATEGORIES, FUNCTION_NAMES
+from csf_specialists.aggregate import CONFIDENCE_THRESHOLD
 from csf_specialists.loaders import load_implementation_examples
 
 COLUMNS = [
     "Function", "Category", "Subcategory",
-    "Notes/Observations", "GapsFindings", "Recommendations", "Scores",
+    "Notes/Observations", "GapsFindings", "Recommendations", "Scores", "Confidence",
 ]
-COLUMN_WIDTHS = [12, 34, 48, 50, 50, 50, 8]
+COLUMN_WIDTHS = [12, 34, 48, 50, 50, 50, 8, 14]
 
 
 async def fetch_scores(session_id: str, run_id: str) -> list[dict]:
@@ -63,6 +64,10 @@ def build_rows(scores: list[dict]) -> list[list]:
             sub_id = ss["subcategory_id"]
             sub_meta = examples.get(sub_id)
             subcategory_label = f"{sub_id} — {sub_meta.name}" if sub_meta else sub_id
+            confidence = ss["confidence"]
+            confidence_label = f"{confidence * 100:.0f}%"
+            if confidence < CONFIDENCE_THRESHOLD:
+                confidence_label += " ⚠ insufficient evidence"
             rows.append([
                 function_name,
                 category_label,
@@ -71,6 +76,7 @@ def build_rows(scores: list[dict]) -> list[list]:
                 ss.get("gap", ""),
                 ss.get("recommendation", ""),
                 ss["cmmi_level"],
+                confidence_label,
             ])
     return rows
 

@@ -40,6 +40,7 @@ from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 from csf_gateway.app.csf_catalog import FUNCTION_NAMES, categories_for_function
 from csf_gateway.app.sessions import get_session
+from csf_specialists.aggregate import CONFIDENCE_THRESHOLD
 from csf_specialists.loaders import load_implementation_examples
 from csf_specialists.scripts.export_json import build_report
 
@@ -149,8 +150,17 @@ def _build_context(report: dict, target_org: str) -> dict:
             subs = []
             for ss in sorted(c["subcategory_scores"], key=lambda s: s["subcategory_id"]):
                 meta = examples.get(ss["subcategory_id"])
-                subs.append({**ss, "name": meta.name if meta else ""})
-            categories_ctx.append({**c, "name": cat.name, "subcategory_scores": subs})
+                subs.append({
+                    **ss,
+                    "name": meta.name if meta else "",
+                    "low_confidence": ss["confidence"] < CONFIDENCE_THRESHOLD,
+                })
+            categories_ctx.append({
+                **c,
+                "name": cat.name,
+                "subcategory_scores": subs,
+                "low_confidence": c["confidence"] < CONFIDENCE_THRESHOLD,
+            })
 
         tier_data = data["tier"] or {}
         functions_ctx.append({
@@ -159,6 +169,7 @@ def _build_context(report: dict, target_org: str) -> dict:
             "color": _FUNCTION_COLORS.get(function, "#64748b"),
             "tier": tier_data.get("tier"),
             "avg_cmmi": tier_data.get("avg_cmmi"),
+            "insufficient_evidence_count": tier_data.get("insufficient_evidence_count") or 0,
             "categories": categories_ctx,
         })
 
@@ -169,6 +180,7 @@ def _build_context(report: dict, target_org: str) -> dict:
         "generated_at": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC"),
         "functions": functions_ctx,
         "cmmi_colors": _CMMI_COLORS,
+        "confidence_threshold_pct": round(CONFIDENCE_THRESHOLD * 100),
     }
 
 
