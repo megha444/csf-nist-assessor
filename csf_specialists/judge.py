@@ -32,9 +32,11 @@ from csf_gateway.app.config import get_settings
 from csf_gateway.app.csf_catalog import Function
 from csf_gateway.app.llm import gemini_model
 from csf_gateway.app.schema import JudgeResult, ScoreOutput
+from csf_gateway.app.tracing import get_tracer
 from csf_specialists.loaders import load_rubric
 
 log = logging.getLogger("csf-specialists.judge")
+_tracer = get_tracer("csf-specialists")
 
 PROMPT_TEMPLATE_PATH = Path(__file__).parent / "prompts" / "judge.txt"
 
@@ -140,7 +142,22 @@ async def judge_category(session_id: str, run_id: str, category_id: str) -> Judg
     """Review one already-scored Category's defensibility. Always persists —
     unlike score_category's optional run_id, a Judge result with nowhere to
     write to isn't a meaningful adhoc case (there's nothing to review without
-    a persisted score to begin with)."""
+    a persisted score to begin with).
+
+    Thin span-wrapping shim around _judge_category_impl (closes the Agent
+    Observability gap found Aug 21 — Judge had zero Cloud Trace instrumentation,
+    which is why real Judge activity looked like a stall during a live 6-Function
+    run). Same pattern as agent_base.py::score_category."""
+    with _tracer.start_as_current_span("csf.specialist.judge_category") as span:
+        span.set_attribute("csf.category_id", category_id)
+        span.set_attribute("csf.session_id", session_id)
+        span.set_attribute("csf.run_id", run_id)
+        result = await _judge_category_impl(session_id, run_id, category_id)
+        span.set_attribute("csf.defensibility", result.defensibility)
+        return result
+
+
+async def _judge_category_impl(session_id: str, run_id: str, category_id: str) -> JudgeResult:
     score = await _fetch_score(session_id, run_id, category_id)
     prompt = _build_prompt(score)
 

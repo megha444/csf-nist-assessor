@@ -248,8 +248,14 @@ class SpecialistAgent:
         # 5. Deterministic Category CMMI = round(mean(subcategory scores)). See ADR-0007.
         #    LLM's own top-level cmmi_level is treated as a hint; the mean is authoritative
         #    so the aggregation math is transparent + auditable.
+        #
+        #    Uses round-half-up, NOT Python's builtin round() (round-half-to-even/banker's
+        #    rounding) — found live 2026-08-21 via a real Judge-flagged defect: a mean of
+        #    exactly 2.5 silently became cmmi_level=2 (round(2.5) == 2 in Python) while the
+        #    LLM's own reasoning said "Level 3", the answer any rubric author or reader would
+        #    expect. int(x + 0.5) round-half-up matches human/rubric convention instead.
         if result.subcategory_scores:
-            computed = round(statistics.mean(s.cmmi_level for s in result.subcategory_scores))
+            computed = int(statistics.mean(s.cmmi_level for s in result.subcategory_scores) + 0.5)
             if computed != result.cmmi_level:
                 log.info(
                     "[%s/%s] LLM Category cmmi=%d, computed mean=%d — using mean",
