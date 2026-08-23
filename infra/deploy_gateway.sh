@@ -76,7 +76,10 @@ for role in \
         roles/storage.objectAdmin \
         roles/secretmanager.secretAccessor \
         roles/logging.logWriter \
-        roles/monitoring.metricWriter; do
+        roles/monitoring.metricWriter \
+        roles/pubsub.publisher \
+        roles/pubsub.subscriber \
+        roles/run.invoker; do
     gcloud projects add-iam-policy-binding "$PROJECT_ID" \
         --member="serviceAccount:$SA_EMAIL" \
         --role="$role" \

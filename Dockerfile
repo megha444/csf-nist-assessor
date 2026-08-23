@@ -33,8 +33,12 @@ WORKDIR /app
 COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
 COPY --from=builder /usr/local/bin /usr/local/bin
 
-# Copy application source (only what the gateway needs)
+# Copy application source. Shared by csf-gateway (Cloud Run service) and
+# csf-worker (Cloud Run Job, runs csf_specialists/worker.py) — one image,
+# command overridden at the Job level rather than maintaining two builds.
 COPY csf_gateway/ ./csf_gateway/
+COPY csf_specialists/ ./csf_specialists/
+COPY csf_coordinator/ ./csf_coordinator/
 
 # Run as non-root (Cloud Run best practice)
 RUN useradd --create-home --shell /bin/bash appuser && chown -R appuser:appuser /app

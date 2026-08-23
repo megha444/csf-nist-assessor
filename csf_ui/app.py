@@ -17,9 +17,12 @@ stale data left over from a different one.
 `run_assessment()` dispatches over real Pub/Sub and blocks until every
 Function's worker publishes a result (up to 15 min, see
 csf_coordinator/steps.py's CollectResultsStep) — nothing consumes those
-dispatches unless a `csf_specialists/worker.py --function <fn>` process is
-running. The "Run assessment" button spawns one one-shot worker subprocess
-per Function right before calling it, so the button works standalone.
+dispatches unless something is running `csf_specialists/worker.py --function
+<fn>`. As of Aug 23 that's a real Cloud Run Job (`csf-worker`), not a local
+subprocess — the "Run assessment" button triggers one Job execution per
+Function right before calling it, so the button still works standalone, but
+the actual scoring compute now runs on Cloud Run rather than whoever's laptop
+has Streamlit open.
 
 Usage:
   poetry run streamlit run csf_ui/app.py
@@ -27,9 +30,7 @@ Usage:
 from __future__ import annotations
 
 import asyncio
-import subprocess
 import sys
-import tempfile
 from io import BytesIO
 from pathlib import Path
 
@@ -39,7 +40,9 @@ if str(REPO_ROOT) not in sys.path:
 
 import httpx
 import streamlit as st
+from google.cloud import run_v2
 
+from csf_gateway.app.config import get_settings
 from csf_gateway.app.csf_catalog import FUNCTION_NAMES
 from csf_gateway.app.doctype_taxonomy import DocType
 from csf_specialists.agents import AGENTS
@@ -53,8 +56,14 @@ from csf_specialists.scripts.export_html import (
 from csf_specialists.scripts.export_json import build_report
 
 GATEWAY_URL = "http://localhost:8090"
-WORKER_SCRIPT = REPO_ROOT / "csf_specialists" / "worker.py"
-WORKER_LOG_DIR = Path(tempfile.gettempdir()) / "csf-ui-workers"
+
+# Cloud Run Jobs, not local subprocesses — see task_list.md's Sun Aug 23 entry.
+# One Job (csf-worker) shared by every Function, `--function` overridden per
+# execution. Fire-and-forget: run_job() starts the execution and returns
+# immediately; CollectResultsStep's own Pub/Sub polling (with its own timeout)
+# is what actually waits for completion, same as it always has.
+CLOUD_RUN_REGION = "us-central1"
+CLOUD_RUN_WORKER_JOB = "csf-worker"
 
 st.set_page_config(page_title="CSF Assessor Fleet", layout="wide")
 
@@ -81,32 +90,41 @@ def _api(method: str, path: str, **kwargs) -> dict:
     return resp.json()
 
 
+def _trigger_worker_job(function: str) -> None:
+    """Start one csf-worker Cloud Run Job execution for `function`. Fire-and-forget —
+    does not await the operation's completion, just that the execution was accepted."""
+    settings = get_settings()
+    client = run_v2.JobsClient()
+    job_name = (
+        f"projects/{settings.google_cloud_project}/locations/{CLOUD_RUN_REGION}"
+        f"/jobs/{CLOUD_RUN_WORKER_JOB}"
+    )
+    request = run_v2.RunJobRequest(
+        name=job_name,
+        overrides=run_v2.RunJobRequest.Overrides(
+            container_overrides=[
+                run_v2.RunJobRequest.Overrides.ContainerOverride(
+                    args=["csf_specialists/worker.py", "--function", function, "--timeout", "60"],
+                ),
+            ],
+        ),
+    )
+    client.run_job(request=request)
+
+
 def _run_assessment_sync(session_id: str) -> None:
-    """Spawn one worker subprocess per live Function agent, then run the real
-    coordinator (Pub/Sub dispatch → collect → aggregate). Blocking — the caller
-    wraps this in st.spinner. AggregateStep already writes run_id back onto the
-    session doc, so the caller just needs to re-fetch the session afterward."""
+    """Trigger one csf-worker Cloud Run Job execution per live Function agent,
+    then run the real coordinator (Pub/Sub dispatch → collect → aggregate).
+    Blocking — the caller wraps this in st.spinner. AggregateStep already writes
+    run_id back onto the session doc, so the caller just needs to re-fetch the
+    session afterward."""
     from csf_coordinator.coordinator import run_assessment
 
     functions = list(AGENTS.keys())
-    WORKER_LOG_DIR.mkdir(parents=True, exist_ok=True)
-
-    procs = []
     for fn in functions:
-        log_path = WORKER_LOG_DIR / f"{session_id[:8]}_{fn}.log"
-        with open(log_path, "w") as lf:
-            proc = subprocess.Popen(
-                [sys.executable, str(WORKER_SCRIPT), "--function", fn, "--timeout", "60"],
-                stdout=lf, stderr=subprocess.STDOUT, cwd=str(REPO_ROOT),
-            )
-        procs.append((fn, log_path, proc))
+        _trigger_worker_job(fn)
 
     asyncio.run(run_assessment(session_id, functions=functions))
-
-    for fn, log_path, proc in procs:
-        code = proc.wait(timeout=10)
-        if code != 0:
-            st.warning(f"worker/{fn} exited with code {code} — see {log_path}")
 
 
 # ---------------------------------------------------------------------------
