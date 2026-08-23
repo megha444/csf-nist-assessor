@@ -102,7 +102,31 @@ Legend: **[M]** = Megha (tech), **[T]** = Teammate (KPMG domain). Check off as c
 - [ ] **[T]** by 10 PM ET — CMMI rubric for all Recover Categories + 8 Recover interview questions **(COMPLETES ALL 6 FUNCTIONS)**
 - [ ] **[T]** by 10 PM ET — confirm CSF Tier aggregation ranges (CMMI avg → Tier mapping)
 
+**Note (Aug 20 evening):** Sakina says she's sent the full remaining rubrics + interview questionnaire — **not yet reflected in `Ref Docs/`** (checked directly: `NIST Rubrics.xlsx` sheet list is still `['Govern', 'Identify', 'Protect']` as of its Aug 19 15:21 timestamp, no separate questionnaire file present). Don't treat Detect/Respond/Recover or any Function's interview questions as available until the actual file lands and this is re-checked. Follow-up planned Fri Aug 21 per Megha's own call.
+
+**Infra audit (Aug 20 evening) — verified live against real GCP, not just code/docs:**
+- **Pub/Sub: solid.** All 7 topics (`csf-dispatch-{govern,identify,protect,detect,respond,recover}` + `csf-results`) and pull subscriptions are genuinely provisioned. Identify and Protect confirmed to round-trip through the exact same generic path as Govern via a real publish+pull test against GCP (not just code reading) — zero Function-specific special-casing anywhere in `pubsub_client.py`/`coordinator.py`/`worker.py`.
+- **Cloud Run gateway is 5 days stale.** `gcloud run revisions list` shows exactly one revision, `csf-gateway-00001-s7n`, created 2026-08-15. Everything since (Q&A extraction, auto-Function chat, LLM-as-Judge, retry/backoff fix, Observability, today's confidence flagging) exists only in local code — the deployed URL still serves Aug 15's version. Don't redeploy yet — wait until the Cloud Run Jobs work below lands, so the redeploy isn't wasted on soon-to-be-superseded code.
+- **No HTTP endpoint triggers `run_assessment` at all.** `csf_gateway/app/main.py` only registers `sessions`/`documents`/`chat`/`qna` routers. The coordinator is only ever called as a direct Python import from Streamlit's own process — a judge hitting the live Cloud Run URL could create a session/upload docs/chat, but could not trigger a scoring run.
+- **Specialist agents don't run on Cloud Run at all today** — Govern, Identify, and Protect are all in `AGENTS`, but the only compute that ever scores anything is a one-shot `worker.py --function <fn>` subprocess spawned locally by whoever's running Streamlit (`csf_ui/app.py::_run_assessment_sync`). `worker.py`'s own docstring already flags this as an explicit Phase 3 deferral, not an accident — but "deploy Protect + Detect" below needs to mean more than an `AGENTS` dict entry, which is all that's happened for Protect so far.
+- **Two originally-"locked" stack items were silently never built:** Cloud SQL and Vertex AI Vector Search — zero references anywhere in the code. Vector search has a documented reason (ADR-0001, Qdrant instead); Cloud SQL doesn't — Firestore silently absorbed everything with no ADR recorded. Not a functional problem, just means the original stack doc doesn't match reality (corrected in memory).
+- **Secret Manager is provisioned but unused** — `infra/setup.sh` sets it up, but both `config.py` files load from a plain local `.env` via pydantic-settings. Nothing in the running app reads from it.
+
+**Decision (Aug 20 evening) — how the compute gap gets closed:** specialist workers move to **Cloud Run Jobs**, not an always-on service. `worker.py`'s existing one-shot pull/score/publish design barely changes — one Job definition (`csf-worker`), parameterized by `--function` at execution time, replacing the `subprocess.Popen` calls in `_run_assessment_sync` (and eventually the gateway) with a Cloud Run Jobs execution call. This avoids (a) converting the pull-based consumer to a push/HTTP model, (b) paying for an always-on instance, and (c) Cloud Run's CPU-throttling-after-response gotcha that a naive in-process background task would hit. The Mon Aug 24 Agent Runtime endpoint triggers the coordinator the same way. Folded into the existing Sat Aug 22 / Mon Aug 24 slots below rather than added as new scope — see task descriptions.
+
+**Sequencing guardrail (Aug 20 evening):** this Cloud Run Jobs work is real but time-boxed to its existing Aug 22/24 slots — don't let it expand further. Innovation & Operational Utility is 40% of judging (vs. 30% for Architectural Discipline), and that criterion rides on scoring breadth/quality, which is still bottlenecked on Sakina's rubrics/interview questions/golden set, not infrastructure. Also: don't redeploy the gateway until the Job-trigger work actually lands — redeploying the current stale state first would just create a different stale snapshot.
+
 ### Fri Aug 21 (teammate: evening only)
+- [x] **[M]** NEW, unplanned — Sakina's full doc dump arrived this morning (all 6 rubrics, `Northwind Questionnaire.xlsx`, 33-doc `02. Documents 2/` package). Processed all three for real, not just filed away:
+  - Extracted all 6 rubric YAMLs (`infra/build_rubric_yaml.py --function all`, clean, 22 Categories total matching ADR-0002 exactly). Built `csf_specialists/agents/{detect,respond,recover}.py` + registered in `AGENTS` — **all 6 Function agents now exist**, verified live (construct cleanly, round-trip through real Pub/Sub, same as govern/identify/protect).
+  - Created a new clean session (`c200a026-...`, see `docs/HANDOFF.md` §10) and uploaded the 31 ingestible documents (2 `.pptx` skipped, still unsupported) — all reached `ready`.
+  - Uploaded the questionnaire (`.xlsx`, already an allowed extension, no code change anticipated) — **hit a real bug on the first try**: the full 6-sheet, ~240-row questionnaire truncated mid-JSON, because `extract_qna` makes one LLM call for the whole document and this blew past its 24,000-token output cap — exactly the "very large source document... not built here" limitation the extractor's own docstring already flagged. Root-caused (not papered over): fixed `csf_gateway/app/qna.py` to split multi-sheet `.xlsx` input by sheet (`_split_by_sheet`, on the `## SheetName` boundaries `xlsx_to_markdown` already emits) and run one `extract_qna` call per sheet concurrently, merging results. Verified twice — once as a direct Python call (234/234 records, matches sheet row counts exactly), once for real through the restarted gateway's actual HTTP endpoint, confirmed persisted in Firestore (234 answers across all 6 Functions, 31 documents).
+  - Also verified the questionnaire's "blank continuation row" structure (Category/Sub-category cells blank because they're visually merged in Excel) extracts correctly — tested on the Govern sheet before the full-document attempt, 66/66 rows correctly attributed to their Subcategory.
+  - Noted 33 files delivered vs. the 36 mentioned — numbering has gaps at #1/#24/#33, likely just Sakina's own numbering, worth a quick confirmation rather than assuming.
+- [x] **[M]** NEW, same day — ran a real full assessment against the new `c200a026-...` session (all 6 Functions, first time ever). Backend completed cleanly in under 4 minutes (dispatch 22:45:22 → last score 22:47:16 → last Judge 22:49:24, all UTC) — 22/22 Categories scored, 22/22 judged, all 6 Tiers persisted. Two real gaps found in the process, **not yet fixed, both quick**:
+  - [ ] **Judge has zero Cloud Trace instrumentation.** `csf_specialists/judge.py` has no `tracer`/`start_as_current_span` calls at all, unlike `agent_base.py::score_category`. This is why "nothing on Cloud Trace" read as a stall during the live test below — Judge was actually running (and finished) in that exact window, just invisibly. Fix: same thin-wrapper pattern already used for `score_category`/`decide_next_question` (rename impl, add a span-wrapping public method) — Agent Observability v1 was never actually complete, this closes the real gap.
+  - [ ] **`ID.RA` scoring has a literal internal contradiction, caught by Judge with "low" defensibility**: the Identify specialist set `cmmi_level=2` for this run while its own `reasoning` text explicitly says "the overall maturity sits at Level 3." Since Category `cmmi_level` is supposed to be the deterministic `round(mean(subcategory_scores))` (ADR-0007, `agent_base.py`), either the mean computation or the LLM's own reasoning text is wrong for this Category — worth checking `identify.yaml`'s ID.RA rubric text and the actual subcategory scores from run `9d71b182-...` before assuming which side is at fault.
+  - [x] **Confirmed the "hang" itself was never a backend error** — it was Streamlit's blocking synchronous call losing its live browser connection during the ~20 min the user waited (backend was done in under 4 of those minutes); a manual reload correctly showed the completed report. This is the same failure mode the already-planned Agent Runtime fix (Mon Aug 24, see below) addresses — now proven live, not hypothetical.
 - [ ] **[M]** by 3 PM ET — vertical slice integration: upload → interview → Govern scores CMMI → aggregates to Tier → LLM-as-Judge validates → report with radar
 - [ ] **[M]** by 9 PM ET — fix all breakages found during first end-to-end run
 - [ ] **[M]** NEW, added Aug 18, flexible Aug 21-22 — refine report generator v2 (`csf_specialists/scripts/export_html.py` + `report.html.j2`, built today as a functional first pass): make it more comprehensive to view (drill-down/collapsible Category detail instead of one long scroll, roadmap-style gap prioritization, better print/scan layout) and integrate it into the Streamlit UI as a live view (`st.plotly_chart` for the radar / embedded HTML) rather than only a downloadable file. Do after the Streamlit app + vertical slice both exist, since this is UI-integration work, not a standalone script change.
@@ -112,7 +136,7 @@ Legend: **[M]** = Megha (tech), **[T]** = Teammate (KPMG domain). Check off as c
 ### Phase 2 Gate (Fri EOD Aug 21)
 - [x] Vertical slice: end-to-end Govern assessment works — verified repeatedly since Aug 16 (`phaseF` run onward), and end-to-end again today via the real automated pipeline including Judge.
 - [ ] CMMI agreement rate with teammate ≥ 60% (targeting 80% by week 3) — **unmeasurable**, golden test set still doesn't exist.
-- [ ] All 6 Function CMMI rubrics locked (~22 Categories, ~110 cells) — 3 of 6 (Govern/Identify/Protect).
+- [x] All 6 Function CMMI rubrics locked (~22 Categories, ~110 cells) — **delivered by Sakina + extracted Aug 21 morning.** `Ref Docs/NIST Rubrics.xlsx` now has all 6 sheets; `infra/build_rubric_yaml.py --function all` extracted cleanly (22 Categories total, matching ADR-0002 exactly: GV=6, ID=3, PR=5, DE=2, RS=4, RC=2). Built `csf_specialists/agents/{detect,respond,recover}.py` (same 3-line pattern as govern/identify/protect), registered in `AGENTS`. **All 6 agents verified live**: construct cleanly (rubric+examples load), and all 6 round-trip through their real `csf-dispatch-{function}` Pub/Sub topic/subscription (not just govern/identify/protect as verified Aug 20 — detect/respond/recover confirmed the same way today). Not yet run against real evidence/LLM scoring — that's the natural next step once the Northwind doc package (below) is ingested.
 - [ ] All 6 Function interview questions locked (~50 questions)
 - [ ] CSF Tier aggregation ranges confirmed — implemented + technically validated repeatedly (`aggregate.py`), but not formally signed off by Sakina from a domain standpoint.
 - [ ] Executive summary templates ready
@@ -122,84 +146,68 @@ Legend: **[M]** = Megha (tech), **[T]** = Teammate (KPMG domain). Check off as c
 
 ---
 
-## PHASE 3: Fleet + Fortified Layer (Sat Aug 22 → Wed Aug 26)
+## PHASE 3: Fortified Fleet + Polish (Sun Aug 23 → Sat Aug 29) — **REPLANNED Aug 23**
 
-### Sat Aug 22 (weekend — deep work day)
-- [ ] **[M]** by 12 PM ET — deploy Protect + Detect specialist agents (4 primary Functions live)
-- [ ] **[M]** by 4 PM ET — deploy Respond + Recover agents (all 6 live)
-- [ ] **[M]** by 7 PM ET — full parallel coordinator via Pub/Sub: dispatches to all 6 agents, waits, aggregates
-- [ ] **[M]** by 9 PM ET — Agent Registry in Firestore: each agent publishes metadata (name, version, capabilities, owner Function, IAM identity) — cheap/incremental; consider having each new Function agent self-register on deploy instead of one big-bang implementation this day.
-- [ ] **[T]** by 3 PM ET — review outputs from Identify, Protect, Detect on Northwind docs
-- [ ] **[T]** by 6 PM ET — review outputs from Respond + Recover on Northwind docs
-- [ ] **[T]** by 9 PM ET — golden test set expansion to ~66 tuples covering all 22 Categories
+**Why replanned:** the original Phase 3 (Sat Aug 22 → Wed Aug 26) had zero work done in its first 1.5 days — confirmed via `git log` (no commits since before Aug 21) and live GCP state (no Cloud Run Jobs exist, gateway still on the Aug 15 revision). Original Phase 3 + Phase 4 are merged into one 7-day plan below, ending in a **hard building cutoff at EOD Sat Aug 29** — Megha's explicit call: Aug 30-31 are presentation-preparation only (demo recording, submission), no more code changes after Aug 29.
 
-### Sun Aug 23 (weekend — deep work day)
-- [ ] **[Both]** 11:00 AM–12:30 PM ET — Sunday review: vertical slice + fleet running, CMMI agreement ≥ 70%?, adjust Phase 4
-- [ ] **[M]** by 3 PM ET — Agent Identity: IAM service account per agent, workload identity binding — the hardest of the 3 originally crammed here; now has the day mostly to itself after Registry/Observability moved out (Aug 17 resequencing)
-- [ ] **[M]** by 6 PM ET — Memory Bank: per-assessment canonical target-org state in Firestore (or Vertex Memory Bank if stable) — arguably partially exists already via `runs/{run_id}.snapshot` (doc_ids/answer_ids), built Aug 17; confirm if that counts or needs more
-- [ ] **[M]** by 9 PM ET — Model Armor / Cloud DLP: PII scrub before every LLM call, log redactions — the other hard one; still same day as Identity, but no longer sharing with Registry too
-- [ ] **[T]** by 6 PM ET — draft demo script v1 (4 min, word-for-word)
-- [ ] **[T]** by 9 PM ET — pre-write 4 interview answers Northwind would give during demo
+**Slippage rule retired:** Phase 2 Gate's "cut Fleet from 6 to 4 Functions if the gate fails" no longer makes sense — all 6 Functions already exist and work (Fri Aug 21). Formally void; not being applied.
 
-### Mon Aug 24 (teammate: evening only)
-- [ ] **[M]** by 6 PM ET — Agent Gateway: single FastAPI ingress that authenticates, rate-limits, routes to agents
-- [ ] ~~**[M]** by 9 PM ET — Agent Observability: OpenTelemetry spans per agent call, exported to Cloud Trace~~ — **moved to Tue Aug 18** (Aug 17 resequencing)
-- [ ] **[M]** by 9 PM ET — NEW, added Aug 20 — Agent Runtime (7th Fortified component, previously untracked — official Devpost page lists it separately from Memory Bank under "Core Execution & State," defined as "asynchronous background execution"; see `docs/HANDOFF.md` §7.9). The ingest pipeline already qualifies as-is (`asyncio.create_task` + Docs-view status polling, no new code needed there). The assessment-run pipeline doesn't yet: `coordinator.run_assessment()` is internally parallel (real Pub/Sub fan-out to specialist workers) but externally blocking — the Reports view calls it synchronously and sits with a spinner for up to 900s. Close the gap the same way Docs already solved it: new endpoint (e.g. `POST /sessions/{sid}/run`) returns a `run_id` immediately, the coordinator sequence runs as a real background task instead of inline in the request/Streamlit script, and the Reports view polls status via `st.fragment`/`run_every` instead of blocking. Reclaims the slot Observability vacated on this day.
-- [ ] **[T]** by 10 PM ET — executive summary written for Northwind (3 paragraphs, sets tone the agent should match)
+**GEAP check (Aug 20, still valid):** Google's real "Gemini Enterprise Agent Platform" exists and is generally available, but two docs pages turned up no discoverable Agent Registry-specific API (unlike Runtime/Memory Bank, which both have direct doc links). Sticking with the hand-rolled Firestore design for Registry — see Tue Aug 25 below.
 
-### Tue Aug 25 (teammate: evening only)
-- [ ] **[M]** by 6 PM ET — report generator v3: exec summary + radar (Tier) + Category table (CMMI) + prioritized roadmap (top 10 gaps)
-- [ ] **[M]** by 9 PM ET — cost dashboard: tokens used, cost per assessment, latency per agent
-- [ ] **[T]** by 10 PM ET — findings, gaps, roadmap wording refinements based on latest agent outputs
+**Sakina — parallel track, deliberately not pinned to specific days** (her Aug 22/23 dated items never happened; stop assuming a cadence that hasn't held all month): interview questions for every Function (still never delivered — the questionnaire's 234 real answers are the working substitute for now), evidence taxonomy v1, **golden test set v1 (never delivered at any point — the standing structural risk)**, recommendation templates (30), executive summary templates (24), demo script + pre-written demo answers. Integrate whichever lands, whenever it lands — check `Ref Docs/` directly rather than assuming delivery. If the golden set never arrives, the questionnaire's 234 answers are the fallback ground truth for the automated eval (Fri Aug 28 below).
 
-### Wed Aug 26 (teammate: evening only)
-- [ ] **[M]** by 9 PM ET — final integration pass: full 6-agent fleet end-to-end with all Fortified components live
-- [ ] **[M]** by 9 PM ET — first automated golden test set eval run, log baseline scores
-- [ ] **[T]** by 10 PM ET — full re-run of assessment on Northwind, score every output, log disagreements
+### Sun Aug 23 (today — rest of day)
+- [ ] **[M]** — fix the two Aug 21 findings: Judge Cloud Trace instrumentation (same thin-wrapper pattern as `score_category`) + investigate/fix the `ID.RA` cmmi_level/reasoning contradiction
+- [ ] **[M]** — commit all outstanding uncommitted work (some has been sitting since before Aug 20 — real loss risk this close to the deadline)
+- [ ] **[M]** — start Cloud Run Jobs: build + deploy `csf-worker` (one Job definition, `--function` parameterized, same entrypoint as `worker.py`), prove the mechanism end-to-end for Govern alone before retrofitting all 6
+- [ ] **[Both]** — if possible today: a real Sakina check-in. Two Sunday reviews have already been skipped this month; with only 6 building days left, this is the one to actually have — push specifically on interview questions / golden set / evidence taxonomy status
 
-### Phase 3 Gate (Wed EOD Aug 26)
-- [ ] All 6 Function agents deployed, running in parallel via coordinator
-- [ ] Agent Registry, Agent Runtime, Memory Bank, Agent Identity, Agent Gateway, Model Armor (or DLP), Observability all working
+### Mon Aug 24
+- [ ] **[M]** — finish Cloud Run Jobs: retrofit all 6 Functions onto `csf-worker`, replace `_run_assessment_sync`'s `subprocess.Popen` calls with Cloud Run Jobs execution calls
+- [ ] **[M]** — Agent Runtime: `POST /sessions/{sid}/run` returns a `run_id` immediately, triggers the coordinator as its own Cloud Run Job execution (sidesteps Cloud Run's CPU-throttling-after-response gotcha entirely). Status polling reuses the existing `runs/{run_id}.status` field (`dispatched → partial → ready_for_report`) — no new status model needed. Reports view polls via `st.fragment`/`run_every`, same pattern as Docs. This is the exact fix for Friday's real hang (spinner stuck ~20 min after the backend finished in under 4).
+- [ ] **[M]** — redeploy the gateway — first redeploy since Aug 15, now that there's something new worth deploying
+
+### Tue Aug 25
+- [ ] **[M]** — verify the full vertical slice end-to-end against the new async/Cloud-Run-Jobs path — genuinely new code path, don't assume it works just because the old synchronous one did
+- [ ] **[M]** — Agent Registry: Firestore self-registration (name, capabilities, owner Function, IAM identity) + `GET /agents` endpoint (so it's actually discoverable/demoable) + real versioning (hash of the loaded rubric YAML content, replacing the hardcoded `"rubric_version": "v1"` in `csf_coordinator/steps.py`)
+- [ ] **[M]** — Memory Bank: confirm whether `runs/{run_id}.snapshot` (doc_ids/answer_ids, built Aug 17) genuinely satisfies "persistent cross-session context," and label/document it as such if so — cheap if it counts, build more only if it genuinely doesn't
+
+### Wed Aug 26 — checkpoint day
+- [ ] **[M]** — Agent Gateway: add auth (API key check) + rate-limiting to the existing `csf-gateway` FastAPI ingress — it's already the single ingress point, this closes the policy-enforcement gap
+- [ ] **[M]** — Model Armor / Cloud DLP: PII scrub before every LLM call, log redactions — scope to whatever's actually achievable in the time left (a real Cloud DLP API call if time allows, a proportionate regex-based redaction pass if not — either is defensible, an unshipped feature isn't)
+- [ ] **[M]** — **checkpoint**: assess whether the week is on pace. If everything above ran long, this is the day to decide whether Thu Aug 27 (Agent Identity, the hardest remaining item) gets a full day or a scoped-down version — not something to discover on Thursday itself
+
+### Thu Aug 27
+- [ ] **[M]** — Agent Identity: per-agent IAM service account + workload identity binding — the hardest of the 7 Fortified components, genuinely complex GCP IAM work with the least demo-visible payoff. Give it the full day; if it's not converging by evening, fall back to a documented design + partial implementation rather than letting it bleed into Friday/Saturday.
+- [ ] **[M]** — if Identity finishes early: start report polish (below) ahead of schedule
+
+### Fri Aug 28
+- [ ] **[M]** — report polish: v2 UI (drill-down/collapsible Category detail, roadmap-style gap prioritization, live in Streamlit not just downloadable) + v3 exec-summary integration (use Sakina's templates if delivered by now, clearly-labeled placeholder language if not — never invented as if from a real consultant)
+- [ ] **[M]** — cost dashboard: tokens used, cost per assessment, latency per agent
+- [ ] **[M]** — automated golden-set eval script: retrieval@5, CMMI agreement rate, confidence calibration → README. Build this regardless of whether Sakina's real golden set ever lands — run it against her data if it exists, against the questionnaire's 234 real answers as a fallback if it doesn't
+- [ ] **[M]** — start README + architecture diagram
+
+### Sat Aug 29 — hard cutoff, last day for code changes
+- [ ] **[M]** — full integration pass: all 6 agents + all 7 Fortified components live, end to end, one real run
+- [ ] **[M]** — reproducibility check: clone fresh, follow README, deploy from scratch, fix every broken step
+- [ ] **[M]** — finish README + architecture diagram
+- [ ] **[M]** — rough backup demo recording — even an imperfect first take, purely as a safety net before Aug 30-31 (which are for polishing the recording, not building the thing being recorded)
+- [ ] **[Both]** — if time allows: blog post drafts. Lower priority than a working demo — these are bonus-points items, not judging-criteria items — cut first if the week ran long.
+
+### Phase 3 end gate (Sat EOD Aug 29 — hard, not movable)
+- [ ] All 6 Function agents running on Cloud Run Jobs, not local subprocesses
+- [ ] Agent Registry, Agent Runtime, Memory Bank, Agent Identity, Agent Gateway, Model Armor (or DLP), Observability (incl. Judge) all working
+- [ ] Gateway redeployed and current
 - [ ] Report renders with exec summary, radar chart, CMMI table, roadmap
-- [ ] CMMI agreement ≥ 70%
-
----
-
-## PHASE 4: Polish + Eval (Thu Aug 27 → Sat Aug 29)
-
-### Thu Aug 27 (teammate: evening only)
-- [ ] **[Both]** 12–1:30 PM ET — Aug 27 webinar (Agent Memory), live or recording
-- [ ] **[M]** by 6 PM ET — fix top 10 domain errors teammate flagged
-- [ ] **[M]** by 9 PM ET — golden test set eval automated: retrieval@5, CMMI agreement rate, confidence calibration → README
-- [ ] **[M]** by 9 PM ET — prompt caching for repeated rubric context per Function agent
-- [ ] **[T]** by 10 PM ET — draft LinkedIn post (both) and blog post outline
-- [ ] **[T]** by 10 PM ET — review polished report for tone, structure, wording
-
-### Fri Aug 28 (teammate: evening only)
-- [ ] **[M]** by 6 PM ET — UI polish: radar interactive, drill-down into reasoning chain, evidence citations clickable, cost + latency badge
-- [ ] **[M]** by 9 PM ET — architecture diagram (excalidraw/draw.io): Fortified components labeled
-- [ ] **[T]** by 10 PM ET — blog post draft (domain angle): "$80K CSF assessment → 15 minutes without losing rigor"
-
-### Sat Aug 29 (weekend — both available all day)
-- [ ] **[M]** by 12 PM ET — reproducibility check: clone fresh, follow README, deploy from scratch; fix every broken step
-- [ ] **[M]** by 4 PM ET — README polish: architecture diagram, spin-up, tech stack, eval numbers, cost, limitations, future work
-- [ ] **[M]** by 7 PM ET — blog post draft (technical angle): "Multi-agent Fortified fleet on Google ADK, lessons learned"
-- [ ] **[M]** by 9 PM ET — backup demo recording session: full 4-min take end-to-end
-- [ ] **[T]** by 2 PM ET — practice demo script solo (out loud, 3 times)
-- [ ] **[T]** by 5 PM ET — full run-through of demo script on Zoom together (1 hr), refine
-- [ ] **[T]** by 9 PM ET — available for backup recording session
-
-### Phase 4 Gate (Sat EOD Aug 29)
-- [ ] CMMI agreement ≥ 80% on golden set
-- [ ] README complete, reproducible from clean clone
-- [ ] Architecture diagram done
-- [ ] Demo script rehearsed at least 3 times
-- [ ] Both blog posts drafted
+- [ ] README complete, reproducible from clean clone; architecture diagram done
 - [ ] At least one demo take recorded (backup)
+- [ ] CMMI agreement measured against *something* (real golden set or questionnaire-fallback) — even an informal number beats "unmeasurable"
 
 ---
 
 ## PHASE 5: Demo + Submit (Sun Aug 30 → Mon Aug 31)
+
+**Locked Aug 23 — Megha's explicit call:** these two days are presentation-preparation and submission only. No code changes. Everything below assumes Phase 3 is already fully done and committed by EOD Sat Aug 29.
 
 ### Sun Aug 30 (weekend — both available all day)
 - [ ] **[M]** by 11 AM ET — review Sat backup take, decide if Take 2 needed

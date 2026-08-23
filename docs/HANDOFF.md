@@ -38,7 +38,7 @@ Rewritten fresh Thu 2026-08-20 ~13:30 ET (previous version had grown into an unw
 
 **Live end-to-end demonstration exists and works,** including the full automated pipeline: upload docs → interview (AI picks Function + question) → "Run assessment" → dispatch (real Pub/Sub) → score (Gemini, retried on transient failure) → aggregate (Category CMMI → Function Tier) → **Judge** (independent defensibility review, also just wired in) → report (Streamlit native + downloadable HTML/Excel) — all traced to Cloud Trace as of today.
 
-**3 of 6 Function specialist agents exist:** Govern, Identify, Protect. Each is a ~3-line config wrapper around one fully generic `SpecialistAgent` base class — adding a new Function is now a ~10-minute job **the moment its rubric lands from Sakina**. Detect, Respond, Recover do not exist yet — blocked purely on Sakina's rubrics, not on any remaining code work.
+**All 6 Function specialist agents now exist**, as of Aug 21 morning: Sakina delivered all remaining rubrics (`Ref Docs/NIST Rubrics.xlsx` now has all 6 sheets) plus a fully-answered Q&A questionnaire and an expanded/updated 33-document Northwind package (see task_list.md's Aug 21 entries for full detail on all three). Detect/Respond/Recover agents built the same ~10-minute way Protect was — 3-line config wrapper + `AGENTS` registration — and verified live (construct cleanly, round-trip through real Pub/Sub). Not yet run against real evidence/LLM scoring at all 6 — next step once the doc package is ingested.
 
 **Today's session (this session) did three things:**
 1. Cleared **all 5** of yesterday's UI/UX backlog items (session-naming, doc-upload polling, Chat "Run assessment now" button + navigate-then-run ordering fix, and the Overview/per-Function radar chart redesign in both Streamlit and the exported HTML report) — see §7.6.
@@ -148,7 +148,7 @@ csf-nist/
 │   │   ├── judge.txt                   NEW yesterday — Judge's literal prompt
 │   │   └── qna_extract.txt             Q&A extraction prompt
 │   ├── rubrics/                        {function}.yaml, Sakina-authored, extracted via build_rubric_yaml.py
-│   │   └── govern.yaml, identify.yaml, protect.yaml   (detect/respond/recover: waiting on Sakina)
+│   │   └── all 6 present as of Aug 21: govern, identify, protect, detect, respond, recover
 │   ├── implementation_examples/        {function}.yaml, NIST's own, ALL 6 already extracted (independent
 │   │                                    of rubric availability — source xlsx always had all 6)
 │   ├── sample_data/                    Megha-authored stand-ins (labeled, temporary, see §2's hard rule)
@@ -173,7 +173,7 @@ csf-nist/
 
 ## 6. Deployed system
 
-- **Cloud Run URL:** `https://csf-gateway-jdogd2dq2q-uc.a.run.app` (may be stale relative to local — most of today's work was tested locally, not redeployed)
+- **Cloud Run URL:** `https://csf-gateway-jdogd2dq2q-uc.a.run.app` — **confirmed stale Aug 20** (`gcloud run revisions list` shows exactly one revision, `csf-gateway-00001-s7n`, created 2026-08-15). None of this week's work is live there. Also confirmed the same day: there's no HTTP endpoint for `run_assessment` at all (main.py only registers sessions/documents/chat/qna), and specialist agents have no Cloud Run presence — they only run as local one-shot `worker.py` subprocesses spawned by Streamlit. Plan to close both gaps is in `task_list.md`'s Aug 22/24 entries (Cloud Run Jobs). Don't redeploy the gateway until that lands — a redeploy now would still miss the compute-side fix.
 - **GCP project:** `csf-assessor-hackathon`
 - **Firestore:** native mode, default database. `sessions/{sid}`, scores at `sessions/{sid}/runs/{rid}/scores/{category_id}`, tiers at `.../tiers/{function}`, **judge verdicts at `.../judge/{category_id}`** (new today)
 - **Qdrant Cloud** (GCP us-east4) — collection `csf_chunks`
@@ -205,6 +205,7 @@ Category CMMI (1-5) → Function Tier (1-4, NIST's own scale — a genuinely dif
 - Persists to `sessions/{sid}/runs/{rid}/judge/{category_id}`.
 - **Not yet done:** neither `export_html.py` nor `export_json.py` reads the `judge/` collection — verdicts are persisted but invisible in every report/UI surface today. This is the natural next piece of this feature.
 - **Real cost, not hidden:** roughly doubles LLM call volume per Function scored (documented in `coordinator.py`'s own docstring).
+- **Found Aug 21, not yet fixed: `judge.py` has zero Cloud Trace instrumentation** — see §7.8's gap note. Also found the same day: Judge correctly caught a real internal-consistency defect on the first full 6-Function run — `ID.RA` scored `cmmi_level=2` while its own `reasoning` text says "the overall maturity sits at Level 3," flagged "low" defensibility. Worth checking `identify.yaml`'s ID.RA rubric text / the run's subcategory scores to find which side is actually wrong before fixing — see `task_list.md`'s Fri Aug 21 entry.
 
 ### 7.6 Streamlit UI + exported HTML report — today's biggest chunk of work
 All 5 items from yesterday's live-testing backlog are done and verified (syntax + live browser confirmation from Megha), plus one follow-up fix:
@@ -216,15 +217,16 @@ All 5 items from yesterday's live-testing backlog are done and verified (syntax 
 ### 7.7 Reliability fix — retry/backoff on every LLM call
 Found via a live `429 RESOURCE_EXHAUSTED` failure (triggered by Protect joining the agent registry — 3 concurrent workers instead of 2 — plus Judge roughly doubling call volume, landing the same week). Root cause: `LlmAgent(model="gemini-...")` — a bare string — resolves to zero retries in ADK, not even the framework's advertised defaults. Fixed via `csf_gateway/app/llm.py`'s `gemini_model()`, which wraps a model name in ADK's own native `Gemini(..., retry_options=HttpRetryOptions(...))`. Applied at **all four** `LlmAgent` construction sites (`agent_base.py`, `judge.py`, `interview.py`, `qna_extractor.py`) — not just where the error surfaced.
 
-### 7.8 Agent Observability v1 — built today, one of the 6 Fortified components
+### 7.8 Agent Observability v1 — built Aug 20, one of the 7 Fortified components — **incomplete, gap found Aug 21**
 `csf_gateway/app/tracing.py`'s `get_tracer()` — Cloud Trace export via OpenTelemetry, wrapped so a tracing failure can never break the pipeline it's observing. Applied to `agent_base.py::score_category` and `interview.py::decide_next_question` via a thin-wrapper pattern (renamed the originals to `_..._impl`, added span-wrapping public methods on top — avoided reindenting either ~100-line body). **Verified for real** via a direct Cloud Trace API query (not just "didn't crash") — spans genuinely land, and nest nicely under ADK's own auto-instrumented spans for free. `CloudTraceSpanExporter` is deprecated upstream but fully functional — same "proportionate, not gold-plated" call already made for `SequentialAgent` elsewhere in this codebase.
+- **Gap found Aug 21, not yet fixed:** `csf_specialists/judge.py` never got the same wrapper — zero tracer/span calls anywhere in it. Confirmed this matters in practice: during the first full 6-Function run, Judge was actively running (and finished successfully) during a window that looked like total silence on Cloud Trace, which read as a possible hang until Firestore timestamps proved otherwise. Fix is the identical thin-wrapper pattern already proven on `score_category`. See `task_list.md`'s Fri Aug 21 entry.
 
 ### 7.9 Fortified track components — full status
 | Component | Status |
 |---|---|
 | Agent Observability | ✅ built + verified today (§7.8) |
-| Agent Registry | ❌ not started. Design: each agent self-registers metadata into Firestore on construction — cheap, same pattern as the Protect agent's own genericization. Planned Sat Aug 22. |
-| Agent Runtime | ❌ not started as a *tracked* item — 7th component, previously missing from this table entirely (see caveat below). Ingest pipeline already qualifies as-is (`asyncio.create_task` + Docs-view status polling) — no new code needed there. Assessment-run pipeline doesn't yet: `coordinator.run_assessment()` is internally parallel (Pub/Sub fan-out to specialist workers) but externally blocking — the Reports view calls it synchronously and spinners for up to 900s. Plan: a `run_id`-returning endpoint + backgrounded coordinator + Reports-view polling, same pattern already proven for Docs. Planned Mon Aug 24 (`task_list.md`). |
+| Agent Registry | ❌ not started. Design (refined Aug 20): each agent self-registers metadata into Firestore on construction, plus a `GET /agents` endpoint for real discoverability, plus a real rubric-content-hash version field (replacing the currently-hardcoded `"rubric_version": "v1"` string in `steps.py`) so "versioning" isn't just a static placeholder. Checked whether Google's real GEAP product has a usable Agent Registry API worth integrating instead — it's a genuine, generally-available platform, but two docs pages (overview + hackathon resources) surfaced no discoverable Registry-specific API (unlike Runtime/Memory Bank, which both have direct doc links). Not worth the integration risk this close to the deadline — staying with the Firestore design. Planned Sat Aug 22. |
+| Agent Runtime | ❌ not started as a *tracked* item — 7th component, previously missing from this table entirely (see caveat below). Ingest pipeline already qualifies as-is (`asyncio.create_task` + Docs-view status polling) — no new code needed there. Assessment-run pipeline doesn't yet: `coordinator.run_assessment()` is internally parallel (Pub/Sub fan-out to specialist workers) but externally blocking — the Reports view calls it synchronously and spinners for up to 900s, and there's no HTTP endpoint for it at all today (`main.py` only registers sessions/documents/chat/qna). Plan (decided Aug 20, see task_list.md's Aug 22/24 entries): a `run_id`-returning endpoint that triggers the coordinator as a Cloud Run Job execution (same mechanism as the new `csf-worker` Job replacing specialist subprocess spawning), status polled from the `runs/{run_id}.status` field that already exists. Planned Mon Aug 24. |
 | Agent Identity | ❌ not started. Per-agent IAM SA impersonation. Planned Sun Aug 23. |
 | Memory Bank | ❌ not started as its own thing — arguably partially covered by `runs/{run_id}.snapshot` (doc_ids/answer_ids), built Aug 17; worth confirming if that counts before building more. Planned Sun Aug 23. |
 | Agent Gateway | ❌ not started. Single authenticating/rate-limiting FastAPI ingress. Planned Mon Aug 24. |
@@ -240,11 +242,12 @@ Found via a live `429 RESOURCE_EXHAUSTED` failure (triggered by Protect joining 
 
 **Megha, next up (today's remaining plan item):** confidence threshold logic — below 0.6, flag "insufficient evidence." Worth checking scope first: `aggregate_function` already does something like this at the *Function* level; this task may really be about the *Subcategory* level or report-surfacing, not new logic from scratch.
 
-**Sakina, still owed (checked directly against `Ref Docs/NIST Rubrics.xlsx` as of today):**
-- Detect, Respond, Recover CMMI rubrics — hard blocker, Megha cannot substitute. Respond was due Tue night, Recover due tonight (Thu); neither has landed as of this writing.
-- Interview questions for every Function (Megha is running entirely on her own stand-in seed questions).
-- Evidence taxonomy v1 (doc type → Category map) — still the single biggest untapped retrieval-precision lever, flagged since Aug 14.
-- Golden test set v1 — **never delivered at any point.** This is the standing structural risk (see §3).
+**Sakina, delivered Aug 21 morning — resolves the biggest standing blocker:** all 6 CMMI rubrics, a fully-answered Q&A questionnaire (`Ref Docs/Northwind Questionnaire.xlsx`, all 6 Functions, ~240 real Q&A pairs, verified extractable — see task_list.md), and an expanded/updated 33-document Northwind package (`02. Documents 2/`) covering all 6 Functions, not just Govern/Identify/Protect. Interview questions still weren't part of this drop — see below.
+
+**Sakina, still owed:**
+- Interview questions for every Function (Megha is running entirely on her own stand-in seed questions) — the Q&A questionnaire above is a strong partial substitute (real answers now exist per-Function), but isn't the same as dedicated interview *questions* for the live chat flow.
+- Evidence taxonomy v1 (doc type → Category map) — still the single biggest untapped retrieval-precision lever, flagged since Aug 14. More relevant than ever now that 02. Documents 2 has ~20 new doc concepts that don't map cleanly onto the current hardcoded `doctype_taxonomy.py` (14 entries).
+- Golden test set v1 — **never delivered at any point.** This is the standing structural risk (see §3) — though the questionnaire's real per-Subcategory answers are the closest thing to ground truth received so far and may be worth treating as an informal substitute if a real golden set never lands.
 - Recommendation templates, executive summary templates — due later, not yet delivered.
 
 ---
@@ -270,7 +273,8 @@ Found via a live `429 RESOURCE_EXHAUSTED` failure (triggered by Protect joining 
 
 ## 10. Test sessions available (already in Firestore + Qdrant)
 
-- **`23a53272-6cd8-40b8-a363-f826eb76aa6d`** — best general-purpose test session. Real Northwind-authored docs + generic SANS docs, 21 Govern preseed Q&A loaded. Has multiple persisted runs including `phaseF` (6 Govern Categories) and at least one fresh run from today's live pipeline test (`444681e5-...`, Govern-only, includes real Judge output). **Most-used session this whole project — default to this one for adhoc testing.**
+- **`c200a026-d4ae-4089-abc2-0c08bfaa7783`** — **new Aug 21, the real evidence base going forward.** Created clean specifically for Sakina's full Aug 21 delivery (all 6 rubrics + 33-doc Northwind package + fully-answered questionnaire) — no generic SANS filler. 31 real Northwind documents ingested (all `ready`; 2 `.pptx` files skipped, still unsupported). 234 real Q&A answers preseeded across **all 6 Functions** (govern=66, identify=47, protect=50, detect=24, respond=29, recover=18) via the Q&A questionnaire upload, all verified persisted in Firestore. No scoring run against it yet — natural next step once the Cloud Run Jobs work (Sat Aug 22) or a local multi-worker run makes that practical for all 6 Functions at once. **New default for anything demo-representative or all-6-Function testing** — the session below remains fine for quick Govern-only adhoc checks.
+- **`23a53272-6cd8-40b8-a363-f826eb76aa6d`** — prior general-purpose test session. Real Northwind-authored docs + generic SANS docs, 21 Govern preseed Q&A loaded. Has multiple persisted runs including `phaseF` (6 Govern Categories) and at least one fresh run from today's live pipeline test (`444681e5-...`, Govern-only, includes real Judge output). Still fine for quick single-Function adhoc testing.
 - **`f56a9039-877e-4a24-adc6-efafa22d104b`** — 2-Function (Govern+Identify) test session, run `f15764f4-e54d-4cb2-ab0d-42b0e5a3a473` has 9 persisted Category scores (6+3). Good for testing multi-Function rendering (used today to verify the radar redesign).
 - **`b8bc86d2-10ce-4c43-ad3e-081ad9203d7f`** — Northwind Financial, generic SANS docs only, has an `adhoc` scores snapshot from early Govern testing.
 - Others exist (`715a261b-...` Acme Corp, `58e14048-...` Beta Industries) for multi-org isolation testing — lower priority.
