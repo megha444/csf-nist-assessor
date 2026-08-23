@@ -5,24 +5,24 @@ tabbed reports. See docs/HANDOFF.md / task_list.md for the v1 -> v2 rationale.
 Session/document/chat/qna go over HTTP to the running csf-gateway (those own
 real async background work — ingest's fire-and-forget task, Firestore writes —
 that has to run inside the gateway's own event loop, not Streamlit's).
-Run-assessment and report generation call csf_coordinator/csf_specialists
-directly as library functions — no server-side state of their own, so HTTP
-would add nothing.
+
+As of Aug 23, run-assessment does too — POST /sessions/{sid}/run (Agent
+Runtime, see csf_gateway/app/runs.py) starts the coordinator as a real
+backgrounded task inside the gateway and returns a run_id immediately; the
+Reports view polls GET .../runs/{run_id}/status the same way Docs already
+polls per-document ingest status, instead of blocking the whole Streamlit
+script for however long the assessment takes. This replaced a real bug: the
+previous synchronous call blocked Streamlit's own connection long enough
+(minutes, worse now with 6 Functions + Judge) that the browser's live
+connection could go stale before the automatic rerun fired, leaving the
+spinner stuck even after the backend had actually finished — confirmed live
+Aug 21. Report generation still calls csf_specialists directly as a library
+function — that's a cheap read once a run is done, no reason for HTTP there.
 
 Nothing about a session lives only in Streamlit state: switching sessions
 re-fetches everything (docs, chat history, chat_state.pending/done, run_id)
 fresh from Firestore via the gateway, so reopening an old session can't show
 stale data left over from a different one.
-
-`run_assessment()` dispatches over real Pub/Sub and blocks until every
-Function's worker publishes a result (up to 15 min, see
-csf_coordinator/steps.py's CollectResultsStep) — nothing consumes those
-dispatches unless something is running `csf_specialists/worker.py --function
-<fn>`. As of Aug 23 that's a real Cloud Run Job (`csf-worker`), not a local
-subprocess — the "Run assessment" button triggers one Job execution per
-Function right before calling it, so the button still works standalone, but
-the actual scoring compute now runs on Cloud Run rather than whoever's laptop
-has Streamlit open.
 
 Usage:
   poetry run streamlit run csf_ui/app.py
@@ -40,9 +40,7 @@ if str(REPO_ROOT) not in sys.path:
 
 import httpx
 import streamlit as st
-from google.cloud import run_v2
 
-from csf_gateway.app.config import get_settings
 from csf_gateway.app.csf_catalog import FUNCTION_NAMES
 from csf_gateway.app.doctype_taxonomy import DocType
 from csf_specialists.agents import AGENTS
@@ -56,14 +54,6 @@ from csf_specialists.scripts.export_html import (
 from csf_specialists.scripts.export_json import build_report
 
 GATEWAY_URL = "http://localhost:8090"
-
-# Cloud Run Jobs, not local subprocesses — see task_list.md's Sun Aug 23 entry.
-# One Job (csf-worker) shared by every Function, `--function` overridden per
-# execution. Fire-and-forget: run_job() starts the execution and returns
-# immediately; CollectResultsStep's own Pub/Sub polling (with its own timeout)
-# is what actually waits for completion, same as it always has.
-CLOUD_RUN_REGION = "us-central1"
-CLOUD_RUN_WORKER_JOB = "csf-worker"
 
 st.set_page_config(page_title="CSF Assessor Fleet", layout="wide")
 
@@ -90,41 +80,11 @@ def _api(method: str, path: str, **kwargs) -> dict:
     return resp.json()
 
 
-def _trigger_worker_job(function: str) -> None:
-    """Start one csf-worker Cloud Run Job execution for `function`. Fire-and-forget —
-    does not await the operation's completion, just that the execution was accepted."""
-    settings = get_settings()
-    client = run_v2.JobsClient()
-    job_name = (
-        f"projects/{settings.google_cloud_project}/locations/{CLOUD_RUN_REGION}"
-        f"/jobs/{CLOUD_RUN_WORKER_JOB}"
-    )
-    request = run_v2.RunJobRequest(
-        name=job_name,
-        overrides=run_v2.RunJobRequest.Overrides(
-            container_overrides=[
-                run_v2.RunJobRequest.Overrides.ContainerOverride(
-                    args=["csf_specialists/worker.py", "--function", function, "--timeout", "60"],
-                ),
-            ],
-        ),
-    )
-    client.run_job(request=request)
-
-
-def _run_assessment_sync(session_id: str) -> None:
-    """Trigger one csf-worker Cloud Run Job execution per live Function agent,
-    then run the real coordinator (Pub/Sub dispatch → collect → aggregate).
-    Blocking — the caller wraps this in st.spinner. AggregateStep already writes
-    run_id back onto the session doc, so the caller just needs to re-fetch the
-    session afterward."""
-    from csf_coordinator.coordinator import run_assessment
-
-    functions = list(AGENTS.keys())
-    for fn in functions:
-        _trigger_worker_job(fn)
-
-    asyncio.run(run_assessment(session_id, functions=functions))
+def _start_run(session_id: str) -> str:
+    """POST /sessions/{sid}/run — starts the assessment as a real backgrounded
+    task inside the gateway, returns immediately with a run_id to poll."""
+    resp = _api("POST", f"/sessions/{session_id}/run")
+    return resp["run_id"]
 
 
 # ---------------------------------------------------------------------------
@@ -339,21 +299,48 @@ elif view == "Chat":
 # ---------------------------------------------------------------------------
 
 elif view == "Reports":
+    pending_key = f"pending_run_id_{sid}"
+
     if st.session_state.pop("pending_run_assessment", False):
         # Set by the Chat view's "Run assessment now" button — navigation
-        # already happened (we're on Reports now), this is the actual slow
-        # part, running natively on this page instead of back on Chat.
-        with st.spinner("Dispatching specialist agents — this can take several minutes..."):
-            _run_assessment_sync(sid)
-        st.rerun()
+        # already happened (we're on Reports now). Starts the run and begins
+        # polling natively on this page, instead of blocking the whole
+        # Streamlit script for the run's duration — see module docstring for
+        # the real hang this replaced (confirmed live Aug 21).
+        st.session_state[pending_key] = _start_run(sid)
 
     run_id = session.get("run_id")
-    if not run_id:
+    pending_run_id = st.session_state.get(pending_key)
+
+    if pending_run_id:
+        # Same cheap-pre-check-outside-the-fragment pattern as Docs status
+        # (_render_docs_status above) — decides whether run_every should be
+        # armed for this render, so polling actually stops once done instead
+        # of firing forever.
+        _status = _api("GET", f"/sessions/{sid}/runs/{pending_run_id}/status")
+        _run_done = _status["status"] == "ready_for_report"
+
+        @st.fragment(run_every=None if _run_done else "3s")
+        def _render_run_status() -> None:
+            status = _api("GET", f"/sessions/{sid}/runs/{pending_run_id}/status")
+            label = {
+                "pending": "Starting…",
+                "dispatched": "Dispatching specialist agents…",
+                "partial": f"Scoring — {status.get('completed_agents', 0)}/{status.get('expected_agents', '?')} Functions complete…",
+            }.get(status["status"], status["status"])
+            if status["status"] == "ready_for_report":
+                st.session_state.pop(pending_key, None)
+                st.rerun()
+            else:
+                st.info(f"Running assessment — {label}")
+
+        _render_run_status()
+
+    elif not run_id:
         st.info("No assessment has been run for this session yet.")
         st.caption(f"Scores every Function with a live agent: {', '.join(FUNCTION_NAMES[f] for f in AGENTS)}.")
         if st.button("Run assessment", type="primary"):
-            with st.spinner("Dispatching specialist agents — this can take several minutes..."):
-                _run_assessment_sync(sid)
+            st.session_state[pending_key] = _start_run(sid)
             st.rerun()
     else:
         report = asyncio.run(build_report(sid, run_id))

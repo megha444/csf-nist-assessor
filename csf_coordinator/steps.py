@@ -17,11 +17,13 @@ from datetime import datetime, timezone
 from google.adk.agents import BaseAgent
 from google.adk.agents.invocation_context import InvocationContext
 from google.adk.events.event import Event
+from google.cloud import run_v2
 from google.cloud.firestore import AsyncClient
 from google.genai import types
 
 from csf_coordinator import pubsub_client
 from csf_coordinator.config import get_settings
+from csf_gateway.app.config import get_settings as get_gateway_settings
 from csf_gateway.app.schema import RunStatus
 from csf_specialists.aggregate import aggregate_function, persist_tier
 from csf_specialists.judge import judge_run
@@ -29,6 +31,33 @@ from csf_specialists.judge import judge_run
 log = logging.getLogger("csf-coordinator.steps")
 
 _firestore_client: AsyncClient | None = None
+
+# csf-worker Cloud Run Job — one Job, `--function` overridden per execution.
+# See task_list.md's Sun Aug 23 entry for why (shared image with the gateway,
+# fire-and-forget since CollectResultsStep's own Pub/Sub polling is what
+# actually waits for completion).
+_CLOUD_RUN_REGION = "us-central1"
+_CLOUD_RUN_WORKER_JOB = "csf-worker"
+
+
+def _trigger_worker_job(function: str) -> None:
+    settings = get_gateway_settings()
+    client = run_v2.JobsClient()
+    job_name = (
+        f"projects/{settings.google_cloud_project}/locations/{_CLOUD_RUN_REGION}"
+        f"/jobs/{_CLOUD_RUN_WORKER_JOB}"
+    )
+    request = run_v2.RunJobRequest(
+        name=job_name,
+        overrides=run_v2.RunJobRequest.Overrides(
+            container_overrides=[
+                run_v2.RunJobRequest.Overrides.ContainerOverride(
+                    args=["csf_specialists/worker.py", "--function", function, "--timeout", "60"],
+                ),
+            ],
+        ),
+    )
+    client.run_job(request=request)
 
 
 def _get_firestore_client() -> AsyncClient:
@@ -81,8 +110,14 @@ class CreateRunStep(BaseAgent):
 
 
 class DispatchStep(BaseAgent):
-    """Publishes one dispatch message for one Function. Assumes CreateRunStep
-    already created the runs/{run_id} parent doc."""
+    """Publishes one dispatch message for one Function and triggers the
+    csf-worker Cloud Run Job execution that will consume it. Assumes
+    CreateRunStep already created the runs/{run_id} parent doc.
+
+    Job-triggering lives here (not in each caller) so both csf_ui/app.py and
+    the Agent Runtime HTTP endpoint (csf_gateway/app/runs.py) get it for free
+    just by calling run_assessment() — one place, not two copies to keep in
+    sync."""
 
     run_id: str
     session_id: str
@@ -98,6 +133,7 @@ class DispatchStep(BaseAgent):
             "rubric_version": "v1",
             "snapshot_ref": f"runs/{self.run_id}",
         })
+        _trigger_worker_job(self.function)
         yield _text_event(self.name, f"dispatched {self.function} (run_id={self.run_id}, {len(self.category_ids)} Categories)")
 
 
