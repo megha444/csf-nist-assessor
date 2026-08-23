@@ -1,0 +1,55 @@
+function: recover
+categories:
+  RC.RP:
+    name: Incident Recovery Plan Execution
+    importance: 2
+    levels:
+      1: No formal recovery plan exists. When systems need to be restored after an incident, the process
+        is improvised by whoever is available, with no defined recovery priority order, no verification
+        that restored systems are clean and match an approved configuration, and no connection between
+        recovery actions and any defined recovery time or point objective.
+      2: A recovery or disaster recovery plan may exist on paper but has not been tested through a live
+        restoration exercise, or testing is inconsistent and not evidenced. Recovery priority order for
+        critical systems may be informally understood but not documented. Verification that a restored
+        system is safe to return to production (e.g., checked against a configuration baseline) happens
+        inconsistently depending on who performs the restoration.
+      3: A documented recovery plan exists, specifying restoration steps, priority order for critical
+        systems and important business services, and a defined verification step (e.g., configuration
+        baseline check, transaction reconciliation) before systems are returned to production. The plan
+        is linked to defined recovery time and recovery point objectives, even if formal testing against
+        those objectives is still maturing.
+      4: Recovery capability is tested against defined, measurable targets — e.g., backup restoration
+        testing on a defined recurring schedule with retained evidence, and failover/redundancy testing
+        measured directly against recovery time and impact tolerance targets, not just exercised as routine
+        operations. Test results are tracked, gaps are remediated against a target date, and recovery
+        plan updates are driven by what testing reveals.
+      5: Recovery capability is continuously improved using test outcomes, real incident recovery experience,
+        and evolving business requirements — the organization can point to specific plan or architecture
+        changes made because a recovery test didn't meet its target, or because an actual recovery took
+        longer than expected. Recovery performance (time to restore, successful test rate) is benchmarked
+        as a standing metric and demonstrably improves over time.
+  RC.CO:
+    name: Incident Recovery Communication
+    importance: 2
+    levels:
+      1: No defined communication process exists for recovery status. Internal stakeholders and, where
+        relevant, customers or the public are updated inconsistently and informally during recovery, often
+        depending on who thinks to send an update. There is no plan for managing reputational or public
+        communication around a significant incident's recovery.
+      2: Recovery status updates happen but timing, completeness, and audience vary by incident — some
+        stakeholders receive prompt updates, others hear informally or with significant delay. Public
+        or customer-facing communication, where required, is drafted reactively without pre-prepared templates
+        or a defined approval path, slowing the response when it matters most.
+      3: A documented recovery communication plan exists, specifying who receives recovery status updates,
+        at what cadence, and through what channel, distinct from the initial incident notification plan
+        (RS.CO). Templates exist for common recovery communications, including customer- or public-facing
+        messaging where applicable, with a defined approval path.
+      4: Recovery communication timeliness and completeness are measured against the defined plan and
+        tracked, with gaps addressed. Recovery communication is included as an explicit component of incident
+        exercises (not just the initial response phase), and templates and stakeholder lists are kept
+        current and validated through that testing.
+      5: Recovery communication practice is continuously refined based on stakeholder feedback, exercise
+        findings, and lessons from real incidents — the organization can point to specific changes in
+        cadence, audience, or messaging approach driven by this input (e.g., a decision to proactively
+        communicate recovery milestones to customers after feedback indicated silence during a prior incident
+        damaged trust). Recovery communication effectiveness is benchmarked as a standing metric.

@@ -11,7 +11,9 @@ Contract:
 """
 from __future__ import annotations
 
+import asyncio
 import logging
+import re
 from pathlib import Path
 from typing import Annotated
 
@@ -28,6 +30,20 @@ log = logging.getLogger("csf-gateway.qna")
 router = APIRouter(prefix="/sessions/{session_id}/qna", tags=["qna"])
 
 _ALLOWED_EXTS = frozenset({".pdf", ".docx", ".doc", ".xlsx"})
+
+# xlsx_parser.xlsx_to_markdown emits one "## SheetName" heading per worksheet.
+# A multi-sheet questionnaire covering all 6 Functions (~240 Q&A pairs) blows
+# past extract_qna's single-call output budget and truncates mid-JSON — proven
+# live 2026-08-21 on the real Northwind questionnaire. Splitting per sheet and
+# merging keeps every call the size of one Function's worth of questions,
+# which is exactly what already extracts cleanly.
+_SHEET_HEADING_RE = re.compile(r"^## ", re.MULTILINE)
+
+
+def _split_by_sheet(markdown: str) -> list[str]:
+    if not _SHEET_HEADING_RE.search(markdown):
+        return [markdown]
+    return [p for p in re.split(r"(?=^## )", markdown, flags=re.MULTILINE) if p.strip()]
 
 
 @router.post("", summary="Upload a completed Q&A questionnaire; extract + attach as pre-answered evidence.")
@@ -58,7 +74,9 @@ async def post_qna(session_id: str, file: Annotated[UploadFile, File(description
     if not text.strip():
         raise HTTPException(status_code=422, detail=f"{filename!r} produced no extractable text")
 
-    records = await extract_qna(text)
+    sections = _split_by_sheet(text) if ext == ".xlsx" else [text]
+    extracted = await asyncio.gather(*(extract_qna(section) for section in sections))
+    records = [r for batch in extracted for r in batch]
     if not records:
         log.info("[%s] %s: no Q&A pairs identified", session_id, filename)
         return {"records_extracted": 0, "by_function": {}}

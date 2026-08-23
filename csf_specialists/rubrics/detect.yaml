@@ -1,0 +1,66 @@
+function: detect
+categories:
+  DE.CM:
+    name: Continuous Monitoring
+    importance: 2
+    levels:
+      1: No continuous monitoring capability exists. Systems, networks, and user activity are not monitored
+        in any structured way — visibility into what's happening across the estate depends entirely on
+        someone noticing something is wrong, usually well after the fact. There is no centralized log
+        collection, and where logs exist locally on individual systems, they are not reviewed unless something
+        has already gone visibly wrong. Physical environment monitoring, where relevant, is similarly
+        informal or absent.
+      2: 'Some monitoring tooling exists — antivirus/EDR on endpoints, perhaps basic network monitoring
+        — but coverage is partial, often concentrated on newer or more visible systems while legacy or
+        less prominent infrastructure goes unmonitored. Logs may be collected in places but are not centralized
+        or correlated across sources. Monitoring is largely passive: alerts, if generated, are not consistently
+        triaged, and there''s no defined process for who watches what or how often.'
+      3: A documented monitoring capability exists organization-wide, with centralized log collection
+        (e.g., a SIEM) covering critical systems including legacy infrastructure, and defined coverage
+        for network, endpoint, and where relevant physical and personnel activity monitoring. Monitoring
+        is resourced with a named function or provider (internal SOC or managed service) responsible for
+        watching alerts, and operates on a defined schedule — ideally continuous (24/7) for critical systems
+        rather than business-hours-only.
+      4: Monitoring coverage and effectiveness are actively measured — e.g., percentage of critical assets
+        with active log collection, mean time to alert, and false-positive rates are tracked against targets
+        and reported to oversight. Detection use cases or alert logic are tuned based on measured performance
+        rather than left static after initial deployment. Gaps in coverage (unmonitored assets, blind
+        spots) are tracked to closure against a target, not just noted and left open.
+      5: Monitoring capability is continuously refined using threat intelligence, red team/purple team
+        exercise findings, and lessons from real incidents — new detection use cases are added specifically
+        because a gap was identified through one of these channels, and the organization can point to
+        concrete examples. Monitoring coverage, alert quality, and analyst workload are benchmarked as
+        standing metrics, and monitoring investment decisions are demonstrably driven by this data rather
+        than by vendor renewal cycles alone.
+  DE.AE:
+    name: Adverse Event Analysis
+    importance: 2
+    levels:
+      1: No formal process exists to analyze or correlate alerts and anomalies into a coherent picture
+        of what's actually happening. Individual alerts, where they're even reviewed, are assessed in
+        isolation with no context from other systems, threat intelligence, or asset criticality. There
+        is no defined threshold or process for deciding when an anomaly becomes a suspected incident,
+        so escalation — if it happens — depends entirely on individual judgment in the moment.
+      2: Some analysis happens, but inconsistently — an analyst may manually cross-reference a few sources
+        when investigating a specific alert, but there's no standard playbook or correlation logic applied
+        consistently. Context from asset criticality or threat intelligence is used opportunistically
+        rather than systematically. The line between "anomaly worth investigating" and "confirmed incident
+        requiring response" is not clearly defined, leading to inconsistent escalation decisions across
+        similar events.
+      3: A documented process exists for triaging and analyzing potential adverse events, including defined
+        severity/priority criteria, standard correlation of alerts against asset criticality and known
+        context, and a clear, documented threshold for when an anomaly is escalated as a confirmed or
+        suspected incident. Analysis draws on multiple sources (logs, threat intelligence, asset data)
+        rather than a single alert in isolation, and is performed by a named function with defined turnaround
+        expectations.
+      4: Event analysis performance is measured — e.g., mean time to triage, mean time to escalate, and
+        analyst accuracy (false positive/negative rates on escalation decisions) are tracked against targets
+        and reported to oversight. Correlation logic and playbooks are refined based on this performance
+        data rather than left static. Escalation decisions are subject to periodic quality review to confirm
+        consistency across analysts and shifts.
+      5: Adverse event analysis is continuously improved using outcomes from closed incidents, red team
+        findings, and evolving threat intelligence — the organization can point to specific correlation
+        rules, playbook changes, or escalation criteria that were introduced because a prior analysis
+        was too slow, missed context, or misjudged severity. Analysis maturity (speed, accuracy, consistency)
+        is benchmarked as a standing metric, and the feedback loop from Respond and Recover findings back
+        into DE.AE analysis logic is demonstrable, not assumed.

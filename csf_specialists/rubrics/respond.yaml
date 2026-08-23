@@ -1,0 +1,113 @@
+function: respond
+categories:
+  RS.MA:
+    name: Incident Management
+    importance: 2
+    levels:
+      1: No formal incident response process exists. When something goes wrong, whoever notices it handles
+        it informally, with no defined severity classification, no consistent escalation path, and no
+        clarity on who has authority to declare an incident or make response decisions. There is no incident
+        log or record — what happened, who did what, and when is not captured anywhere beyond individual
+        memory.
+      2: An incident response plan may exist on paper, but it is not well known, not exercised, and often
+        not followed in practice when a real event occurs. Severity classification, if defined, is applied
+        inconsistently. Incidents are logged informally or after the fact rather than in real time, and
+        escalation to leadership or the Board tends to happen ad hoc rather than following a defined trigger
+        or timeframe.
+      3: A documented incident response plan exists, covering incident declaration criteria, severity
+        classification, a defined response team with named roles, and an escalation path with specified
+        timeframes tied to severity. Incidents are logged centrally and consistently. The plan is communicated
+        to relevant stakeholders, though it may not yet have been tested through a live exercise since
+        being formalized.
+      4: The incident response plan is exercised on a defined schedule (e.g., annual tabletop exercise)
+        and updated based on exercise findings, not left static. Incident management performance is measured
+        — e.g., time to declare, time to escalate — and tracked against defined targets, with deviations
+        reviewed. Roles and authorities are confirmed to work in practice, not just on paper, through
+        periodic testing.
+      5: Incident management practice is continuously refined using outcomes from real incidents and exercises
+        alike, with specific, traceable changes to the plan, team structure, or escalation thresholds
+        resulting from that feedback. The organization benchmarks its incident management performance
+        (declaration speed, escalation accuracy) against prior periods or industry data, and can demonstrate
+        the response capability has measurably improved over time rather than simply existing unchanged
+        since it was written.
+  RS.AN:
+    name: Incident Analysis
+    importance: 2
+    levels:
+      1: No formal investigation process exists once an incident is declared. Root cause, if determined
+        at all, is based on the investigating individual's informal judgment rather than a structured
+        methodology. There is no evidence-handling or chain-of-custody practice, and investigation findings
+        are not consistently documented, meaning the same root cause can recur without anyone recognizing
+        the pattern.
+      2: Some investigation happens following an incident, but it follows the investigating team's own
+        informal write-up practice rather than a standardized root-cause methodology. Evidence handling
+        is inconsistent and undocumented. Investigation findings may be captured in an incident write-up
+        but are not systematically reviewed for patterns across incidents, and forensic rigor varies significantly
+        depending on who conducts the investigation.
+      3: A documented investigation process exists, including a defined root-cause methodology (e.g.,
+        five-whys, fishbone, or equivalent) applied consistently, and a defined evidence-handling procedure
+        for incidents that may require escalation, legal referral, or regulatory notification. Investigation
+        findings are documented in a standard format and reviewed by an accountable owner before the incident
+        is closed.
+      4: Investigation quality and timeliness are measured — e.g., time to root cause, percentage of incidents
+        with a completed structured root-cause analysis — and tracked against targets. Evidence-handling
+        procedures are followed consistently and their application is spot-checked or audited. Findings
+        across multiple incidents are periodically analyzed together to identify recurring root causes
+        rather than treating each incident in isolation.
+      5: Investigation practice is continuously improved using patterns identified across incidents, external
+        threat intelligence, and forensic lessons learned — the organization can point to specific methodology
+        or tooling changes introduced because a prior investigation was too slow, missed a root cause,
+        or mishandled evidence. Recurring root causes identified through trend analysis directly and demonstrably
+        inform preventive investment in other Functions (e.g., Protect, Detect).
+  RS.CO:
+    name: Incident Response Reporting and Communication
+    importance: 2
+    levels:
+      1: No defined communication plan exists for incidents. Internal stakeholders (leadership, affected
+        business units) are notified inconsistently and informally, often depending on who happens to
+        know who to call. There is no process for assessing regulatory or legal notification obligations,
+        meaning such obligations could be missed entirely or identified too late to meet a deadline.
+      2: Internal notification happens but timing and completeness vary significantly by incident and
+        by who is running the response — some stakeholders may be notified promptly, others informally
+        or with significant delay, and not always in writing. Regulatory or legal notification assessment
+        happens, but not on a consistent or timely basis, and is not clearly tied to defined trigger criteria.
+      3: A documented communication plan exists, specifying who is notified, in what timeframe, and through
+        what channel, for both internal stakeholders (by severity/audience) and external parties (regulators,
+        customers, law enforcement, as applicable). Regulatory and legal notification obligations are
+        assessed as a defined step in the incident process, with reference to the organization's known
+        regulatory requirements.
+      4: Communication timeliness is measured against the defined plan — e.g., percentage of incidents
+        where internal notification met its target timeframe — and gaps are tracked and addressed. External
+        and regulatory notification decisions are reviewed for consistency and accuracy, not just completed.
+        Communication templates and escalation trees are kept current and tested as part of exercises.
+      5: Incident communication practice is continuously refined based on stakeholder feedback, exercise
+        findings, and lessons from real incidents — the organization can point to specific changes to
+        the communication tree, templates, or notification triggers driven by this input (e.g., tightened
+        internal notification timeframes after inconsistent timeliness was identified in a post-incident
+        review). Communication effectiveness during incidents is benchmarked as a standing metric.
+  RS.MI:
+    name: Incident Mitigation
+    importance: 2
+    levels:
+      1: No formal containment or mitigation process exists. Actions taken to stop an incident from spreading
+        or worsening are improvised in the moment by whoever is responding, with no defined playbook,
+        no verification step to confirm containment actually worked, and no consistent documentation of
+        what was done.
+      2: Basic containment actions happen (e.g., disabling an account, isolating a system) but follow
+        individual judgment rather than a documented playbook. Verification that containment or eradication
+        was effective is inconsistent — the organization may move on without formally confirming the threat
+        is fully removed. Actions taken are recorded informally, if at all, making it hard to reconstruct
+        what was done after the fact.
+      3: Documented containment and eradication playbooks exist for common incident types, specifying
+        standard actions and a verification step to confirm effectiveness before systems are returned
+        to normal operation. Mitigation actions are logged as part of the incident record. A defined process
+        exists for deciding when eradication is complete and it's safe to proceed to recovery.
+      4: Mitigation effectiveness is measured — e.g., time to containment, and rates of "reopened" incidents
+        where containment or eradication proved incomplete — tracked against targets. Eradication verification
+        is a formal, recorded checklist rather than an informal judgment call. Playbooks are reviewed
+        and updated based on performance data, not left static after initial creation.
+      5: Mitigation practice is continuously improved using outcomes from real incidents and exercises
+        — the organization can point to specific playbook changes, new containment techniques, or verification
+        steps introduced because a prior mitigation effort was incomplete, too slow, or had to be redone.
+        Containment and eradication performance is benchmarked and reported as a standing metric, with
+        demonstrable improvement over time.
