@@ -79,7 +79,9 @@ for role in \
         roles/monitoring.metricWriter \
         roles/pubsub.publisher \
         roles/pubsub.subscriber \
-        roles/run.invoker; do
+        roles/run.invoker \
+        roles/run.developer \
+        roles/cloudtrace.agent; do
     gcloud projects add-iam-policy-binding "$PROJECT_ID" \
         --member="serviceAccount:$SA_EMAIL" \
         --role="$role" \
