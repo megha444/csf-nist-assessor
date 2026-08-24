@@ -110,10 +110,21 @@
   td.low-confidence-cell { color: #b91c1c; font-weight: 600; }
   .reasoning { font-size: 13px; color: var(--ink); margin: 10px 0; }
 
-  table.subs { width: 100%; border-collapse: collapse; font-size: 12.5px; margin-top: 10px; }
-  table.subs th, table.subs td { border: 1px solid var(--border); padding: 6px 8px; vertical-align: top; text-align: left; }
+  /* table-layout: fixed + explicit per-column widths so the 3 free-text columns
+     (Observations/Gap/Recommendation) get real room and wrap instead of being
+     squeezed by auto-layout; word-break covers unbroken long strings (e.g. a
+     technical term or citation) that plain wrapping alone wouldn't catch. */
+  table.subs { width: 100%; border-collapse: collapse; font-size: 12.5px; margin-top: 10px; table-layout: fixed; }
+  table.subs th, table.subs td { border: 1px solid var(--border); padding: 6px 8px; vertical-align: top; text-align: left; word-wrap: break-word; overflow-wrap: anywhere; }
   table.subs th { background: #f1f5f9; font-weight: 600; }
   table.subs td.center { text-align: center; }
+  table.subs th:nth-child(1), table.subs td:nth-child(1) { width: 15%; }  /* Subcategory */
+  table.subs th:nth-child(2), table.subs td:nth-child(2) { width: 6%; }   /* CMMI */
+  table.subs th:nth-child(3), table.subs td:nth-child(3) { width: 8%; }   /* Evidence */
+  table.subs th:nth-child(4), table.subs td:nth-child(4) { width: 8%; }   /* Confidence */
+  table.subs th:nth-child(5), table.subs td:nth-child(5),
+  table.subs th:nth-child(6), table.subs td:nth-child(6),
+  table.subs th:nth-child(7), table.subs td:nth-child(7) { width: 21%; }  /* Observations / Gap / Recommendation */
 
   .evidence-list, .interview-list { font-size: 12px; color: var(--muted); margin-top: 10px; }
   .evidence-list ul, .interview-list ul { margin: 4px 0 0; padding-left: 18px; }

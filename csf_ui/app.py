@@ -39,6 +39,7 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 import httpx
+import pandas as pd
 import streamlit as st
 
 from csf_gateway.app.csf_catalog import FUNCTION_NAMES
@@ -394,10 +395,14 @@ elif view == "Reports":
                             st.warning("No document evidence for this Category.")
                         st.write(c["reasoning"])
                         if c["subcategory_scores"]:
-                            st.dataframe(
+                            # st.dataframe is a virtualized grid that truncates overflowing
+                            # cell text with no wrap option — st.table renders a plain static
+                            # HTML table instead, which wraps naturally like any other table.
+                            # Subcategory becomes the index so no extra numeric index column
+                            # shows up next to it.
+                            sub_df = pd.DataFrame(
                                 [
                                     {
-                                        "Subcategory": f"{s['subcategory_id']} — {s['name']}" if s.get("name") else s["subcategory_id"],
                                         "CMMI": s["cmmi_level"],
                                         "Evidence": s["evidence_status"],
                                         "Confidence": f"{s['confidence'] * 100:.0f}%" + (" ⚠" if s["low_confidence"] else ""),
@@ -407,8 +412,13 @@ elif view == "Reports":
                                     }
                                     for s in c["subcategory_scores"]
                                 ],
-                                hide_index=True, width="stretch",
+                                index=[
+                                    f"{s['subcategory_id']} — {s['name']}" if s.get("name") else s["subcategory_id"]
+                                    for s in c["subcategory_scores"]
+                                ],
                             )
+                            sub_df.index.name = "Subcategory"
+                            st.table(sub_df)
                         if c["evidence_citations"]:
                             st.caption("Evidence citations")
                             for e in c["evidence_citations"]:

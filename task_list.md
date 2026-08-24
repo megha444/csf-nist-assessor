@@ -174,8 +174,8 @@ Legend: **[M]** = Megha (tech), **[T]** = Teammate (KPMG domain). Check off as c
   - **Also learned**: `AggregateStep` sets `status=ready_for_report` before `JudgeStep` runs (Judge is sequenced after all Aggregates finish) — so "ready_for_report" means scores/tiers are final, not that Judge has necessarily finished too. Not a problem today (no report surface reads Judge yet — see §7.5), but worth remembering when that pending task gets built: the "done" signal for a Judge-aware report might need to wait on Judge completion specifically, not just `ready_for_report`.
   - **Final verified state, on the actual live deployed URL, not localhost**: full clean run from a POST through to `ready_for_report`, 22/22 scored, 22/22 judged, 6/6 tiers — the exact endpoint a hackathon judge would hit.
 
-### Tue Aug 25
-- [ ] **[M]** — verify the full vertical slice end-to-end against the new async/Cloud-Run-Jobs path — genuinely new code path, don't assume it works just because the old synchronous one did
+### Tue Aug 25 (real-world Mon Aug 24 — Sunday absorbed Monday's original scope, schedule shifted a day ahead)
+- [x] **[M]** — verified the full vertical slice end-to-end against the new async/Cloud-Run-Jobs path, through the real Streamlit UI this time (not just direct API/Python calls) — Megha clicked "Run assessment now," switched to another session mid-run, switched back, and confirmed the finished report rendered correctly. Closes the loop on yesterday's automated verification with an actual human click-through of the real UI.
 - [ ] **[M]** — Agent Registry: Firestore self-registration (name, capabilities, owner Function, IAM identity) + `GET /agents` endpoint (so it's actually discoverable/demoable) + real versioning (hash of the loaded rubric YAML content, replacing the hardcoded `"rubric_version": "v1"` in `csf_coordinator/steps.py`)
 - [ ] **[M]** — Memory Bank: confirm whether `runs/{run_id}.snapshot` (doc_ids/answer_ids, built Aug 17) genuinely satisfies "persistent cross-session context," and label/document it as such if so — cheap if it counts, build more only if it genuinely doesn't
 

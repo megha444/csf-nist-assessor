@@ -38,6 +38,15 @@ COLUMNS = [
 ]
 COLUMN_WIDTHS = [12, 34, 48, 50, 50, 50, 8, 14]
 
+# wrap_text=True alone doesn't resize row height for wrapped content — openpyxl
+# has no rendering engine to compute that, so a row shows single-line height
+# until someone manually double-clicks the row border, cutting off exactly the
+# free-text columns this report exists to show. Estimate wrapped line count per
+# row instead. Columns 1-5 (Category/Subcategory/Notes/GapsFindings/Recommendations,
+# 0-indexed) are the ones long enough to actually wrap.
+_WRAP_COL_INDICES = (1, 2, 3, 4, 5)
+_POINTS_PER_LINE = 15  # ~ Excel's own default single-line row height at 11pt
+
 
 async def fetch_scores(session_id: str, run_id: str) -> list[dict]:
     s = get_settings()
@@ -81,6 +90,22 @@ def build_rows(scores: list[dict]) -> list[list]:
     return rows
 
 
+def _estimate_wrapped_height(row: list, col_widths: list[int]) -> float:
+    """Rough estimate (in points) of the row height needed for its longest
+    wrapped cell — good enough to avoid the default single-line cutoff, not a
+    pixel-exact replacement for Excel's own layout engine."""
+    max_lines = 1
+    for idx in _WRAP_COL_INDICES:
+        if idx >= len(row):
+            continue
+        text = str(row[idx])
+        chars_per_line = max(int(col_widths[idx]), 10)
+        wrapped_lines = -(-len(text) // chars_per_line)  # ceil division
+        explicit_lines = text.count("\n") + 1
+        max_lines = max(max_lines, wrapped_lines, explicit_lines)
+    return max_lines * _POINTS_PER_LINE
+
+
 def write_workbook(rows: list[list], out_path: Path) -> None:
     wb = Workbook()
     ws = wb.active
@@ -97,9 +122,10 @@ def write_workbook(rows: list[list], out_path: Path) -> None:
     for i, width in enumerate(COLUMN_WIDTHS, start=1):
         ws.column_dimensions[get_column_letter(i)].width = width
 
-    for row in ws.iter_rows(min_row=2):
+    for row_idx, row in enumerate(ws.iter_rows(min_row=2), start=2):
         for cell in row:
             cell.alignment = Alignment(wrap_text=True, vertical="top")
+        ws.row_dimensions[row_idx].height = _estimate_wrapped_height(rows[row_idx - 2], COLUMN_WIDTHS)
 
     ws.freeze_panes = "A2"
     wb.save(out_path)
