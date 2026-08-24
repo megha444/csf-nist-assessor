@@ -16,6 +16,7 @@ Public API:
 from __future__ import annotations
 
 import logging
+import re
 import statistics
 import uuid
 from dataclasses import dataclass, field
@@ -44,6 +45,7 @@ from csf_specialists.loaders import (
     FunctionRubric,
     SubcategoryExamples,
     examples_for_category,
+    load_evidence_taxonomy,
     load_rubric,
 )
 
@@ -59,6 +61,18 @@ ADK_OUTPUT_KEY = "score_result"
 
 # Module-level Firestore client — reused across score_category calls.
 _firestore_client: AsyncClient | None = None
+
+
+def _normalize_title(title: str) -> str:
+    """Same normalization as infra/build_evidence_taxonomy.py, kept as a
+    small standalone copy rather than importing from infra/ (a scripts
+    directory, not part of this package) — matches checklist titles like
+    "Post-Incident Review" against real filenames like
+    "4. Post_Incident_Review.docx" on the same normalized key."""
+    t = title.lower()
+    t = re.sub(r"[-_/&]", " ", t)
+    t = re.sub(r"[^a-z0-9\s]", "", t)
+    return re.sub(r"\s+", " ", t).strip()
 
 
 def _get_firestore_client() -> AsyncClient:
@@ -184,6 +198,7 @@ class SpecialistAgent:
         query_vec = await embed_query(query_text)
         chunks = search_session(session_id, query_vec, top_k=top_k)
         log.info("[%s/%s] retrieved %d chunks", self.function, category_code, len(chunks))
+        chunks = await self._ensure_expected_documents(category_code, session_id, query_vec, chunks)
 
         # 2. Interview answers for this Function
         answers = await self._fetch_answers(session_id)
@@ -317,6 +332,76 @@ class SpecialistAgent:
         )
         query = coll.where(filter=FieldFilter("function", "==", self.function))
         return [snap.to_dict() async for snap in query.stream()]
+
+    async def _fetch_session_documents(self, session_id: str) -> list[dict[str, Any]]:
+        """All documents uploaded to this session (filename + doc_id) — used
+        to match the evidence taxonomy's expected document titles against
+        what's actually available in this specific session."""
+        client = _get_firestore_client()
+        coll = client.collection("sessions").document(session_id).collection("documents")
+        return [snap.to_dict() async for snap in coll.stream()]
+
+    async def _ensure_expected_documents(
+        self,
+        category_code: str,
+        session_id: str,
+        query_vec: list[float],
+        chunks: list[dict[str, Any]],
+    ) -> list[dict[str, Any]]:
+        """
+        Guarantee at least a few chunks from each document Sakina's evidence
+        taxonomy (`Ref Docs/Document Checklist.xlsx`, extracted via
+        `infra/build_evidence_taxonomy.py`) says should cover this Category —
+        even when plain semantic search doesn't rank them into the initial
+        top_k. Additive only: never removes anything the normal search found.
+
+        Found live 2026-08-24: GV.SC's top-20 pull included 6 chunks from
+        Vendor Risk Management Policy but zero from the Standard Supplier
+        Contract Template, even though both were successfully ingested and
+        the checklist names the contract template as the specific evidence
+        for GV.SC-05 — one document's chunks dominated the shared semantic
+        ranking for the Category and crowded another real document out
+        entirely, leaving that Subcategory's claim ungrounded even though the
+        evidence existed and was retrievable.
+
+        No-op if the taxonomy hasn't been generated yet, or this Category has
+        no entry in it — this is a precision improvement layered on top of
+        normal retrieval, never a hard dependency.
+        """
+        taxonomy = load_evidence_taxonomy()
+        if taxonomy is None:
+            return chunks
+        expected_titles = taxonomy.categories.get(category_code)
+        if not expected_titles:
+            return chunks
+
+        session_docs = await self._fetch_session_documents(session_id)
+        normalized_docs = [(_normalize_title(d["filename"]), d["doc_id"]) for d in session_docs]
+
+        already_covered = {c["payload"]["doc_id"] for c in chunks}
+        seen_ids = {c["id"] for c in chunks}
+
+        for title in expected_titles:
+            match = next(
+                (doc_id for norm_name, doc_id in normalized_docs if title in norm_name or norm_name in title),
+                None,
+            )
+            if match is None or match in already_covered:
+                continue
+            supplemental = search_session(session_id, query_vec, top_k=3, doc_id_filter=[match])
+            added = 0
+            for c in supplemental:
+                if c["id"] not in seen_ids:
+                    chunks.append(c)
+                    seen_ids.add(c["id"])
+                    added += 1
+            if added:
+                log.info(
+                    "[%s/%s] supplemented %d chunk(s) from expected document %r (doc_id=%s) — "
+                    "not present in the initial semantic top_k",
+                    self.function, category_code, added, title, match[:8],
+                )
+        return chunks
 
     def _build_prompt(
         self,

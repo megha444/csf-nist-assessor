@@ -48,6 +48,15 @@ class SubcategoryExamples:
     examples: tuple[str, ...]          # ordered "Ex1: ...", "Ex2: ...", etc.
 
 
+@dataclass(frozen=True)
+class EvidenceTaxonomy:
+    """Which real documents (Sakina's Document Checklist, 2026-08-24) should
+    cover each CSF Category, plus the Subcategories she's confirmed have no
+    document by design (questionnaire is the only real evidence source)."""
+    categories: dict[str, tuple[str, ...]]      # category_id -> normalized doc titles
+    questionnaire_only_subcategories: frozenset[str]
+
+
 # ---------------------------------------------------------------------------
 # Loaders
 # ---------------------------------------------------------------------------
@@ -106,3 +115,21 @@ def examples_for_category(function: Function, category_code: str) -> list[Subcat
     """All Subcategories whose id starts with `{category_code}-`. Ordered."""
     all_examples = load_implementation_examples(function)
     return [ex for sub_id, ex in all_examples.items() if sub_id.startswith(category_code + "-")]
+
+
+@lru_cache
+def load_evidence_taxonomy() -> EvidenceTaxonomy | None:
+    """Load `csf_specialists/evidence_taxonomy.yaml` (via
+    `infra/build_evidence_taxonomy.py`). Returns None if it hasn't been
+    generated yet — this is a retrieval-precision enhancement, not a hard
+    dependency, so callers should degrade to normal semantic-only retrieval
+    rather than fail when it's missing (e.g. a fresh clone before the extract
+    script has been run)."""
+    path = PACKAGE_ROOT / "evidence_taxonomy.yaml"
+    if not path.exists():
+        return None
+    raw = yaml.safe_load(path.read_text())
+    return EvidenceTaxonomy(
+        categories={k: tuple(v) for k, v in raw.get("categories", {}).items()},
+        questionnaire_only_subcategories=frozenset(raw.get("questionnaire_only_subcategories", [])),
+    )

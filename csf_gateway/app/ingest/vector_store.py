@@ -13,6 +13,7 @@ from qdrant_client import QdrantClient
 from qdrant_client.http.models import (
     FieldCondition,
     Filter,
+    MatchAny,
     MatchValue,
     PointStruct,
 )
@@ -69,14 +70,23 @@ def search_session(
     query_vector: list[float],
     top_k: int = 5,
     doc_type_filter: list[str] | None = None,
+    doc_id_filter: list[str] | None = None,
 ) -> list[dict[str, Any]]:
     """
     Vector search within a single session. This is what the specialists use
     during a Run — the current assessment's docs only.
+
+    doc_id_filter (added 2026-08-24) scopes to specific documents by their
+    real Firestore doc_id, not the coarse doc_type label — most real uploads
+    share doc_type="Other" (the taxonomy has ~14 entries, real packages have
+    35+ distinct document concepts), so doc_type alone can't isolate one
+    specific document the way an evidence-taxonomy lookup needs to.
     """
     must = [FieldCondition(key="session_id", match=MatchValue(value=session_id))]
     if doc_type_filter:
-        must.append(FieldCondition(key="doc_type", match=MatchValue(any=doc_type_filter)))  # noqa
+        must.append(FieldCondition(key="doc_type", match=MatchAny(any=doc_type_filter)))
+    if doc_id_filter:
+        must.append(FieldCondition(key="doc_id", match=MatchAny(any=doc_id_filter)))
     return _search(Filter(must=must), query_vector, top_k)
 
 
@@ -95,7 +105,7 @@ def search_org(
     """
     must = [FieldCondition(key="org_id", match=MatchValue(value=org_id))]
     if doc_type_filter:
-        must.append(FieldCondition(key="doc_type", match=MatchValue(any=doc_type_filter)))  # noqa
+        must.append(FieldCondition(key="doc_type", match=MatchAny(any=doc_type_filter)))
     return _search(Filter(must=must), query_vector, top_k)
 
 

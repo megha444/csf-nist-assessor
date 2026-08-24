@@ -1,0 +1,105 @@
+categories:
+  DE.AE:
+  - ir plan
+  - siem runbook
+  - soc playbook
+  DE.CM:
+  - logging monitoring standard
+  - physical security policy
+  - siem runbook
+  - vendor security report
+  GV.OC:
+  - information security policy
+  - operational resilience policy
+  - regulatory requirements register
+  - risk management strategy
+  GV.OV:
+  - board risk committee minutes extract
+  - internal audit report
+  - risk management strategy
+  GV.PO:
+  - information security policy
+  GV.RM:
+  - board risk committee minutes extract
+  - governance escalation chart
+  - risk appetite statement
+  - risk management strategy
+  - risk register
+  GV.RR:
+  - annual budget papers
+  - hr security policy
+  - information security policy
+  - raci matrix
+  - sm cr statement of responsibilities
+  GV.SC:
+  - ir plan
+  - risk register
+  - standard supplier contract template
+  - supplier due diligence questionnaire
+  - vendor list
+  - vendor risk management policy
+  ID.AM:
+  - asset inventory
+  - data classification policy
+  - network architecture diagram
+  - vendor list
+  ID.IM:
+  - incident log
+  - internal audit report
+  - ir plan
+  - post incident review
+  ID.RA:
+  - change management policy
+  - risk register
+  - supplier due diligence questionnaire
+  - vendor risk management policy
+  - vuln mgmt standard
+  PR.AA:
+  - access control policy
+  - incident log
+  - physical security policy
+  PR.AT:
+  - training completion records
+  PR.DS:
+  - bcp backup recovery policy
+  - data classification policy
+  PR.IR:
+  - network architecture diagram
+  - operational resilience policy
+  - physical security policy
+  PR.PS:
+  - asset inventory
+  - configuration management standard
+  - logging monitoring standard
+  - secure sdlc policy
+  - vendor security report
+  - vuln mgmt standard
+  RC.CO:
+  - post incident review
+  RC.RP:
+  - bcp backup recovery policy
+  - incident log
+  - ir plan
+  - post incident review
+  RS.AN:
+  - incident log
+  - ir plan
+  - post incident review
+  RS.CO:
+  - ir plan
+  - post incident review
+  RS.MA:
+  - incident log
+  - ir plan
+  - soc playbook
+  RS.MI:
+  - incident log
+  - ir plan
+  - post incident review
+questionnaire_only_subcategories:
+- ID.IM-03
+- ID.RA-08
+- PR.DS-10
+- RC.CO-04
+- RC.RP-04
+- RC.RP-06
