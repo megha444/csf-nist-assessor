@@ -27,6 +27,7 @@ from csf_gateway.app.config import get_settings as get_gateway_settings
 from csf_gateway.app.schema import RunStatus
 from csf_specialists.aggregate import aggregate_function, persist_tier
 from csf_specialists.judge import judge_run
+from csf_specialists.loaders import rubric_version_hash
 
 log = logging.getLogger("csf-coordinator.steps")
 
@@ -80,6 +81,7 @@ class CreateRunStep(BaseAgent):
     run_id: str
     session_id: str
     expected_agents: int
+    functions: list[str]
 
     async def _run_async_impl(self, ctx: InvocationContext):
         client = _get_firestore_client()
@@ -99,7 +101,10 @@ class CreateRunStep(BaseAgent):
             "snapshot": {
                 "doc_ids": doc_ids,
                 "answer_ids": answer_ids,
-                "rubric_version": "v1",
+                # One hash per Function, not one flat string — a run can span
+                # 6 Functions with 6 different rubric files. Real content
+                # hashes, replacing the old always-"v1" placeholder.
+                "rubric_versions": {fn: rubric_version_hash(fn) for fn in self.functions},
             },
         })
         log.info(
@@ -130,7 +135,7 @@ class DispatchStep(BaseAgent):
             "session_id": self.session_id,
             "function": self.function,
             "category_ids": self.category_ids,
-            "rubric_version": "v1",
+            "rubric_version": rubric_version_hash(self.function),
             "snapshot_ref": f"runs/{self.run_id}",
         })
         _trigger_worker_job(self.function)

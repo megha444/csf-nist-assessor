@@ -47,6 +47,7 @@ from csf_specialists.loaders import (
     examples_for_category,
     load_evidence_taxonomy,
     load_rubric,
+    rubric_version_hash,
 )
 
 log = logging.getLogger("csf-specialists")
@@ -140,6 +141,35 @@ class SpecialistAgent:
             len(self.rubric.categories),
             sum(len(v) for v in self.examples_by_category.values()),
         )
+        self._register()
+
+    def _register(self) -> None:
+        """Self-register this agent's metadata into Firestore — Agent Registry
+        (Fortified component). Uses the sync Firestore client, not the async
+        one everything else here uses, because agents are constructed as
+        module-level singletons at import time (e.g. `govern_agent =
+        SpecialistAgent(function="govern")` in agents/govern.py), outside any
+        running asyncio event loop — there's no event loop to await against
+        yet. Best-effort: a registration failure must never prevent the agent
+        from being usable for actual scoring, so it's logged and swallowed,
+        not raised."""
+        try:
+            from google.cloud import firestore as sync_firestore
+
+            s = get_settings()
+            client = sync_firestore.Client(project=s.google_cloud_project, database=s.firestore_database)
+            client.collection("agents").document(self.function).set({
+                "function": self.function,
+                "capabilities": sorted(self.rubric.categories.keys()),
+                "rubric_version": rubric_version_hash(self.function),
+                # All agents currently run under one shared SA — per-agent
+                # identity is Agent Identity (Thu Aug 27), not yet built.
+                "iam_identity": f"csf-gateway@{s.google_cloud_project}.iam.gserviceaccount.com",
+                "registered_at": sync_firestore.SERVER_TIMESTAMP,
+            })
+            log.info("[%s] registered in Agent Registry", self.function)
+        except Exception:
+            log.exception("[%s] Agent Registry self-registration failed — continuing anyway", self.function)
 
     # ------------------------------------------------------------------
     # Public API

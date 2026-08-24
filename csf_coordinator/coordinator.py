@@ -91,7 +91,8 @@ async def run_assessment(
 
     sub_agents: list[BaseAgent] = [
         CreateRunStep(
-            name="create_run", run_id=run_id, session_id=session_id, expected_agents=len(functions),
+            name="create_run", run_id=run_id, session_id=session_id,
+            expected_agents=len(functions), functions=functions,
         ),
     ]
     for function in functions:

@@ -5,6 +5,7 @@ YAML content. Both live in-repo under `csf_specialists/`; regenerate rubrics via
 """
 from __future__ import annotations
 
+import hashlib
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
@@ -115,6 +116,23 @@ def examples_for_category(function: Function, category_code: str) -> list[Subcat
     """All Subcategories whose id starts with `{category_code}-`. Ordered."""
     all_examples = load_implementation_examples(function)
     return [ex for sub_id, ex in all_examples.items() if sub_id.startswith(category_code + "-")]
+
+
+@lru_cache
+def rubric_version_hash(function: Function) -> str:
+    """Short content hash of {function}.yaml's raw bytes — replaces the
+    hardcoded "v1" string that never actually changed. Registered agent
+    metadata and dispatch messages use this so "version" is a real signal
+    tied to Sakina's actual rubric content, not a static placeholder — it
+    changes the moment a rubric file changes, without needing a manual bump
+    anywhere. Cached per-process like the other loaders; a running process
+    picks up a new hash on its next restart after the file changes, same as
+    load_rubric() would."""
+    path = RUBRICS_DIR / f"{function}.yaml"
+    if not path.exists():
+        return "unversioned"
+    digest = hashlib.sha256(path.read_bytes()).hexdigest()
+    return digest[:12]
 
 
 @lru_cache
