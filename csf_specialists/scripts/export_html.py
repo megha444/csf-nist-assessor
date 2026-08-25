@@ -142,6 +142,12 @@ def _build_context(report: dict, target_org: str) -> dict:
         examples = load_implementation_examples(function)
         cat_by_id = {c["category_id"]: c for c in data["categories"]}
 
+        # Memory Bank: prior assessment of this same org, if one exists —
+        # None on a first-ever assessment. Deltas computed once here so
+        # neither the HTML template nor Streamlit has to re-derive them.
+        prior = data.get("prior_assessment")
+        prior_categories = (prior or {}).get("categories", {})
+
         categories_ctx = []
         for cat in categories_for_function(function):
             c = cat_by_id.get(cat.code)
@@ -155,22 +161,30 @@ def _build_context(report: dict, target_org: str) -> dict:
                     "name": meta.name if meta else "",
                     "low_confidence": ss["confidence"] < CONFIDENCE_THRESHOLD,
                 })
+            prior_cat = prior_categories.get(cat.code)
             categories_ctx.append({
                 **c,
                 "name": cat.name,
                 "subcategory_scores": subs,
                 "low_confidence": c["confidence"] < CONFIDENCE_THRESHOLD,
+                "prior_cmmi": prior_cat["cmmi_level"] if prior_cat else None,
+                "cmmi_delta": (c["cmmi_level"] - prior_cat["cmmi_level"]) if prior_cat else None,
+                "prior_top_gap": prior_cat["top_gap"] if prior_cat else None,
             })
 
         tier_data = data["tier"] or {}
+        current_tier = tier_data.get("tier")
+        prior_tier = prior.get("tier") if prior else None
         functions_ctx.append({
             "function": function,
             "name": FUNCTION_NAMES[function],
             "color": _FUNCTION_COLORS.get(function, "#64748b"),
-            "tier": tier_data.get("tier"),
+            "tier": current_tier,
             "avg_cmmi": tier_data.get("avg_cmmi"),
             "insufficient_evidence_count": tier_data.get("insufficient_evidence_count") or 0,
             "categories": categories_ctx,
+            "prior_tier": prior_tier,
+            "tier_delta": (current_tier - prior_tier) if (prior_tier is not None and current_tier is not None) else None,
         })
 
     return {

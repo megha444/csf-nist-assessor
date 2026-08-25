@@ -370,13 +370,24 @@ elif view == "Reports":
             cols = st.columns(len(ctx["functions"]))
             for col, f in zip(cols, ctx["functions"]):
                 tier_label = f"Tier {f['tier']}" if f["tier"] else "—"
-                delta = f"avg CMMI {f['avg_cmmi']:.2f}" if f["avg_cmmi"] is not None else None
                 n_insufficient = f["insufficient_evidence_count"]
                 help_text = (
                     f"{n_insufficient} Categor{'y' if n_insufficient == 1 else 'ies'} below confidence threshold"
                     if n_insufficient else None
                 )
-                col.metric(f["name"], tier_label, delta, help=help_text)
+                # Memory Bank: real change vs. the org's most recent prior assessment,
+                # using Streamlit's own delta arrow/color rather than reinventing one.
+                # None (not 0) suppresses the indicator entirely -- shown only when
+                # there's an actual prior run to compare against.
+                tier_delta = f.get("tier_delta")
+                col.metric(f["name"], tier_label, delta=tier_delta if tier_delta else None, help=help_text)
+                captions = []
+                if f["avg_cmmi"] is not None:
+                    captions.append(f"avg CMMI {f['avg_cmmi']:.2f}")
+                if tier_delta == 0:
+                    captions.append("unchanged since last assessment")
+                if captions:
+                    col.caption(" · ".join(captions))
             st.plotly_chart(_tier_radar_figure(report), width="stretch", config={"displayModeBar": False})
 
         for tab, f in zip(tabs[1:], ctx["functions"]):
@@ -385,7 +396,11 @@ elif view == "Reports":
                 if cat_fig is not None:
                     st.plotly_chart(cat_fig, width="stretch", config={"displayModeBar": False})
                 for c in f["categories"]:
-                    header = f"{c['category_id']} — {c['name']}  ·  CMMI {c['cmmi_level']}  ·  conf {c['confidence'] * 100:.0f}%"
+                    header = f"{c['category_id']} — {c['name']}  ·  CMMI {c['cmmi_level']}"
+                    if c.get("cmmi_delta"):
+                        arrow = "↑" if c["cmmi_delta"] > 0 else "↓"
+                        header += f"  ({arrow} was {c['prior_cmmi']})"
+                    header += f"  ·  conf {c['confidence'] * 100:.0f}%"
                     if c["low_confidence"]:
                         header += "  ·  ⚠ insufficient evidence"
                     with st.expander(header):
@@ -394,6 +409,8 @@ elif view == "Reports":
                         if c["no_doc_evidence"]:
                             st.warning("No document evidence for this Category.")
                         st.write(c["reasoning"])
+                        if c.get("prior_top_gap"):
+                            st.caption(f"Previously flagged: {c['prior_top_gap']}")
                         if c["subcategory_scores"]:
                             # st.dataframe is a virtualized grid that truncates overflowing
                             # cell text with no wrap option — st.table renders a plain static

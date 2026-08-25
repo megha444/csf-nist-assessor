@@ -50,6 +50,14 @@
   }
   .tier-card .tier-label { color: var(--muted); font-size: 12px; }
   .tier-card .insufficient-note { color: #b91c1c; font-size: 11px; margin-top: 4px; }
+  .tier-delta { font-size: 12px; font-weight: 600; margin-top: 2px; }
+  .tier-delta-up { color: #059669; }
+  .tier-delta-down { color: #b91c1c; }
+  .tier-delta-flat { color: var(--muted); font-weight: 400; font-size: 11px; }
+  .cmmi-delta { font-size: 11px; font-weight: 600; margin-left: 6px; }
+  .cmmi-delta-up { color: #059669; }
+  .cmmi-delta-down { color: #b91c1c; }
+  .prior-gap-note { font-size: 12px; color: var(--muted); font-style: italic; margin: 6px 0 0; }
 
   .radar-block {
     background: var(--card);
@@ -149,6 +157,13 @@
       {% else %}
       <div class="tier-badge" style="color: var(--muted)">&mdash;</div>
       {% endif %}
+      {% if f.tier_delta is not none and f.tier_delta != 0 %}
+      <div class="tier-delta {{ 'tier-delta-up' if f.tier_delta > 0 else 'tier-delta-down' }}">
+        {{ ("&#9650;" if f.tier_delta > 0 else "&#9660;") | safe }} was Tier {{ f.prior_tier }}
+      </div>
+      {% elif f.tier_delta == 0 %}
+      <div class="tier-delta tier-delta-flat">unchanged since last assessment</div>
+      {% endif %}
       <div class="tier-label">
         {% if f.avg_cmmi is not none %}avg CMMI {{ "%.2f"|format(f.avg_cmmi) }} &middot; {% endif %}{{ f.categories | length }} Categories scored
       </div>
@@ -183,11 +198,19 @@
           CMMI {{ c.cmmi_level }}
         </span>
         confidence {{ "%.0f"|format(c.confidence * 100) }}%
+        {% if c.cmmi_delta %}
+        <span class="cmmi-delta {{ 'cmmi-delta-up' if c.cmmi_delta > 0 else 'cmmi-delta-down' }}">
+          ({{ ("&#9650;" if c.cmmi_delta > 0 else "&#9660;") | safe }} was {{ c.prior_cmmi }})
+        </span>
+        {% endif %}
         {% if c.low_confidence %}<span class="low-confidence-flag">insufficient evidence</span>{% endif %}
         {% if c.no_doc_evidence %}<span class="no-doc-flag">no doc evidence</span>{% endif %}
       </div>
 
       <p class="reasoning">{{ c.reasoning }}</p>
+      {% if c.prior_top_gap %}
+      <p class="prior-gap-note">Previously flagged: {{ c.prior_top_gap }}</p>
+      {% endif %}
 
       {% if c.subcategory_scores %}
       <table class="subs">

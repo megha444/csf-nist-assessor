@@ -28,6 +28,7 @@ from csf_gateway.app.schema import RunStatus
 from csf_specialists.aggregate import aggregate_function, persist_tier
 from csf_specialists.judge import judge_run
 from csf_specialists.loaders import rubric_version_hash
+from csf_specialists.memory_bank import record_assessment
 
 log = logging.getLogger("csf-coordinator.steps")
 
@@ -207,6 +208,17 @@ class AggregateStep(BaseAgent):
         session_ref = client.collection("sessions").document(self.session_id)
         run_ref = session_ref.collection("runs").document(self.run_id)
         await run_ref.update({"status": RunStatus.ready_for_report.value})
+
+        # Memory Bank (Fortified component) — record this Function's result
+        # against the org so a LATER, separate assessment of the same org can
+        # see what this one found. Best-effort: a memory-write failure must
+        # never break the actual scoring pipeline it's observing.
+        try:
+            session_snap = await session_ref.get()
+            org_id = (session_snap.to_dict() or {}).get("org_id", "") if session_snap.exists else ""
+            await record_assessment(org_id, self.function, self.session_id, self.run_id, result)
+        except Exception:
+            log.exception("[%s] Memory Bank write failed — continuing anyway", self.function)
 
         # SessionState.run_id exists precisely so a caller can GET /sessions/{sid}
         # and know which run to report on, without tracking run_id separately.

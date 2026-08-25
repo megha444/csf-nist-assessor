@@ -26,11 +26,15 @@ if str(REPO_ROOT) not in sys.path:
 from google.cloud.firestore import AsyncClient
 
 from csf_gateway.app.config import get_settings
+from csf_specialists.memory_bank import get_prior_assessment
 
 
 async def build_report(session_id: str, run_id: str) -> dict:
     s = get_settings()
     client = AsyncClient(project=s.google_cloud_project, database=s.firestore_database)
+    session_snap = await client.collection("sessions").document(session_id).get()
+    org_id = (session_snap.to_dict() or {}).get("org_id", "") if session_snap.exists else ""
+
     run_ref = (
         client.collection("sessions").document(session_id)
         .collection("runs").document(run_id)
@@ -47,6 +51,11 @@ async def build_report(session_id: str, run_id: str) -> dict:
     for function in functions:
         function_scores = [s for s in scores if s["function"] == function]
         tier_snap = await run_ref.collection("tiers").document(function).get()
+        # Memory Bank: the most recent PRIOR assessment of this same org for
+        # this Function (excluding this run, which may already be recorded
+        # by the time a report reads it back) — None if this is the first
+        # assessment of this org, or Memory Bank predates it.
+        prior = await get_prior_assessment(org_id, function, exclude_run_id=run_id)
 
         categories = [
             {
@@ -66,6 +75,7 @@ async def build_report(session_id: str, run_id: str) -> dict:
             "tier": tier_snap.to_dict() if tier_snap.exists else None,
             "category_count": len(categories),
             "categories": categories,
+            "prior_assessment": prior,
         }
 
     return result
