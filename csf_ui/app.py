@@ -42,6 +42,7 @@ import httpx
 import pandas as pd
 import streamlit as st
 
+from csf_gateway.app.config import get_settings
 from csf_gateway.app.csf_catalog import FUNCTION_NAMES
 from csf_gateway.app.doctype_taxonomy import DocType
 from csf_specialists.agents import AGENTS
@@ -55,6 +56,7 @@ from csf_specialists.scripts.export_html import (
 from csf_specialists.scripts.export_json import build_report
 
 GATEWAY_URL = "http://localhost:8090"
+_GATEWAY_API_KEY = get_settings().gateway_api_key
 
 st.set_page_config(page_title="CSF Assessor Fleet", layout="wide")
 
@@ -67,8 +69,11 @@ st.set_page_config(page_title="CSF Assessor Fleet", layout="wide")
 def _api(method: str, path: str, **kwargs) -> dict:
     """Call the gateway; surface connection/HTTP errors as a clean st.error + st.stop()
     instead of a raw traceback — this is a real system boundary (gateway may not be running)."""
+    headers = kwargs.pop("headers", {})
+    if _GATEWAY_API_KEY:
+        headers["X-API-Key"] = _GATEWAY_API_KEY
     try:
-        resp = httpx.request(method, f"{GATEWAY_URL}{path}", timeout=60.0, **kwargs)
+        resp = httpx.request(method, f"{GATEWAY_URL}{path}", timeout=60.0, headers=headers, **kwargs)
     except httpx.ConnectError:
         st.error(
             f"Can't reach the gateway at {GATEWAY_URL}. Start it with:\n\n"

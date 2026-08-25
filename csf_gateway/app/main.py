@@ -13,10 +13,11 @@ from __future__ import annotations
 import logging
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from fastapi.openapi.utils import get_openapi
 
 from .config import get_settings
+from .security import require_api_key
 from . import agents as agents_module
 from . import chat as chat_module
 from . import documents as documents_module
@@ -49,12 +50,16 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-app.include_router(sessions_module.router)
-app.include_router(documents_module.router)
-app.include_router(chat_module.router)
-app.include_router(qna_module.router)
-app.include_router(runs_module.router)
-app.include_router(agents_module.router)
+_GATED = [Depends(require_api_key)]
+
+# /health is intentionally excluded — Cloud Run's own probes and the
+# deploy script's smoke test hit it with no way to attach a header.
+app.include_router(sessions_module.router, dependencies=_GATED)
+app.include_router(documents_module.router, dependencies=_GATED)
+app.include_router(chat_module.router, dependencies=_GATED)
+app.include_router(qna_module.router, dependencies=_GATED)
+app.include_router(runs_module.router, dependencies=_GATED)
+app.include_router(agents_module.router, dependencies=_GATED)
 
 
 def _swagger_friendly_openapi() -> dict:

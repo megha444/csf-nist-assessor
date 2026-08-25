@@ -60,6 +60,11 @@ class Settings(BaseSettings):
     chunk_overlap_tokens: int = 100
     chunk_max_tokens: int = 1200
 
+    # Agent Gateway policy — API key required on every route except /health.
+    # Unset (local dev default) disables the key check but rate limiting still applies.
+    gateway_api_key: str | None = None
+    gateway_rate_limit_per_minute: int = 2000
+
 
 @lru_cache
 def get_settings() -> Settings:
