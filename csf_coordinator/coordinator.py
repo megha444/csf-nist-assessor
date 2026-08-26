@@ -47,6 +47,7 @@ from csf_coordinator.config import get_settings
 from csf_coordinator.steps import AggregateStep, CollectResultsStep, CreateRunStep, DispatchStep, JudgeStep
 from csf_gateway.app.schema import TierResult
 from csf_specialists.agents import AGENTS
+from csf_specialists.firestore_util import aclose_firestore
 from csf_specialists.loaders import load_rubric
 
 log = logging.getLogger("csf-coordinator")
@@ -133,14 +134,17 @@ async def run_assessment(
 
     s = get_settings()
     client = AsyncClient(project=s.google_cloud_project, database=s.firestore_database)
-    run_ref = client.collection("sessions").document(session_id).collection("runs").document(run_id)
+    try:
+        run_ref = client.collection("sessions").document(session_id).collection("runs").document(run_id)
 
-    results: dict[str, TierResult] = {}
-    for function in functions:
-        snap = await run_ref.collection("tiers").document(function).get()
-        if snap.exists:
-            results[function] = TierResult.model_validate(snap.to_dict())
-        else:
-            log.warning("[%s] no tier persisted for run_id=%s — Function may not have completed", function, run_id)
+        results: dict[str, TierResult] = {}
+        for function in functions:
+            snap = await run_ref.collection("tiers").document(function).get()
+            if snap.exists:
+                results[function] = TierResult.model_validate(snap.to_dict())
+            else:
+                log.warning("[%s] no tier persisted for run_id=%s — Function may not have completed", function, run_id)
 
-    return run_id, results
+        return run_id, results
+    finally:
+        await aclose_firestore(client)

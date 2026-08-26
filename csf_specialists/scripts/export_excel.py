@@ -24,19 +24,25 @@ if str(REPO_ROOT) not in sys.path:
 
 from google.cloud.firestore import AsyncClient
 from openpyxl import Workbook
-from openpyxl.styles import Alignment, Font
+from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.utils import get_column_letter
 
 from csf_gateway.app.config import get_settings
 from csf_gateway.app.csf_catalog import CATEGORIES, FUNCTION_NAMES
 from csf_specialists.aggregate import CONFIDENCE_THRESHOLD
+from csf_specialists.firestore_util import aclose_firestore
 from csf_specialists.loaders import load_implementation_examples
 
 COLUMNS = [
     "Function", "Category", "Subcategory",
-    "Notes/Observations", "GapsFindings", "Recommendations", "Scores", "Confidence",
+    "Notes/Observations", "GapsFindings", "Recommendations", "CMMI", "Confidence",
 ]
-COLUMN_WIDTHS = [12, 34, 48, 50, 50, 50, 8, 14]
+COLUMN_WIDTHS = [12, 34, 48, 50, 50, 50, 10, 14]
+
+# CMMI is the headline score — fill the CMMI cell by level (red->green ramp,
+# matching the HTML report's _CMMI_COLORS) so it stands out from the wide
+# free-text columns instead of getting lost as a plain number.
+_CMMI_FILL = {1: "dc2626", 2: "ea580c", 3: "ca8a04", 4: "65a30d", 5: "059669"}
 
 # wrap_text=True alone doesn't resize row height for wrapped content — openpyxl
 # has no rendering engine to compute that, so a row shows single-line height
@@ -51,12 +57,15 @@ _POINTS_PER_LINE = 15  # ~ Excel's own default single-line row height at 11pt
 async def fetch_scores(session_id: str, run_id: str) -> list[dict]:
     s = get_settings()
     client = AsyncClient(project=s.google_cloud_project, database=s.firestore_database)
-    coll = (
-        client.collection("sessions").document(session_id)
-        .collection("runs").document(run_id)
-        .collection("scores")
-    )
-    return [snap.to_dict() async for snap in coll.stream()]
+    try:
+        coll = (
+            client.collection("sessions").document(session_id)
+            .collection("runs").document(run_id)
+            .collection("scores")
+        )
+        return [snap.to_dict() async for snap in coll.stream()]
+    finally:
+        await aclose_firestore(client)
 
 
 def build_rows(scores: list[dict]) -> list[list]:
@@ -126,6 +135,17 @@ def write_workbook(rows: list[list], out_path: Path) -> None:
         for cell in row:
             cell.alignment = Alignment(wrap_text=True, vertical="top")
         ws.row_dimensions[row_idx].height = _estimate_wrapped_height(rows[row_idx - 2], COLUMN_WIDTHS)
+
+    # Highlight the CMMI column — colored fill by level, bold, centered. Applied
+    # AFTER the wrap-alignment loop above so it isn't overwritten.
+    cmmi_col = COLUMNS.index("CMMI") + 1
+    for row_idx in range(2, ws.max_row + 1):
+        cell = ws.cell(row=row_idx, column=cmmi_col)
+        lvl = cell.value
+        if isinstance(lvl, int) and lvl in _CMMI_FILL:
+            cell.fill = PatternFill("solid", fgColor=_CMMI_FILL[lvl])
+            cell.font = Font(bold=True, size=13, color="FFFFFF")
+            cell.alignment = Alignment(horizontal="center", vertical="center")
 
     ws.freeze_panes = "A2"
     wb.save(out_path)

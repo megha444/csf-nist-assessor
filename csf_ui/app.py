@@ -29,6 +29,9 @@ Usage:
 """
 from __future__ import annotations
 
+import os
+os.environ.setdefault("GRPC_VERBOSITY", "ERROR")  # quiet grpc C-core fork/poll INFO noise (must precede any grpc/firestore import)
+
 import asyncio
 import sys
 from io import BytesIO
@@ -401,19 +404,42 @@ elif view == "Reports":
                 if cat_fig is not None:
                     st.plotly_chart(cat_fig, width="stretch", config={"displayModeBar": False})
                 for c in f["categories"]:
-                    header = f"{c['category_id']} — {c['name']}  ·  CMMI {c['cmmi_level']}"
+                    header = f"{c['category_id']} — {c['name']}  ·  **CMMI {c['cmmi_level']}**"
                     if c.get("cmmi_delta"):
-                        arrow = "↑" if c["cmmi_delta"] > 0 else "↓"
-                        header += f"  ({arrow} was {c['prior_cmmi']})"
+                        arrow = "▲" if c["cmmi_delta"] > 0 else "▼"
+                        header += f"  (**{arrow} was {c['prior_cmmi']}**)"
                     header += f"  ·  conf {c['confidence'] * 100:.0f}%"
                     if c["low_confidence"]:
                         header += "  ·  ⚠ insufficient evidence"
                     with st.expander(header):
+                        # CMMI is the headline number — show it prominently ABOVE the
+                        # reasoning prose so it doesn't get lost in the sea of text.
+                        _ccolor = {1: "#dc2626", 2: "#ea580c", 3: "#ca8a04", 4: "#65a30d", 5: "#059669"}[c["cmmi_level"]]
+                        _cmmi_html = (
+                            f"<span style='background:{_ccolor};color:#fff;padding:4px 14px;"
+                            f"border-radius:8px;font-size:1.15em;font-weight:700'>CMMI {c['cmmi_level']}</span>"
+                        )
+                        if c.get("cmmi_delta"):
+                            _arrow = "▲" if c["cmmi_delta"] > 0 else "▼"
+                            _adc = "#059669" if c["cmmi_delta"] > 0 else "#b91c1c"
+                            _cmmi_html += f"<span style='color:{_adc};font-weight:700;margin-left:12px'>{_arrow} was {c['prior_cmmi']}</span>"
+                        st.markdown(_cmmi_html, unsafe_allow_html=True)
                         if c["low_confidence"]:
                             st.warning("Confidence below threshold — treat this Category's score as provisional.")
                         if c["no_doc_evidence"]:
                             st.warning("No document evidence for this Category.")
                         st.write(c["reasoning"])
+                        if c.get("defensibility"):
+                            _dcolor = {"high": "#059669", "medium": "#d97706", "low": "#dc2626"}[c["defensibility"]]
+                            st.markdown(
+                                f"<span style='color:#6b7280;font-size:0.85em'>"
+                                f"<span style='display:inline-block;width:8px;height:8px;border-radius:50%;"
+                                f"background:{_dcolor};margin-right:5px;vertical-align:middle'></span>"
+                                f"defensibility: {c['defensibility']}</span>",
+                                unsafe_allow_html=True,
+                            )
+                        if c.get("judge_notes"):
+                            st.caption(f"⚖️ Judge review: {c['judge_notes']}")
                         if c.get("prior_top_gap"):
                             st.caption(f"Previously flagged: {c['prior_top_gap']}")
                         if c["subcategory_scores"]:

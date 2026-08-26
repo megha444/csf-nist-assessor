@@ -128,26 +128,26 @@ async def record_assessment(
     )
 
 
-async def get_prior_assessment(org_id: str, function: str, exclude_run_id: str) -> dict | None:
+async def get_prior_assessment(org_id: str, function: str, exclude_run_id: str, client=None) -> dict | None:
     """The most recent history entry for this org+Function that ISN'T
     `exclude_run_id` — used by the report layer, which typically runs after
     AggregateStep has already recorded the current run, so the current run's
     own entry is usually already in history by the time a report reads it
     back. None if there's no prior entry (first-ever assessment of this org,
     or this org predates Memory Bank)."""
-    history = await get_history(org_id, function)
+    history = await get_history(org_id, function, client=client)
     prior_entries = [h for h in history if h["run_id"] != exclude_run_id]
     return prior_entries[-1] if prior_entries else None
 
 
-async def get_history(org_id: str, function: str) -> list[dict]:
+async def get_history(org_id: str, function: str, client=None) -> list[dict]:
     """Full history for one org+Function, oldest first. Empty list if no
     prior memory exists (a brand-new org, or Memory Bank predates this org's
     earliest run) — callers should treat that as "no prior context available",
     not an error."""
     if not org_id:
         return []
-    client = _get_firestore_client()
+    client = client or _get_firestore_client()
     mem_ref = client.collection("orgs").document(org_id).collection("memory").document(function)
     snap = await mem_ref.get()
     if not snap.exists:

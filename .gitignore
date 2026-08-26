@@ -20,19 +20,11 @@ dist/
 
 test_commands.md
 
-docs/ingest_tasks.md
-docs/phase_wise_user_journey.md
-docs/project_plan_phase_wise.md
-docs/Ref Docs.md
-docs/1_agent_working_e2e.md
+internal_docs/
 Ref Docs/
 docs/*task*
 *.xlsx
-docs/session-persistence-dataflow.md
 02.*
 report.html
-docs/pipeline_walkthrough.md
-docs/presentation_pointers.md
-aug-23-dump.md
 csf_report.html
 *.log

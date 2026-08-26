@@ -26,59 +26,74 @@ if str(REPO_ROOT) not in sys.path:
 from google.cloud.firestore import AsyncClient
 
 from csf_gateway.app.config import get_settings
+from csf_specialists.firestore_util import aclose_firestore
 from csf_specialists.memory_bank import get_prior_assessment
 
 
 async def build_report(session_id: str, run_id: str) -> dict:
     s = get_settings()
     client = AsyncClient(project=s.google_cloud_project, database=s.firestore_database)
-    session_snap = await client.collection("sessions").document(session_id).get()
-    org_id = (session_snap.to_dict() or {}).get("org_id", "") if session_snap.exists else ""
+    try:
+        session_snap = await client.collection("sessions").document(session_id).get()
+        org_id = (session_snap.to_dict() or {}).get("org_id", "") if session_snap.exists else ""
 
-    run_ref = (
-        client.collection("sessions").document(session_id)
-        .collection("runs").document(run_id)
-    )
+        run_ref = (
+            client.collection("sessions").document(session_id)
+            .collection("runs").document(run_id)
+        )
 
-    scores = [snap.to_dict() async for snap in run_ref.collection("scores").stream()]
-    if not scores:
-        raise ValueError(f"no scores at sessions/{session_id}/runs/{run_id}/scores")
+        scores = [snap.to_dict() async for snap in run_ref.collection("scores").stream()]
+        if not scores:
+            raise ValueError(f"no scores at sessions/{session_id}/runs/{run_id}/scores")
 
-    scores.sort(key=lambda s: s["category_id"])
-    functions = sorted({s["function"] for s in scores})
+        scores.sort(key=lambda s: s["category_id"])
+        functions = sorted({s["function"] for s in scores})
 
-    result: dict = {"session_id": session_id, "run_id": run_id, "functions": {}}
-    for function in functions:
-        function_scores = [s for s in scores if s["function"] == function]
-        tier_snap = await run_ref.collection("tiers").document(function).get()
-        # Memory Bank: the most recent PRIOR assessment of this same org for
-        # this Function (excluding this run, which may already be recorded
-        # by the time a report reads it back) — None if this is the first
-        # assessment of this org, or Memory Bank predates it.
-        prior = await get_prior_assessment(org_id, function, exclude_run_id=run_id)
+        # LLM-as-Judge defensibility verdicts, one doc per Category (may be absent
+        # for a Category whose judge hasn't run/failed — surfaced as-available).
+        # Doc id == category_id; shape {defensibility: high|medium|low, judge_notes}.
+        judge_docs = {snap.id: (snap.to_dict() or {}) async for snap in run_ref.collection("judge").stream()}
 
-        categories = [
-            {
-                "category_id": s["category_id"],
-                "cmmi_level": s["cmmi_level"],
-                "confidence": s["confidence"],
-                "reasoning": s["reasoning"],
-                "no_doc_evidence": s["no_doc_evidence"],
-                "evidence_citations": s.get("evidence_citations", []),
-                "interview_evidence": s.get("interview_evidence", []),
-                "subcategory_scores": s.get("subcategory_scores", []),
+        result: dict = {"session_id": session_id, "run_id": run_id, "functions": {}}
+        for function in functions:
+            function_scores = [s for s in scores if s["function"] == function]
+            tier_snap = await run_ref.collection("tiers").document(function).get()
+            # Memory Bank: the most recent PRIOR assessment of this same org for
+            # this Function (excluding this run, which may already be recorded
+            # by the time a report reads it back) — None if this is the first
+            # assessment of this org, or Memory Bank predates it. Pass our own
+            # client so no separate (unclosed) Memory Bank client is opened.
+            prior = await get_prior_assessment(org_id, function, exclude_run_id=run_id, client=client)
+
+            categories = [
+                {
+                    "category_id": s["category_id"],
+                    "cmmi_level": s["cmmi_level"],
+                    "confidence": s["confidence"],
+                    "reasoning": s["reasoning"],
+                    "no_doc_evidence": s["no_doc_evidence"],
+                    "evidence_citations": s.get("evidence_citations", []),
+                    "interview_evidence": s.get("interview_evidence", []),
+                    "subcategory_scores": s.get("subcategory_scores", []),
+                    # Judge's independent defensibility verdict (None if not yet judged).
+                    "defensibility": judge_docs.get(s["category_id"], {}).get("defensibility"),
+                    "judge_notes": judge_docs.get(s["category_id"], {}).get("judge_notes"),
+                }
+                for s in function_scores
+            ]
+
+            result["functions"][function] = {
+                "tier": tier_snap.to_dict() if tier_snap.exists else None,
+                "category_count": len(categories),
+                "categories": categories,
+                "prior_assessment": prior,
             }
-            for s in function_scores
-        ]
 
-        result["functions"][function] = {
-            "tier": tier_snap.to_dict() if tier_snap.exists else None,
-            "category_count": len(categories),
-            "categories": categories,
-            "prior_assessment": prior,
-        }
-
-    return result
+        return result
+    finally:
+        # Close the grpc.aio channel so a Streamlit rerun / CLI script loop
+        # teardown doesn't leave a poller raising "Event loop is closed".
+        await aclose_firestore(client)
 
 
 def main() -> int:

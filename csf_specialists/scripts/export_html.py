@@ -66,6 +66,14 @@ _CMMI_COLORS: dict[int, str] = {
     5: "#059669",
 }
 
+# Judge defensibility verdict — green (high) / amber (medium) / red (low),
+# reusing the same hues as the CMMI ramp for visual consistency.
+_DEFENSIBILITY_COLORS: dict[str, str] = {
+    "high": "#059669",
+    "medium": "#d97706",
+    "low": "#dc2626",
+}
+
 
 def _tier_radar_figure(report: dict) -> go.Figure:
     """Executive view: one spoke per scored Function, r = Tier (1-4). Blank spokes
@@ -194,6 +202,7 @@ def _build_context(report: dict, target_org: str) -> dict:
         "generated_at": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC"),
         "functions": functions_ctx,
         "cmmi_colors": _CMMI_COLORS,
+        "defensibility_colors": _DEFENSIBILITY_COLORS,
         "confidence_threshold_pct": round(CONFIDENCE_THRESHOLD * 100),
     }
 

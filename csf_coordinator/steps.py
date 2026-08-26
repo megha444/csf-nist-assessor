@@ -246,19 +246,13 @@ class AggregateStep(BaseAgent):
             session_ref = client.collection("sessions").document(self.session_id)
             run_ref = session_ref.collection("runs").document(self.run_id)
 
-            # Only flip to ready_for_report once EVERY expected Function's tier is
-            # persisted. AggregateSteps run sequentially, so the last one to
-            # finish trips this. The old per-Function set let the report render
-            # after the 1st aggregate with later Functions (e.g. Recover, which
-            # aggregates last) still missing their tier — the Aug 26 E2E
-            # "Recover shows —" finding. Until then status stays `partial`.
-            run_snap = await run_ref.get()
-            expected = (run_snap.to_dict() or {}).get("expected_agents", 1)
+            # Aggregation no longer flips the terminal status — JudgeStep does,
+            # so the report waits for Judge verdicts too (`ready_for_report` now
+            # means scores + tiers + judge are ALL done, not just tiers). Status
+            # stays `partial` through aggregation. Tier progress is recorded as a
+            # span attribute for observability only.
             tier_count = len([t async for t in run_ref.collection("tiers").stream()])
             span.set_attribute("tiers_persisted", tier_count)
-            span.set_attribute("expected_agents", expected)
-            if tier_count >= expected:
-                await run_ref.update({"status": RunStatus.ready_for_report.value})
 
             # Memory Bank (Fortified component) — record this Function's result
             # against the org so a LATER, separate assessment of the same org can
@@ -305,5 +299,26 @@ class JudgeStep(BaseAgent):
             counts = Counter(r.defensibility for r in results)
             summary = ", ".join(f"{k}={v}" for k, v in sorted(counts.items()))
             span.set_attribute("categories_judged", len(results))
+
+            # Terminal completion signal (moved here from AggregateStep): flip the
+            # run to ready_for_report only once EVERY Function has been judged, so
+            # the report renders with defensibility verdicts present, not mid-Judge.
+            # Counted per-Function (not per-Category doc) → hang-proof: a Category
+            # whose judge failed still lets its Function advance the count.
+            # JudgeSteps run sequentially, so read-increment-write needs no txn.
+            client = _get_firestore_client()
+            run_ref = (
+                client.collection("sessions").document(self.session_id)
+                .collection("runs").document(self.run_id)
+            )
+            run_doc = (await run_ref.get()).to_dict() or {}
+            judged = run_doc.get("judged_functions", 0) + 1
+            expected = run_doc.get("expected_agents", 1)
+            update = {"judged_functions": judged}
+            if judged >= expected:
+                update["status"] = RunStatus.ready_for_report.value
+            await run_ref.update(update)
+            span.set_attribute("judged_functions", judged)
+
             log.info("[%s] run_id=%s judged %d Categories (%s)", self.function, self.run_id, len(results), summary)
             yield _text_event(self.name, f"judged {len(results)} Categories for {self.function}: {summary}")

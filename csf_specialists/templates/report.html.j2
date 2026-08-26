@@ -54,7 +54,7 @@
   .tier-delta-up { color: #059669; }
   .tier-delta-down { color: #b91c1c; }
   .tier-delta-flat { color: var(--muted); font-weight: 400; font-size: 11px; }
-  .cmmi-delta { font-size: 11px; font-weight: 600; margin-left: 6px; }
+  .cmmi-delta { font-size: 13px; font-weight: 700; margin-left: 8px; }
   .cmmi-delta-up { color: #059669; }
   .cmmi-delta-down { color: #b91c1c; }
   .prior-gap-note { font-size: 12px; color: var(--muted); font-style: italic; margin: 6px 0 0; }
@@ -91,11 +91,12 @@
   .category-card .cat-meta { color: var(--muted); font-size: 12px; margin-bottom: 10px; }
   .cmmi-pill {
     display: inline-block;
-    border-radius: 999px;
-    padding: 2px 10px;
-    font-size: 12px;
-    font-weight: 600;
+    border-radius: 8px;
+    padding: 4px 14px;
+    font-size: 16px;
+    font-weight: 700;
     color: #fff;
+    letter-spacing: 0.3px;
   }
   .no-doc-flag {
     display: inline-block;
@@ -117,6 +118,27 @@
   }
   td.low-confidence-cell { color: #b91c1c; font-weight: 600; }
   .reasoning { font-size: 13px; color: var(--ink); margin: 10px 0; }
+
+  /* Defensibility (LLM-as-Judge) — a deliberately SUBTLE trailing indicator
+     (small colored dot + muted text) so it never competes with the CMMI score,
+     plus a quoted note block for the critique. */
+  .meta-conf { margin-left: 8px; }
+  .defensibility-note { font-size: 11px; color: var(--muted); margin-left: 10px; }
+  .def-dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-right: 4px;
+    vertical-align: middle;
+  }
+  .judge-note {
+    font-size: 12px;
+    color: var(--muted);
+    margin: 6px 0 0;
+    padding-left: 10px;
+    border-left: 3px solid #cbd5e1;
+  }
 
   /* table-layout: fixed + explicit per-column widths so the 3 free-text columns
      (Observations/Gap/Recommendation) get real room and wrap instead of being
@@ -194,22 +216,20 @@
     <div class="category-card">
       <h3>{{ c.category_id }} — {{ c.name }}</h3>
       <div class="cat-meta">
-        <span class="cmmi-pill" style="background: {{ cmmi_colors[c.cmmi_level] }}">
-          CMMI {{ c.cmmi_level }}
-        </span>
-        confidence {{ "%.0f"|format(c.confidence * 100) }}%
-        {% if c.cmmi_delta %}
-        <span class="cmmi-delta {{ 'cmmi-delta-up' if c.cmmi_delta > 0 else 'cmmi-delta-down' }}">
-          ({{ ("&#9650;" if c.cmmi_delta > 0 else "&#9660;") | safe }} was {{ c.prior_cmmi }})
-        </span>
-        {% endif %}
+        <span class="cmmi-pill" style="background: {{ cmmi_colors[c.cmmi_level] }}">CMMI {{ c.cmmi_level }}</span>
+        {% if c.cmmi_delta %}<span class="cmmi-delta {{ 'cmmi-delta-up' if c.cmmi_delta > 0 else 'cmmi-delta-down' }}">{{ ("&#9650;" if c.cmmi_delta > 0 else "&#9660;") | safe }} was {{ c.prior_cmmi }}</span>{% endif %}
+        <span class="meta-conf">confidence {{ "%.0f"|format(c.confidence * 100) }}%</span>
         {% if c.low_confidence %}<span class="low-confidence-flag">insufficient evidence</span>{% endif %}
         {% if c.no_doc_evidence %}<span class="no-doc-flag">no doc evidence</span>{% endif %}
+        {% if c.defensibility %}<span class="defensibility-note"><span class="def-dot" style="background: {{ defensibility_colors[c.defensibility] }}"></span>defensibility {{ c.defensibility }}</span>{% endif %}
       </div>
 
       <p class="reasoning">{{ c.reasoning }}</p>
       {% if c.prior_top_gap %}
       <p class="prior-gap-note">Previously flagged: {{ c.prior_top_gap }}</p>
+      {% endif %}
+      {% if c.judge_notes %}
+      <p class="judge-note"><strong>Judge review:</strong> {{ c.judge_notes }}</p>
       {% endif %}
 
       {% if c.subcategory_scores %}

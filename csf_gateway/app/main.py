@@ -10,6 +10,9 @@ connection status so we can verify the deploy target early.
 """
 from __future__ import annotations
 
+import os
+os.environ.setdefault("GRPC_VERBOSITY", "ERROR")  # quiet grpc C-core fork/poll INFO noise (must precede any grpc/firestore import)
+
 import logging
 from contextlib import asynccontextmanager
 
