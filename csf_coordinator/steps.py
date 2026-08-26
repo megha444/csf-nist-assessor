@@ -25,12 +25,19 @@ from csf_coordinator import pubsub_client
 from csf_coordinator.config import get_settings
 from csf_gateway.app.config import get_settings as get_gateway_settings
 from csf_gateway.app.schema import RunStatus
+from csf_gateway.app.tracing import get_tracer
 from csf_specialists.aggregate import aggregate_function, persist_tier
 from csf_specialists.judge import judge_run
 from csf_specialists.loaders import rubric_version_hash
 from csf_specialists.memory_bank import record_assessment
 
 log = logging.getLogger("csf-coordinator.steps")
+# Observability: the coordinator's orchestration plumbing (create/dispatch/
+# collect/aggregate/judge) is now traced alongside the already-instrumented LLM
+# operations (score/judge/interview), so a full assessment shows end-to-end in
+# one Cloud Trace timeline — including the Collect wait, where "looks like a
+# hang" incidents actually live. Non-fatal by design (tracing.py wraps export).
+_tracer = get_tracer("csf-coordinator")
 
 _firestore_client: AsyncClient | None = None
 
@@ -85,34 +92,39 @@ class CreateRunStep(BaseAgent):
     functions: list[str]
 
     async def _run_async_impl(self, ctx: InvocationContext):
-        client = _get_firestore_client()
-        session_ref = client.collection("sessions").document(self.session_id)
+        with _tracer.start_as_current_span("csf.coordinator.create_run") as span:
+            span.set_attribute("run_id", self.run_id)
+            span.set_attribute("expected_agents", self.expected_agents)
+            client = _get_firestore_client()
+            session_ref = client.collection("sessions").document(self.session_id)
 
-        doc_ids = [d.id async for d in session_ref.collection("documents").stream()]
-        answer_ids = [a.id async for a in session_ref.collection("answers").stream()]
+            doc_ids = [d.id async for d in session_ref.collection("documents").stream()]
+            answer_ids = [a.id async for a in session_ref.collection("answers").stream()]
+            span.set_attribute("doc_count", len(doc_ids))
+            span.set_attribute("answer_count", len(answer_ids))
 
-        run_ref = session_ref.collection("runs").document(self.run_id)
-        await run_ref.set({
-            "run_id": self.run_id,
-            "session_id": self.session_id,
-            "dispatched_at": datetime.now(timezone.utc),
-            "status": RunStatus.dispatched.value,
-            "expected_agents": self.expected_agents,
-            "completed_agents": 0,
-            "snapshot": {
-                "doc_ids": doc_ids,
-                "answer_ids": answer_ids,
-                # One hash per Function, not one flat string — a run can span
-                # 6 Functions with 6 different rubric files. Real content
-                # hashes, replacing the old always-"v1" placeholder.
-                "rubric_versions": {fn: rubric_version_hash(fn) for fn in self.functions},
-            },
-        })
-        log.info(
-            "created runs/%s (expected_agents=%d, doc_ids=%d, answer_ids=%d)",
-            self.run_id, self.expected_agents, len(doc_ids), len(answer_ids),
-        )
-        yield _text_event(self.name, f"created run {self.run_id} (expecting {self.expected_agents} Function(s))")
+            run_ref = session_ref.collection("runs").document(self.run_id)
+            await run_ref.set({
+                "run_id": self.run_id,
+                "session_id": self.session_id,
+                "dispatched_at": datetime.now(timezone.utc),
+                "status": RunStatus.dispatched.value,
+                "expected_agents": self.expected_agents,
+                "completed_agents": 0,
+                "snapshot": {
+                    "doc_ids": doc_ids,
+                    "answer_ids": answer_ids,
+                    # One hash per Function, not one flat string — a run can span
+                    # 6 Functions with 6 different rubric files. Real content
+                    # hashes, replacing the old always-"v1" placeholder.
+                    "rubric_versions": {fn: rubric_version_hash(fn) for fn in self.functions},
+                },
+            })
+            log.info(
+                "created runs/%s (expected_agents=%d, doc_ids=%d, answer_ids=%d)",
+                self.run_id, self.expected_agents, len(doc_ids), len(answer_ids),
+            )
+            yield _text_event(self.name, f"created run {self.run_id} (expecting {self.expected_agents} Function(s))")
 
 
 class DispatchStep(BaseAgent):
@@ -131,16 +143,20 @@ class DispatchStep(BaseAgent):
     category_ids: list[str]
 
     async def _run_async_impl(self, ctx: InvocationContext):
-        await pubsub_client.publish_dispatch(self.function, {
-            "run_id": self.run_id,
-            "session_id": self.session_id,
-            "function": self.function,
-            "category_ids": self.category_ids,
-            "rubric_version": rubric_version_hash(self.function),
-            "snapshot_ref": f"runs/{self.run_id}",
-        })
-        _trigger_worker_job(self.function)
-        yield _text_event(self.name, f"dispatched {self.function} (run_id={self.run_id}, {len(self.category_ids)} Categories)")
+        with _tracer.start_as_current_span("csf.coordinator.dispatch") as span:
+            span.set_attribute("function", self.function)
+            span.set_attribute("run_id", self.run_id)
+            span.set_attribute("category_count", len(self.category_ids))
+            await pubsub_client.publish_dispatch(self.function, {
+                "run_id": self.run_id,
+                "session_id": self.session_id,
+                "function": self.function,
+                "category_ids": self.category_ids,
+                "rubric_version": rubric_version_hash(self.function),
+                "snapshot_ref": f"runs/{self.run_id}",
+            })
+            _trigger_worker_job(self.function)
+            yield _text_event(self.name, f"dispatched {self.function} (run_id={self.run_id}, {len(self.category_ids)} Categories)")
 
 
 class CollectResultsStep(BaseAgent):
@@ -161,36 +177,46 @@ class CollectResultsStep(BaseAgent):
         import asyncio
         import time
 
-        received: list[dict] = []
-        deadline = time.monotonic() + self.max_wait_s
-        while len(received) < self.expected_count and time.monotonic() < deadline:
-            messages = await pubsub_client.pull_results(max_messages=10, timeout=self.poll_timeout_s)
-            for msg in messages:
-                if msg.get("run_id") == self.run_id:
-                    received.append(msg)
-                else:
-                    log.info("ignoring result for a different run_id=%s", msg.get("run_id"))
+        with _tracer.start_as_current_span("csf.coordinator.collect_results") as span:
+            span.set_attribute("run_id", self.run_id)
+            span.set_attribute("expected_count", self.expected_count)
+            span.set_attribute("max_wait_s", self.max_wait_s)
+            start = time.monotonic()
+
+            received: list[dict] = []
+            deadline = start + self.max_wait_s
+            while len(received) < self.expected_count and time.monotonic() < deadline:
+                messages = await pubsub_client.pull_results(max_messages=10, timeout=self.poll_timeout_s)
+                for msg in messages:
+                    if msg.get("run_id") == self.run_id:
+                        received.append(msg)
+                    else:
+                        log.info("ignoring result for a different run_id=%s", msg.get("run_id"))
+                if len(received) < self.expected_count:
+                    await asyncio.sleep(2)
+
+            span.set_attribute("received_count", len(received))
+            span.set_attribute("waited_s", round(time.monotonic() - start, 1))
+
             if len(received) < self.expected_count:
-                await asyncio.sleep(2)
+                span.set_attribute("timed_out", True)
+                raise TimeoutError(
+                    f"run_id={self.run_id}: expected {self.expected_count} completion(s), "
+                    f"got {len(received)} within {self.max_wait_s}s"
+                )
 
-        if len(received) < self.expected_count:
-            raise TimeoutError(
-                f"run_id={self.run_id}: expected {self.expected_count} completion(s), "
-                f"got {len(received)} within {self.max_wait_s}s"
+            client = _get_firestore_client()
+            run_ref = (
+                client.collection("sessions").document(self.session_id)
+                .collection("runs").document(self.run_id)
             )
+            await run_ref.update({
+                "status": RunStatus.partial.value,
+                "completed_agents": len(received),
+            })
 
-        client = _get_firestore_client()
-        run_ref = (
-            client.collection("sessions").document(self.session_id)
-            .collection("runs").document(self.run_id)
-        )
-        await run_ref.update({
-            "status": RunStatus.partial.value,
-            "completed_agents": len(received),
-        })
-
-        log.info("run_id=%s: collected %d/%d completion(s)", self.run_id, len(received), self.expected_count)
-        yield _text_event(self.name, f"collected {len(received)}/{self.expected_count} completions for run_id={self.run_id}")
+            log.info("run_id=%s: collected %d/%d completion(s)", self.run_id, len(received), self.expected_count)
+            yield _text_event(self.name, f"collected {len(received)}/{self.expected_count} completions for run_id={self.run_id}")
 
 
 class AggregateStep(BaseAgent):
@@ -201,34 +227,42 @@ class AggregateStep(BaseAgent):
     function: str
 
     async def _run_async_impl(self, ctx: InvocationContext):
-        result = await aggregate_function(self.session_id, self.run_id, self.function)
-        await persist_tier(self.session_id, self.run_id, result)
+        with _tracer.start_as_current_span("csf.coordinator.aggregate") as span:
+            span.set_attribute("function", self.function)
+            span.set_attribute("run_id", self.run_id)
+            result = await aggregate_function(self.session_id, self.run_id, self.function)
+            await persist_tier(self.session_id, self.run_id, result)
+            span.set_attribute("tier", result.tier)
+            span.set_attribute("avg_cmmi", result.avg_cmmi)
 
-        client = _get_firestore_client()
-        session_ref = client.collection("sessions").document(self.session_id)
-        run_ref = session_ref.collection("runs").document(self.run_id)
-        await run_ref.update({"status": RunStatus.ready_for_report.value})
+            client = _get_firestore_client()
+            session_ref = client.collection("sessions").document(self.session_id)
+            run_ref = session_ref.collection("runs").document(self.run_id)
+            await run_ref.update({"status": RunStatus.ready_for_report.value})
 
-        # Memory Bank (Fortified component) — record this Function's result
-        # against the org so a LATER, separate assessment of the same org can
-        # see what this one found. Best-effort: a memory-write failure must
-        # never break the actual scoring pipeline it's observing.
-        try:
-            session_snap = await session_ref.get()
-            org_id = (session_snap.to_dict() or {}).get("org_id", "") if session_snap.exists else ""
-            await record_assessment(org_id, self.function, self.session_id, self.run_id, result)
-        except Exception:
-            log.exception("[%s] Memory Bank write failed — continuing anyway", self.function)
+            # Memory Bank (Fortified component) — record this Function's result
+            # against the org so a LATER, separate assessment of the same org can
+            # see what this one found. Best-effort: a memory-write failure must
+            # never break the actual scoring pipeline it's observing.
+            with _tracer.start_as_current_span("csf.coordinator.memory_bank_write") as mem_span:
+                mem_span.set_attribute("function", self.function)
+                try:
+                    session_snap = await session_ref.get()
+                    org_id = (session_snap.to_dict() or {}).get("org_id", "") if session_snap.exists else ""
+                    mem_span.set_attribute("org_id", org_id or "<none>")
+                    await record_assessment(org_id, self.function, self.session_id, self.run_id, result)
+                except Exception:
+                    log.exception("[%s] Memory Bank write failed — continuing anyway", self.function)
 
-        # SessionState.run_id exists precisely so a caller can GET /sessions/{sid}
-        # and know which run to report on, without tracking run_id separately.
-        # Not touching session-level `status` here — that field's ready_for_report
-        # semantics imply all dispatched Functions are in, which isn't meaningful
-        # yet for a Govern-only stub; revisit once the full fan-out exists.
-        await session_ref.update({"run_id": self.run_id})
+            # SessionState.run_id exists precisely so a caller can GET /sessions/{sid}
+            # and know which run to report on, without tracking run_id separately.
+            # Not touching session-level `status` here — that field's ready_for_report
+            # semantics imply all dispatched Functions are in, which isn't meaningful
+            # yet for a Govern-only stub; revisit once the full fan-out exists.
+            await session_ref.update({"run_id": self.run_id})
 
-        log.info("[%s] run_id=%s aggregated -> Tier %d (avg_cmmi=%.3f)", self.function, self.run_id, result.tier, result.avg_cmmi)
-        yield _text_event(self.name, f"Tier {result.tier} (avg_cmmi={result.avg_cmmi:.3f}) for {self.function}, run_id={self.run_id}")
+            log.info("[%s] run_id=%s aggregated -> Tier %d (avg_cmmi=%.3f)", self.function, self.run_id, result.tier, result.avg_cmmi)
+            yield _text_event(self.name, f"Tier {result.tier} (avg_cmmi={result.avg_cmmi:.3f}) for {self.function}, run_id={self.run_id}")
 
 
 class JudgeStep(BaseAgent):
@@ -244,8 +278,12 @@ class JudgeStep(BaseAgent):
     function: str
 
     async def _run_async_impl(self, ctx: InvocationContext):
-        results = await judge_run(self.session_id, self.run_id, self.function)
-        counts = Counter(r.defensibility for r in results)
-        summary = ", ".join(f"{k}={v}" for k, v in sorted(counts.items()))
-        log.info("[%s] run_id=%s judged %d Categories (%s)", self.function, self.run_id, len(results), summary)
-        yield _text_event(self.name, f"judged {len(results)} Categories for {self.function}: {summary}")
+        with _tracer.start_as_current_span("csf.coordinator.judge") as span:
+            span.set_attribute("function", self.function)
+            span.set_attribute("run_id", self.run_id)
+            results = await judge_run(self.session_id, self.run_id, self.function)
+            counts = Counter(r.defensibility for r in results)
+            summary = ", ".join(f"{k}={v}" for k, v in sorted(counts.items()))
+            span.set_attribute("categories_judged", len(results))
+            log.info("[%s] run_id=%s judged %d Categories (%s)", self.function, self.run_id, len(results), summary)
+            yield _text_event(self.name, f"judged {len(results)} Categories for {self.function}: {summary}")

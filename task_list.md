@@ -156,6 +156,40 @@ Legend: **[M]** = Megha (tech), **[T]** = Teammate (KPMG domain). Check off as c
 
 **Sakina — parallel track, deliberately not pinned to specific days** (her Aug 22/23 dated items never happened; stop assuming a cadence that hasn't held all month): interview questions for every Function (still never delivered — the questionnaire's 234 real answers are the working substitute for now), evidence taxonomy v1, **golden test set v1 (never delivered at any point — the standing structural risk)**, recommendation templates (30), executive summary templates (24), demo script + pre-written demo answers. Integrate whichever lands, whenever it lands — check `Ref Docs/` directly rather than assuming delivery. If the golden set never arrives, the questionnaire's 234 answers are the fallback ground truth for the automated eval (Fri Aug 28 below).
 
+### ⭐ REPLANNED Aug 26 — CURRENT working plan (supersedes the Wed Aug 26 → Sat Aug 29 dated blocks further below)
+
+**Context:** Since the Aug 23 replan, a lot shipped (Registry, Memory Bank, Gateway auth, evidence taxonomy, report readability, confidence flags) AND a gated **Agent-Runtime migration** spike landed: the Coordinator now runs GEAP-native on Agent Runtime with native Agent Identity + Observability (Gates 0–4 done; branch `fork/rearchitect-explore`; full plan `docs/rearchitect_agent_runtime_plan.md`). **Agent Gateway ingress is now an explicit build target** (Megha's call — "it needs to be done"). Goal: a winning project. Hard code freeze EOD Sat Aug 29; Aug 30–31 presentation only.
+
+**Priority order (protect these if the week compresses):** deployed-URL redeploy → golden-set eval (a real accuracy number) → README + reproducibility → backup demo recording. **Cut order if a day runs long:** cost dashboard → per-specialist SAs → Agent Gateway ingress full version (→ documented partial) → blog posts. A working, measured, reproducible demo beats one more infra component.
+
+**Sakina (unpinned, integrate whenever it lands):** golden set (fallback = questionnaire's 234 answers), exec-summary + recommendation templates, interview questions, demo script. Nothing blocks on her.
+
+#### Wed Aug 26 (today — partly spent)
+- [x] **[M]** Migration Gate 4 closed: 3 native GEAP components (Agent Runtime + Identity + Observability); coordinator plumbing traces added (create/dispatch/collect/aggregate/judge/memory-write now in Cloud Trace).
+- [ ] **[M]** Surface the **Judge defensibility verdict in the report** (HTML + Streamlit) — pipeline already produces it, only the report-reading side is missing. High judge visibility.
+- [ ] **[M]** **Model Armor / DLP** — PII scrub before every LLM call + redaction logging (real Cloud DLP call if quick, proportionate regex pass otherwise).
+
+#### Thu Aug 27 — Agent Gateway ingress (the heavy infra day)
+- [ ] **[M]** Stand up **Agent Gateway ingress** in front of the hosted Coordinator: VPC + Agent Gateway resource + IAP policy + register the Coordinator as a destination + route a client through it. **Hard fallback:** if not converging by ~4pm, ship a documented partial + keep the app-level `X-API-Key` auth as the working boundary — do NOT let it bleed into Fri/Sat.
+- [ ] **[M]** OPTIONAL if ingress finishes early — per-specialist service accounts (Agent Identity polish for the 6 workers). Low marginal value (identical workloads); cut first.
+
+#### Fri Aug 28 — the money items
+- [ ] **[M]** ⭐ **Gateway redeploy** bundling ALL local-only Fortified work (Registry, Memory Bank, Gateway auth, Judge-in-report, Model Armor, plumbing traces). This is what a judge actually hits — nothing Fortified is visible until this lands. Run the post-deploy smoke test.
+- [ ] **[M]** ⭐ **Automated golden-set eval** vs the questionnaire's 234 real answers → CMMI agreement / retrieval@5 / confidence calibration → README. A real number beats "unmeasurable."
+- [ ] **[M]** **Report polish**: drill-down/collapsible Category detail + roadmap-style gap prioritization + exec-summary integration (Sakina's templates or clearly-labeled placeholder).
+- [ ] **[M]** Start **README + architecture diagram** (fold in the Agent-Runtime migration as the architecture-discipline highlight).
+
+#### Sat Aug 29 — integration, reproducibility, recording (HARD CUTOFF)
+- [ ] **[M]** **Full integration pass**: all 6 agents + all 7 Fortified components live, one real end-to-end run on the deployed URL.
+- [ ] **[M]** **Reproducibility**: fresh clone → follow README → deploy from scratch → fix every break (catches gitignored `.env`, deploy-script IAM gaps).
+- [ ] **[M]** Finish README + architecture diagram; **final gateway redeploy** after integration fixes.
+- [ ] **[M]** Cost dashboard (tokens/cost/latency per agent) — if time; first to cut.
+- [ ] **[M]** ⭐ **Rough backup demo recording** — non-negotiable by EOD, even an imperfect take.
+
+**Phase 5 (Sun Aug 30 – Mon Aug 31) unchanged — see the Phase 5 block below: demo video takes, blog/LinkedIn, Devpost submission by 12PM ET Mon (hard 8PM).**
+
+---
+
 ### Sun Aug 23 (today — rest of day)
 - [x] **[M]** — fixed both Aug 21 findings: **`ID.RA` bug root-caused for real** — subcategory means `[3,2,2,3,3,3,3,1,2,3]` = exactly 2.5, and Python's `round()` uses banker's rounding (`round(2.5)==2`), silently disagreeing with the LLM's own "Level 3" reasoning. Fixed in `agent_base.py` — round-half-up (`int(x + 0.5)`) instead of `round()`, matching rubric/human convention. Verified by re-scoring `ID.RA` live (now `cmmi_level=3`, matches reasoning) and re-judging it (now "high" defensibility, was "low"). Audited the rest of that Aug 21 run — only `ID.RA` was affected, no other categories hit the same edge case. **Judge Cloud Trace instrumentation** added to `judge.py` (same thin-wrapper pattern as `score_category`) — verified via a real Cloud Trace API query, `csf.specialist.judge_category` span genuinely lands.
 - [x] **[M]** — committed all outstanding work in 3 logical commits (agents+qna fix, rounding+tracing fixes, docs).
