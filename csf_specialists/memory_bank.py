@@ -33,6 +33,7 @@ why report-visible tracking shipped first.
 """
 from __future__ import annotations
 
+import asyncio
 import logging
 from datetime import datetime, timezone
 
@@ -47,13 +48,22 @@ log = logging.getLogger("csf-specialists.memory_bank")
 MAX_HISTORY = 20
 
 _firestore_client: AsyncClient | None = None
+_firestore_loop: asyncio.AbstractEventLoop | None = None
 
 
 def _get_firestore_client() -> AsyncClient:
-    global _firestore_client
-    if _firestore_client is None:
+    # Firestore AsyncClient binds its gRPC channel to the event loop that first
+    # uses it. Streamlit calls asyncio.run() fresh on every rerun (report render),
+    # so a module-level singleton created on a prior, now-closed loop raises
+    # "RuntimeError: Event loop is closed". Rebind whenever the running loop
+    # changes — safe in the long-lived gateway (loop never changes) and correct
+    # in Streamlit (new loop per rerun).
+    global _firestore_client, _firestore_loop
+    loop = asyncio.get_running_loop()
+    if _firestore_client is None or _firestore_loop is not loop:
         s = get_settings()
         _firestore_client = AsyncClient(project=s.google_cloud_project, database=s.firestore_database)
+        _firestore_loop = loop
     return _firestore_client
 
 

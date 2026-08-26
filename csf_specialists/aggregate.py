@@ -31,13 +31,20 @@ log = logging.getLogger("csf-specialists.aggregate")
 CONFIDENCE_THRESHOLD = 0.6
 
 _firestore_client: AsyncClient | None = None
+_firestore_loop = None  # event loop the cached client is bound to (loop-aware caching)
 
 
 def _get_firestore_client() -> AsyncClient:
-    global _firestore_client
-    if _firestore_client is None:
+    # Loop-aware: rebind the AsyncClient when the running event loop changes
+    # (Streamlit reruns / fresh asyncio.run) so a cached client from a closed
+    # loop never raises "Event loop is closed". See memory_bank.py.
+    import asyncio
+    global _firestore_client, _firestore_loop
+    loop = asyncio.get_running_loop()
+    if _firestore_client is None or _firestore_loop is not loop:
         s = get_settings()
         _firestore_client = AsyncClient(project=s.google_cloud_project, database=s.firestore_database)
+        _firestore_loop = loop
     return _firestore_client
 
 

@@ -40,6 +40,7 @@ log = logging.getLogger("csf-coordinator.steps")
 _tracer = get_tracer("csf-coordinator")
 
 _firestore_client: AsyncClient | None = None
+_firestore_loop = None  # event loop the cached client is bound to (loop-aware caching)
 
 # csf-worker Cloud Run Job — one Job, `--function` overridden per execution.
 # See task_list.md's Sun Aug 23 entry for why (shared image with the gateway,
@@ -70,10 +71,16 @@ def _trigger_worker_job(function: str) -> None:
 
 
 def _get_firestore_client() -> AsyncClient:
-    global _firestore_client
-    if _firestore_client is None:
+    # Loop-aware: rebind the AsyncClient when the running event loop changes, so
+    # a cached client from a prior/closed loop never raises "Event loop is
+    # closed" (Streamlit reruns, migration adapter, etc.). See memory_bank.py.
+    import asyncio
+    global _firestore_client, _firestore_loop
+    loop = asyncio.get_running_loop()
+    if _firestore_client is None or _firestore_loop is not loop:
         s = get_settings()
         _firestore_client = AsyncClient(project=s.google_cloud_project, database=s.firestore_database)
+        _firestore_loop = loop
     return _firestore_client
 
 
@@ -238,7 +245,20 @@ class AggregateStep(BaseAgent):
             client = _get_firestore_client()
             session_ref = client.collection("sessions").document(self.session_id)
             run_ref = session_ref.collection("runs").document(self.run_id)
-            await run_ref.update({"status": RunStatus.ready_for_report.value})
+
+            # Only flip to ready_for_report once EVERY expected Function's tier is
+            # persisted. AggregateSteps run sequentially, so the last one to
+            # finish trips this. The old per-Function set let the report render
+            # after the 1st aggregate with later Functions (e.g. Recover, which
+            # aggregates last) still missing their tier — the Aug 26 E2E
+            # "Recover shows —" finding. Until then status stays `partial`.
+            run_snap = await run_ref.get()
+            expected = (run_snap.to_dict() or {}).get("expected_agents", 1)
+            tier_count = len([t async for t in run_ref.collection("tiers").stream()])
+            span.set_attribute("tiers_persisted", tier_count)
+            span.set_attribute("expected_agents", expected)
+            if tier_count >= expected:
+                await run_ref.update({"status": RunStatus.ready_for_report.value})
 
             # Memory Bank (Fortified component) — record this Function's result
             # against the org so a LATER, separate assessment of the same org can
