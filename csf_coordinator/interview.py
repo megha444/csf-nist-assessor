@@ -25,6 +25,7 @@ from google.cloud.firestore_v1.base_query import FieldFilter
 from google.genai import types
 from pydantic import BaseModel, Field
 
+from csf_gateway.app import model_armor, pii_scrubber
 from csf_gateway.app.config import get_settings
 from csf_gateway.app.csf_catalog import Function
 from csf_gateway.app.llm import gemini_model
@@ -244,6 +245,10 @@ async def _decide_next_question_impl(session_id: str, function: Function) -> Nex
 
     prompt = _build_prompt(function, coverage, seed_questions,
                            asked_seed_ids, prior_qa, questions_asked)
+    # Injection screening for interview answers happens at the door in
+    # record_answer() (raw-answer granularity — screening this assembled prompt
+    # misses embedded injections by dilution). PII scrub still runs on the full prompt.
+    prompt = pii_scrubber.scrub_for_llm(prompt, context=f"interview/{function}")
 
     runner = _get_runner()
     adk_session_id = str(uuid.uuid4())
@@ -302,6 +307,13 @@ async def record_answer(
     """Writes to sessions/{sid}/answers/{question_id} — same collection/shape
     agent_base._fetch_answers already reads, so live-chat answers feed scoring
     identically to preseed, no changes needed there."""
+    # Screen the raw user answer for prompt injection at the point of capture — the
+    # untrusted-input door. Screening the raw answer here (rather than the large
+    # assembled director/scoring prompt) avoids signal dilution, and this collection
+    # feeds BOTH the interview director and scoring, so one screen protects every
+    # downstream use. Raises ModelArmorBlocked (rejecting the answer) only when
+    # block-on-injection is enabled; otherwise logs a security event and proceeds.
+    await model_armor.screen_untrusted([answer], context=f"answer/{function}/{category_hint}")
     client = _get_firestore_client()
     ref = client.collection("sessions").document(
         session_id).collection("answers").document(question_id)

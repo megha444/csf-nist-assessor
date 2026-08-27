@@ -987,12 +987,12 @@ files = [
 google-auth = ">=2.14.1,<3.0.0"
 googleapis-common-protos = ">=1.69.2,<2.0.0"
 grpcio = [
-    {version = ">=1.75.1,<2.0.0", optional = true, markers = "python_version >= \"3.14\" and extra == \"grpc\""},
     {version = ">=1.59.0,<2.0.0", optional = true, markers = "extra == \"grpc\""},
+    {version = ">=1.75.1,<2.0.0", optional = true, markers = "python_version >= \"3.14\" and extra == \"grpc\""},
 ]
 grpcio-status = [
-    {version = ">=1.75.1,<2.0.0", optional = true, markers = "python_version >= \"3.14\" and extra == \"grpc\""},
     {version = ">=1.59.0,<2.0.0", optional = true, markers = "extra == \"grpc\""},
+    {version = ">=1.75.1,<2.0.0", optional = true, markers = "python_version >= \"3.14\" and extra == \"grpc\""},
 ]
 proto-plus = ">=1.26.1,<2.0.0"
 protobuf = ">=6.33.5,<8.0.0"
@@ -1016,8 +1016,8 @@ files = [
 
 [package.dependencies]
 cryptography = [
-    {version = ">=41.0.5", markers = "python_version >= \"3.14\""},
     {version = ">=38.0.3", markers = "python_version < \"3.14\""},
+    {version = ">=41.0.5", markers = "python_version >= \"3.14\""},
 ]
 pyasn1-modules = ">=0.2.1"
 requests = {version = ">=2.30.0,<3.0.0", optional = true, markers = "extra == \"requests\""}
@@ -1218,8 +1218,30 @@ google-api-core = {version = ">=2.25.0,<3.0.0", extras = ["grpc"]}
 google-auth = ">=2.14.1,<2.24.0 || >2.24.0,<2.25.0 || >2.25.0,<3.0.0"
 google-cloud-core = ">=2.0.0,<3.0.0"
 grpcio = [
-    {version = ">=1.75.1,<2.0.0", markers = "python_version >= \"3.14\""},
     {version = ">=1.59.0,<2.0.0"},
+    {version = ">=1.75.1,<2.0.0", markers = "python_version >= \"3.14\""},
+]
+proto-plus = ">=1.26.1,<2.0.0"
+protobuf = ">=6.33.5,<8.0.0"
+
+[[package]]
+name = "google-cloud-modelarmor"
+version = "0.7.1"
+description = "Google Cloud Modelarmor API client library"
+optional = false
+python-versions = ">=3.10"
+groups = ["main"]
+files = [
+    {file = "google_cloud_modelarmor-0.7.1-py3-none-any.whl", hash = "sha256:90285c3f2dc859413a7ff86d585d1ec30263ec266f45f2cba930cae66a994cc0"},
+    {file = "google_cloud_modelarmor-0.7.1.tar.gz", hash = "sha256:1cc9eabb94c274d99dc4069d505e1ec4f602bea0aba1fb221233e52171897509"},
+]
+
+[package.dependencies]
+google-api-core = {version = ">=2.24.2,<3.0.0", extras = ["grpc"]}
+google-auth = ">=2.14.1,<2.24.0 || >2.24.0,<2.25.0 || >2.25.0,<3.0.0"
+grpcio = [
+    {version = ">=1.59.0,<2.0.0"},
+    {version = ">=1.75.1,<2.0.0", markers = "python_version >= \"3.14\""},
 ]
 proto-plus = ">=1.26.1,<2.0.0"
 protobuf = ">=6.33.5,<8.0.0"
@@ -1241,12 +1263,12 @@ google-api-core = {version = ">=2.25.0,<3.0.0", extras = ["grpc"]}
 google-auth = ">=2.14.1,<2.24.0 || >2.24.0,<2.25.0 || >2.25.0,<3.0.0"
 grpc-google-iam-v1 = ">=0.14.2,<1.0.0"
 grpcio = [
-    {version = ">=1.75.1,<2.0.0", markers = "python_version >= \"3.14\""},
     {version = ">=1.59.0,<2.0.0"},
+    {version = ">=1.75.1,<2.0.0", markers = "python_version >= \"3.14\""},
 ]
 grpcio-status = [
-    {version = ">=1.75.1,<2.0.0", markers = "python_version >= \"3.14\""},
     {version = ">=1.59.0,<2.0.0"},
+    {version = ">=1.75.1,<2.0.0", markers = "python_version >= \"3.14\""},
 ]
 opentelemetry-api = ">=1.27.0"
 opentelemetry-sdk = ">=1.27.0"
@@ -1273,12 +1295,12 @@ google-api-core = {version = ">=2.17.1,<3.0.0", extras = ["grpc"]}
 google-auth = ">=2.14.1,<2.24.0 || >2.24.0,<2.25.0 || >2.25.0,<3.0.0"
 grpc-google-iam-v1 = ">=0.14.0,<1.0.0"
 grpcio = [
-    {version = ">=1.75.1,<2.0.0", markers = "python_version >= \"3.14\""},
     {version = ">=1.59.0,<2.0.0"},
+    {version = ">=1.75.1,<2.0.0", markers = "python_version >= \"3.14\""},
 ]
 proto-plus = [
-    {version = ">=1.25.0,<2.0.0", markers = "python_version >= \"3.13\""},
     {version = ">=1.22.3,<2.0.0"},
+    {version = ">=1.25.0,<2.0.0", markers = "python_version >= \"3.13\""},
 ]
 protobuf = ">=4.25.8,<8.0.0"
 
@@ -1299,12 +1321,12 @@ google-api-core = {version = ">=2.17.1,<3.0.0", extras = ["grpc"]}
 google-auth = ">=2.14.1,<2.24.0 || >2.24.0,<2.25.0 || >2.25.0,<3.0.0"
 grpc-google-iam-v1 = ">=0.14.0,<1.0.0"
 grpcio = [
+    {version = ">=1.59.0,<2.0.0"},
     {version = ">=1.75.1,<2.0.0", markers = "python_version >= \"3.14\""},
-    {version = ">=1.59.0,<2.0.0", markers = "python_version < \"3.14\""},
 ]
 proto-plus = [
+    {version = ">=1.22.3,<2.0.0"},
     {version = ">=1.25.0,<2.0.0", markers = "python_version >= \"3.13\""},
-    {version = ">=1.22.3,<2.0.0", markers = "python_version < \"3.13\""},
 ]
 protobuf = ">=4.25.8,<8.0.0"
 
@@ -1348,12 +1370,12 @@ files = [
 google-api-core = {version = ">=2.17.1,<3.0.0", extras = ["grpc"]}
 google-auth = ">=2.14.1,<2.24.0 || >2.24.0,<2.25.0 || >2.25.0,<3.0.0"
 grpcio = [
-    {version = ">=1.75.1,<2.0.0", markers = "python_version >= \"3.14\""},
     {version = ">=1.59.0,<2.0.0"},
+    {version = ">=1.75.1,<2.0.0", markers = "python_version >= \"3.14\""},
 ]
 proto-plus = [
-    {version = ">=1.25.0,<2.0.0", markers = "python_version >= \"3.13\""},
     {version = ">=1.22.3,<2.0.0"},
+    {version = ">=1.25.0,<2.0.0", markers = "python_version >= \"3.13\""},
 ]
 protobuf = ">=4.25.8,<8.0.0"
 
@@ -2604,8 +2626,8 @@ files = [
 
 [package.dependencies]
 numpy = [
-    {version = ">=2.3.3", markers = "python_version >= \"3.14\""},
     {version = ">=1.26.0", markers = "python_version < \"3.14\""},
+    {version = ">=2.3.3", markers = "python_version >= \"3.14\""},
 ]
 python-dateutil = ">=2.8.2"
 tzdata = {version = "*", markers = "sys_platform == \"win32\" or sys_platform == \"emscripten\""}
@@ -3051,7 +3073,7 @@ description = "C parser in Python"
 optional = false
 python-versions = ">=3.10"
 groups = ["main"]
-markers = "platform_python_implementation != \"PyPy\" and implementation_name != \"PyPy\""
+markers = "implementation_name != \"PyPy\" and platform_python_implementation != \"PyPy\""
 files = [
     {file = "pycparser-3.0-py3-none-any.whl", hash = "sha256:b727414169a36b7d524c1c3e31839a521725078d7b2ff038656844266160a992"},
     {file = "pycparser-3.0.tar.gz", hash = "sha256:600f49d217304a5902ac3c37e1281c9fe94e4d0489de643a9504c5cdfdfc6b29"},
@@ -3463,10 +3485,10 @@ files = [
 grpcio = ">=1.41.0"
 httpx = {version = ">=0.20.0", extras = ["http2"]}
 numpy = [
-    {version = ">=2.3.0", markers = "python_version >= \"3.14\""},
-    {version = ">=2.1.0", markers = "python_version == \"3.13\""},
     {version = ">=1.21", markers = "python_version == \"3.11\""},
     {version = ">=1.26", markers = "python_version == \"3.12\""},
+    {version = ">=2.3.0", markers = "python_version >= \"3.14\""},
+    {version = ">=2.1.0", markers = "python_version == \"3.13\""},
 ]
 portalocker = ">=2.7.0,<4.0"
 protobuf = ">=3.20.0"
@@ -4383,4 +4405,4 @@ propcache = ">=0.2.1"
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.11"
-content-hash = "eaaf8546ff5b3fdf7aad213b923ba5d19416f38d075eb74360df8f9af6436e84"
+content-hash = "bffb135904eb9136ad80f56a1262661f9bb72525c0c3902be3c36a28728f0d47"

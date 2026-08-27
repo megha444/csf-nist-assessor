@@ -92,6 +92,7 @@ for role in \
         roles/pubsub.subscriber \
         roles/run.invoker \
         roles/run.developer \
+        roles/modelarmor.user \
         roles/cloudtrace.agent; do
     gcloud projects add-iam-policy-binding "$PROJECT_ID" \
         --member="serviceAccount:$SA_EMAIL" \
@@ -162,6 +163,15 @@ ENV_VARS+=",EMBEDDING_MODEL=text-embedding-004"
 ENV_VARS+=",QDRANT_URL=${QDRANT_URL}"
 ENV_VARS+=",QDRANT_COLLECTION=${QDRANT_COLLECTION}"
 ENV_VARS+=",GATEWAY_RATE_LIMIT_PER_MINUTE=${GATEWAY_RATE_LIMIT_PER_MINUTE}"
+# Fortified — PII scrub + Model Armor threat gate. Without MODEL_ARMOR_ENABLED here
+# the deployed config defaults to False and the whole feature ships switched off.
+# Block-on-injection defaults to false for the always-on judge-facing URL (a false
+# positive must not reject a legitimate answer); flip to true to demo reject-at-door.
+ENV_VARS+=",PII_SCRUB_ENABLED=true"
+ENV_VARS+=",MODEL_ARMOR_ENABLED=true"
+ENV_VARS+=",MODEL_ARMOR_LOCATION=us"
+ENV_VARS+=",MODEL_ARMOR_TEMPLATE_ID=my-test-template"
+ENV_VARS+=",MODEL_ARMOR_BLOCK_ON_INJECTION=false"
 
 gcloud run deploy "$SERVICE" \
     --source "$REPO_ROOT" \

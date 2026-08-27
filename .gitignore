@@ -28,3 +28,4 @@ docs/*task*
 report.html
 csf_report.html
 *.log
+coordinator_engine*

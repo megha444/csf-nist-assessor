@@ -22,6 +22,7 @@ from google.adk.sessions import InMemorySessionService
 from google.genai import types
 from pydantic import BaseModel, Field
 
+from csf_gateway.app import model_armor, pii_scrubber
 from csf_gateway.app.config import get_settings
 from csf_gateway.app.csf_catalog import FUNCTION_NAMES, Function
 from csf_gateway.app.llm import gemini_model
@@ -90,6 +91,10 @@ async def extract_qna(document_text: str) -> list[PreseedRecord]:
         catalog_block=_build_catalog_block(),
         document_text=document_text,
     )
+    # Screen the raw uploaded questionnaire text for injection at document
+    # granularity (not the assembled catalog prompt — that dilutes the signal).
+    await model_armor.screen_untrusted([document_text], context="qna_extract")
+    prompt = pii_scrubber.scrub_for_llm(prompt, context="qna_extract")
 
     runner = _get_runner()
     adk_session_id = str(uuid.uuid4())

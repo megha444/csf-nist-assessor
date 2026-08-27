@@ -21,6 +21,7 @@ from fastapi import APIRouter, HTTPException
 
 from csf_coordinator import interview
 from csf_coordinator.interview import MAX_QUESTIONS
+from csf_gateway.app.model_armor import ModelArmorBlocked
 from csf_specialists.agents import AGENTS
 
 from .csf_catalog import Function
@@ -119,16 +120,28 @@ async def chat_answer(session_id: str, payload: ChatAnswerInput) -> dict:
             ),
         )
 
-    await interview.record_answer(
-        session_id=session_id,
-        question_id=pending.question_id,
-        question=pending.question,
-        answer=payload.answer,
-        function=pending.function,
-        category_hint=pending.category_hint,
-        source=pending.source,
-        importance=pending.importance,
-    )
+    try:
+        await interview.record_answer(
+            session_id=session_id,
+            question_id=pending.question_id,
+            question=pending.question,
+            answer=payload.answer,
+            function=pending.function,
+            category_hint=pending.category_hint,
+            source=pending.source,
+            importance=pending.importance,
+        )
+    except ModelArmorBlocked as e:
+        # Model Armor flagged the answer as a prompt-injection / jailbreak attempt
+        # and block-on-injection is enabled. Reject at the door: the answer is not
+        # stored and the pending question stays open so the user can rephrase.
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"Answer rejected — flagged as a potential prompt-injection / jailbreak "
+                f"attempt (confidence {e.confidence}). Please rephrase and resubmit."
+            ),
+        )
 
     session.chat_state.questions_asked += 1
     session.chat_state.pending = None

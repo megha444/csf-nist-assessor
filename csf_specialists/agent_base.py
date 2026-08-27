@@ -31,6 +31,7 @@ from google.cloud.firestore import AsyncClient
 from google.cloud.firestore_v1.base_query import FieldFilter
 from google.genai import types
 
+from csf_gateway.app import model_armor, pii_scrubber
 from csf_gateway.app.config import get_settings
 from csf_gateway.app.csf_catalog import CATEGORIES
 from csf_gateway.app.ingest.embedder import embed_query
@@ -236,6 +237,10 @@ class SpecialistAgent:
 
         # 3. Prompt assembly
         prompt = self._build_prompt(category_code, chunks, answers)
+        # Model Armor (managed threat gate) screens the raw text for injection /
+        # jailbreak / malicious URLs before the regex scrubber de-identifies PII.
+        await model_armor.screen_prompt(prompt, context=f"{self.function}/{category_code}")
+        prompt = pii_scrubber.scrub_for_llm(prompt, context=f"{self.function}/{category_code}")
 
         # 4. ADK structured-output call. One fresh session per call — this is a
         # stateless, single-shot structured generation, not a multi-turn conversation.

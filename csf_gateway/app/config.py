@@ -65,6 +65,24 @@ class Settings(BaseSettings):
     gateway_api_key: str | None = None
     gateway_rate_limit_per_minute: int = 2000
 
+    # Model Armor / DLP (Fortified) — deterministic PII de-identification before
+    # every LLM call (csf_gateway/app/pii_scrubber.py). On by default; False =
+    # identity pass-through (no scrubbing).
+    pii_scrub_enabled: bool = True
+
+    # Model Armor (Fortified) — managed Google threat gate at every LLM boundary
+    # (csf_gateway/app/model_armor.py): prompt-injection / jailbreak / malicious-URL
+    # / RAI screening, plus PII detection for the audit trail. Complements the regex
+    # scrubber (which does the actual PII value redaction). Disabled by default so
+    # local dev needs no API/creds; enable in the deployed env via MODEL_ARMOR_ENABLED.
+    model_armor_enabled: bool = False
+    model_armor_location: str = "us"  # region-locked; template lives in the `us` multi-region
+    model_armor_template_id: str = "my-test-template"
+    # Hard-block the run on a confirmed injection/jailbreak. Default False = log a
+    # security warning and proceed (a false positive must never sink a live run);
+    # flip True to demonstrate a live block against a crafted injection prompt.
+    model_armor_block_on_injection: bool = False
+
 
 @lru_cache
 def get_settings() -> Settings:

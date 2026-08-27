@@ -19,6 +19,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, File, HTTPException, UploadFile
 
+from csf_gateway.app.model_armor import ModelArmorBlocked
 from csf_specialists.qna_extractor import extract_qna
 from csf_specialists.scripts.preseed_govern import preseed
 
@@ -75,7 +76,19 @@ async def post_qna(session_id: str, file: Annotated[UploadFile, File(description
         raise HTTPException(status_code=422, detail=f"{filename!r} produced no extractable text")
 
     sections = _split_by_sheet(text) if ext == ".xlsx" else [text]
-    extracted = await asyncio.gather(*(extract_qna(section) for section in sections))
+    try:
+        extracted = await asyncio.gather(*(extract_qna(section) for section in sections))
+    except ModelArmorBlocked as e:
+        # Model Armor flagged the uploaded questionnaire as a prompt-injection /
+        # jailbreak attempt and block-on-injection is enabled — reject at the door;
+        # the document is not ingested.
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"{filename!r} rejected — content flagged as a potential prompt-injection / "
+                f"jailbreak attempt (confidence {e.confidence}). The document was not ingested."
+            ),
+        )
     records = [r for batch in extracted for r in batch]
     if not records:
         log.info("[%s] %s: no Q&A pairs identified", session_id, filename)

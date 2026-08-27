@@ -32,6 +32,7 @@ plotly = "^6.9.0"
 streamlit = "^1.61.1"
 opentelemetry-exporter-gcp-trace = "^1.15.0"
 google-cloud-run = "^0.16.1"
+google-cloud-modelarmor = "*"
 
 [build-system]
 requires = ["poetry-core"]

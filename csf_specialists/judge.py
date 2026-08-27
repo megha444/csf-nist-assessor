@@ -28,6 +28,7 @@ from google.cloud.firestore import AsyncClient
 from google.cloud.firestore_v1.base_query import FieldFilter
 from google.genai import types
 
+from csf_gateway.app import model_armor, pii_scrubber
 from csf_gateway.app.config import get_settings
 from csf_gateway.app.csf_catalog import Function
 from csf_gateway.app.llm import gemini_model
@@ -167,6 +168,8 @@ async def judge_category(session_id: str, run_id: str, category_id: str) -> Judg
 async def _judge_category_impl(session_id: str, run_id: str, category_id: str) -> JudgeResult:
     score = await _fetch_score(session_id, run_id, category_id)
     prompt = _build_prompt(score)
+    await model_armor.screen_prompt(prompt, context=f"judge/{category_id}")
+    prompt = pii_scrubber.scrub_for_llm(prompt, context=f"judge/{category_id}")
 
     runner = _get_runner()
     adk_session_id = str(uuid.uuid4())
