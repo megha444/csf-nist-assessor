@@ -58,7 +58,9 @@ from csf_specialists.scripts.export_html import (
 )
 from csf_specialists.scripts.export_json import build_report
 
-GATEWAY_URL = "http://localhost:8090"
+# Gateway base URL — overridable via env so the same app runs locally
+# (default) or on Cloud Run pointed at the deployed gateway.
+GATEWAY_URL = os.environ.get("GATEWAY_URL", "http://localhost:8090")
 _GATEWAY_API_KEY = get_settings().gateway_api_key
 
 st.set_page_config(page_title="CSF Assessor Fleet", layout="wide")
