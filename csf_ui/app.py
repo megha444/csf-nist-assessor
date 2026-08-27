@@ -28,35 +28,35 @@ Usage:
   poetry run streamlit run csf_ui/app.py
 """
 from __future__ import annotations
-
-import os
-os.environ.setdefault("GRPC_VERBOSITY", "ERROR")  # quiet grpc C-core fork/poll INFO noise (must precede any grpc/firestore import)
-
-import asyncio
-import sys
-from io import BytesIO
-from pathlib import Path
-
-REPO_ROOT = Path(__file__).resolve().parents[1]
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
-
-import httpx
-import pandas as pd
-import streamlit as st
-
-from csf_gateway.app.config import get_settings
-from csf_gateway.app.csf_catalog import FUNCTION_NAMES
-from csf_gateway.app.doctype_taxonomy import DocType
-from csf_specialists.agents import AGENTS
-from csf_specialists.scripts.export_excel import build_rows, fetch_scores, write_workbook
+from csf_specialists.scripts.export_json import build_report
 from csf_specialists.scripts.export_html import (
     _build_context,
     _category_radar_figure,
     _tier_radar_figure,
     render_html,
 )
-from csf_specialists.scripts.export_json import build_report
+from csf_specialists.scripts.export_excel import build_rows, fetch_scores, write_workbook
+from csf_specialists.agents import AGENTS
+from csf_gateway.app.doctype_taxonomy import DocType
+from csf_gateway.app.csf_catalog import FUNCTION_NAMES
+from csf_gateway.app.config import get_settings
+import streamlit as st
+import pandas as pd
+import httpx
+from pathlib import Path
+from io import BytesIO
+import sys
+import asyncio
+
+import os
+# quiet grpc C-core fork/poll INFO noise (must precede any grpc/firestore import)
+os.environ.setdefault("GRPC_VERBOSITY", "ERROR")
+
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
 
 # Gateway base URL — overridable via env so the same app runs locally
 # (default) or on Cloud Run pointed at the deployed gateway.
@@ -71,18 +71,29 @@ st.set_page_config(page_title="CSF Assessor Fleet", layout="wide")
 # ---------------------------------------------------------------------------
 
 
-def _api(method: str, path: str, **kwargs) -> dict:
-    """Call the gateway; surface connection/HTTP errors as a clean st.error + st.stop()
-    instead of a raw traceback — this is a real system boundary (gateway may not be running)."""
+def _api(method: str, path: str, *, timeout: float = 60.0, **kwargs) -> dict:
+    """Call the gateway; surface connection/timeout/HTTP errors as a clean st.error +
+    st.stop() instead of a raw traceback — this is a real system boundary (the gateway
+    may be down, or slow on large uploads: document parsing / Q&A extraction). Pass a
+    larger `timeout` for those long calls."""
     headers = kwargs.pop("headers", {})
     if _GATEWAY_API_KEY:
         headers["X-API-Key"] = _GATEWAY_API_KEY
     try:
-        resp = httpx.request(method, f"{GATEWAY_URL}{path}", timeout=60.0, headers=headers, **kwargs)
+        resp = httpx.request(
+            method, f"{GATEWAY_URL}{path}", timeout=timeout, headers=headers, **kwargs)
     except httpx.ConnectError:
         st.error(
             f"Can't reach the gateway at {GATEWAY_URL}. Start it with:\n\n"
             "`poetry run uvicorn csf_gateway.app.main:app --port 8090`"
+        )
+        st.stop()
+    except httpx.TimeoutException:
+        st.error(
+            f"The gateway didn't respond within {int(timeout)}s for `{method} {path}`. "
+            "Large uploads (document parsing / Q&A extraction) can take longer — the work "
+            "may still be finishing on the server, so wait a few seconds and refresh before "
+            "retrying, or try a smaller file."
         )
         st.stop()
     if resp.status_code >= 400:
@@ -126,7 +137,8 @@ with st.sidebar:
             label_visibility="collapsed",
         )
         if st.form_submit_button("+ New session", type="primary", width="stretch"):
-            body = {"target_org": new_org_name.strip()} if new_org_name.strip() else {}
+            body = {"target_org": new_org_name.strip(
+            )} if new_org_name.strip() else {}
             data = _api("POST", "/sessions", json=body)
             _switch_session(data["session_id"])
             st.rerun()
@@ -151,7 +163,8 @@ sid = st.session_state.active_session_id
 session = _api("GET", f"/sessions/{sid}")
 st.caption(f"{session['target_org']}  ·  {sid}")
 
-view = st.segmented_control("View", ["Docs", "Chat", "Reports"], key="active_view")
+view = st.segmented_control(
+    "View", ["Docs", "Chat", "Reports"], key="active_view")
 
 # ---------------------------------------------------------------------------
 # Docs view
@@ -172,10 +185,14 @@ if view == "Docs":
                 f.name, doc_type_values, index=other_index, key=f"doctype_{f.file_id}",
             )
         if st.button("Upload"):
-            files_payload = [("files", (f.name, f.getvalue())) for f in uploaded_files]
-            data_payload = {"doc_types": [selected_doc_types[f.file_id] for f in uploaded_files]}
-            resp = _api("POST", f"/sessions/{sid}/documents", files=files_payload, data=data_payload)
-            st.success(f"Uploaded {len(resp['files'])} file(s) — status: {resp['status']}")
+            files_payload = [("files", (f.name, f.getvalue()))
+                             for f in uploaded_files]
+            data_payload = {"doc_types": [
+                selected_doc_types[f.file_id] for f in uploaded_files]}
+            resp = _api("POST", f"/sessions/{sid}/documents",
+                        files=files_payload, data=data_payload, timeout=300.0)
+            st.success(
+                f"Uploaded {len(resp['files'])} file(s) — status: {resp['status']}")
 
     # Cheap pre-check, outside the fragment, purely to decide whether the
     # fragment's own timer should be armed for this render. st.rerun() cannot
@@ -185,7 +202,8 @@ if view == "Docs":
     # Gating it here means polling actually stops once nothing's in flight,
     # instead of run_every="2s" firing forever for the rest of the session.
     _docs_preview = _api("GET", f"/sessions/{sid}/documents")
-    _any_in_flight = any(d["ingest_status"] not in ("ready", "failed") for d in _docs_preview)
+    _any_in_flight = any(d["ingest_status"] not in (
+        "ready", "failed") for d in _docs_preview)
 
     @st.fragment(run_every="2s" if _any_in_flight else None)
     def _render_docs_status(session_id: str) -> None:
@@ -194,10 +212,13 @@ if view == "Docs":
             st.caption("No documents uploaded yet.")
             return
 
-        in_flight = [d for d in docs if d["ingest_status"] not in ("ready", "failed")]
+        in_flight = [d for d in docs if d["ingest_status"]
+                     not in ("ready", "failed")]
         for d in in_flight:
-            status = _api("GET", f"/sessions/{session_id}/documents/{d['doc_id']}/status")
-            st.progress(status["progress_pct"] / 100, text=f"{d['filename']} — {status['ingest_status']}")
+            status = _api(
+                "GET", f"/sessions/{session_id}/documents/{d['doc_id']}/status")
+            st.progress(status["progress_pct"] / 100,
+                        text=f"{d['filename']} — {status['ingest_status']}")
 
         st.dataframe(
             [
@@ -221,7 +242,8 @@ if view == "Docs":
     # above already ran) — an on_click callback runs before the script
     # re-executes, so it's the correct way to change the active view from a
     # button that renders below the switcher.
-    st.button("Next → Chat", type="primary", on_click=lambda: st.session_state.update(active_view="Chat"))
+    st.button("Next → Chat", type="primary",
+              on_click=lambda: st.session_state.update(active_view="Chat"))
 
 # ---------------------------------------------------------------------------
 # Chat view — fully server-state-driven: chat_state.pending/done and the
@@ -248,9 +270,11 @@ elif view == "Chat":
 
     header_col, button_col = st.columns([3, 1])
     with header_col:
-        st.caption("Answer as many questions as you'd like — or run the assessment now with what's already covered.")
+        st.caption(
+            "Answer as many questions as you'd like — or run the assessment now with what's already covered.")
     with button_col:
-        st.button("Run assessment now", width="stretch", on_click=_go_to_reports_and_run)
+        st.button("Run assessment now", width="stretch",
+                  on_click=_go_to_reports_and_run)
 
     with st.expander("📎 Upload a completed Q&A questionnaire (optional)"):
         qna_file = st.file_uploader(
@@ -262,12 +286,15 @@ elif view == "Chat":
                 resp = _api(
                     "POST", f"/sessions/{sid}/qna",
                     files={"file": (qna_file.name, qna_file.getvalue())},
+                    timeout=300.0,
                 )
             if resp["records_extracted"] == 0:
                 st.warning("No Q&A pairs identified in this document.")
             else:
-                by_fn = ", ".join(f"{FUNCTION_NAMES.get(fn, fn)}: {n}" for fn, n in resp["by_function"].items())
-                st.success(f"Extracted {resp['records_extracted']} Q&A pair(s) — {by_fn}")
+                by_fn = ", ".join(
+                    f"{FUNCTION_NAMES.get(fn, fn)}: {n}" for fn, n in resp["by_function"].items())
+                st.success(
+                    f"Extracted {resp['records_extracted']} Q&A pair(s) — {by_fn}")
             st.rerun()
 
     history = _api("GET", f"/sessions/{sid}/chat/history")
@@ -333,7 +360,8 @@ elif view == "Reports":
 
         @st.fragment(run_every=None if _run_done else "3s")
         def _render_run_status() -> None:
-            status = _api("GET", f"/sessions/{sid}/runs/{pending_run_id}/status")
+            status = _api(
+                "GET", f"/sessions/{sid}/runs/{pending_run_id}/status")
             label = {
                 "pending": "Starting…",
                 "dispatched": "Dispatching specialist agents…",
@@ -349,7 +377,8 @@ elif view == "Reports":
 
     elif not run_id:
         st.info("No assessment has been run for this session yet.")
-        st.caption(f"Scores every Function with a live agent: {', '.join(FUNCTION_NAMES[f] for f in AGENTS)}.")
+        st.caption(
+            f"Scores every Function with a live agent: {', '.join(FUNCTION_NAMES[f] for f in AGENTS)}.")
         if st.button("Run assessment", type="primary"):
             st.session_state[pending_key] = _start_run(sid)
             st.rerun()
@@ -390,7 +419,8 @@ elif view == "Reports":
                 # None (not 0) suppresses the indicator entirely -- shown only when
                 # there's an actual prior run to compare against.
                 tier_delta = f.get("tier_delta")
-                col.metric(f["name"], tier_label, delta=tier_delta if tier_delta else None, help=help_text)
+                col.metric(
+                    f["name"], tier_label, delta=tier_delta if tier_delta else None, help=help_text)
                 captions = []
                 if f["avg_cmmi"] is not None:
                     captions.append(f"avg CMMI {f['avg_cmmi']:.2f}")
@@ -398,13 +428,15 @@ elif view == "Reports":
                     captions.append("unchanged since last assessment")
                 if captions:
                     col.caption(" · ".join(captions))
-            st.plotly_chart(_tier_radar_figure(report), width="stretch", config={"displayModeBar": False})
+            st.plotly_chart(_tier_radar_figure(report),
+                            width="stretch", config={"displayModeBar": False})
 
         for tab, f in zip(tabs[1:], ctx["functions"]):
             with tab:
                 cat_fig = _category_radar_figure(report, f["function"])
                 if cat_fig is not None:
-                    st.plotly_chart(cat_fig, width="stretch", config={"displayModeBar": False})
+                    st.plotly_chart(cat_fig, width="stretch",
+                                    config={"displayModeBar": False})
                 for c in f["categories"]:
                     header = f"{c['category_id']} — {c['name']}  ·  **CMMI {c['cmmi_level']}**"
                     if c.get("cmmi_delta"):
@@ -416,7 +448,8 @@ elif view == "Reports":
                     with st.expander(header):
                         # CMMI is the headline number — show it prominently ABOVE the
                         # reasoning prose so it doesn't get lost in the sea of text.
-                        _ccolor = {1: "#dc2626", 2: "#ea580c", 3: "#ca8a04", 4: "#65a30d", 5: "#059669"}[c["cmmi_level"]]
+                        _ccolor = {1: "#dc2626", 2: "#ea580c", 3: "#ca8a04",
+                                   4: "#65a30d", 5: "#059669"}[c["cmmi_level"]]
                         _cmmi_html = (
                             f"<span style='background:{_ccolor};color:#fff;padding:4px 14px;"
                             f"border-radius:8px;font-size:1.15em;font-weight:700'>CMMI {c['cmmi_level']}</span>"
@@ -427,12 +460,15 @@ elif view == "Reports":
                             _cmmi_html += f"<span style='color:{_adc};font-weight:700;margin-left:12px'>{_arrow} was {c['prior_cmmi']}</span>"
                         st.markdown(_cmmi_html, unsafe_allow_html=True)
                         if c["low_confidence"]:
-                            st.warning("Confidence below threshold — treat this Category's score as provisional.")
+                            st.warning(
+                                "Confidence below threshold — treat this Category's score as provisional.")
                         if c["no_doc_evidence"]:
-                            st.warning("No document evidence for this Category.")
+                            st.warning(
+                                "No document evidence for this Category.")
                         st.write(c["reasoning"])
                         if c.get("defensibility"):
-                            _dcolor = {"high": "#059669", "medium": "#d97706", "low": "#dc2626"}[c["defensibility"]]
+                            _dcolor = {"high": "#059669", "medium": "#d97706", "low": "#dc2626"}[
+                                c["defensibility"]]
                             st.markdown(
                                 f"<span style='color:#6b7280;font-size:0.85em'>"
                                 f"<span style='display:inline-block;width:8px;height:8px;border-radius:50%;"
@@ -443,7 +479,8 @@ elif view == "Reports":
                         if c.get("judge_notes"):
                             st.caption(f"⚖️ Judge review: {c['judge_notes']}")
                         if c.get("prior_top_gap"):
-                            st.caption(f"Previously flagged: {c['prior_top_gap']}")
+                            st.caption(
+                                f"Previously flagged: {c['prior_top_gap']}")
                         if c["subcategory_scores"]:
                             # st.dataframe is a virtualized grid that truncates overflowing
                             # cell text with no wrap option — st.table renders a plain static
@@ -463,7 +500,8 @@ elif view == "Reports":
                                     for s in c["subcategory_scores"]
                                 ],
                                 index=[
-                                    f"{s['subcategory_id']} — {s['name']}" if s.get("name") else s["subcategory_id"]
+                                    f"{s['subcategory_id']} — {s['name']}" if s.get(
+                                        "name") else s["subcategory_id"]
                                     for s in c["subcategory_scores"]
                                 ],
                             )
@@ -472,7 +510,10 @@ elif view == "Reports":
                         if c["evidence_citations"]:
                             st.caption("Evidence citations")
                             for e in c["evidence_citations"]:
-                                pages = f"p.{e['page_start']}" + (f"–{e['page_end']}" if e["page_end"] != e["page_start"] else "")
-                                st.markdown(f"- **{e['doc_title']}** {e.get('section', '')} ({pages}): “{e['snippet']}”")
+                                pages = f"p.{e['page_start']}" + (
+                                    f"–{e['page_end']}" if e["page_end"] != e["page_start"] else "")
+                                st.markdown(
+                                    f"- **{e['doc_title']}** {e.get('section', '')} ({pages}): “{e['snippet']}”")
                         if c["interview_evidence"]:
-                            st.caption(f"Interview evidence: {', '.join(c['interview_evidence'])}")
+                            st.caption(
+                                f"Interview evidence: {', '.join(c['interview_evidence'])}")
