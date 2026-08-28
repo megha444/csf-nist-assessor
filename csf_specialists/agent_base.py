@@ -16,6 +16,7 @@ Public API:
 from __future__ import annotations
 
 import logging
+import os
 import re
 import statistics
 import uuid
@@ -209,9 +210,16 @@ class SpecialistAgent:
                 "rubric_version": rubric_version_hash(self.function),
                 "registered_at": sync_firestore.SERVER_TIMESTAMP,
             }
-            identity = _runtime_service_account()
-            if identity is not None:
-                payload["iam_identity"] = identity
+            # Only the worker records iam_identity. All three services (gateway,
+            # csf-worker, UI) import csf_specialists.agents and therefore re-run
+            # this, so once they have distinct service accounts the field would
+            # otherwise report whichever container happened to start last. The
+            # identity that actually means something for a specialist agent is
+            # the one that executes its scoring — the worker's.
+            if os.environ.get("CSF_SERVICE_ROLE") == "worker":
+                identity = _runtime_service_account()
+                if identity is not None:
+                    payload["iam_identity"] = identity
             # merge, so a developer running the gateway/UI locally (where there
             # is no metadata server and therefore no real identity to report)
             # leaves the DEPLOYED iam_identity intact instead of clobbering the
