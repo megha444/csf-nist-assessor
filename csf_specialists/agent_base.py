@@ -88,6 +88,50 @@ def _get_firestore_client() -> AsyncClient:
     return _firestore_client
 
 
+_runtime_sa_cache: str | None = None
+
+
+def _runtime_service_account() -> str | None:
+    """The service account this process is ACTUALLY running as, for the Agent
+    Registry's `iam_identity` field. Returns None off Google infrastructure.
+
+    Read from the GCE/Cloud Run metadata server rather than hardcoded, because
+    the same six agents are constructed in three different containers — the
+    gateway, the csf-worker Job, and the Streamlit UI all import
+    csf_specialists.agents, and every import re-runs _register(). Once those
+    containers have distinct service accounts (Agent Identity), a hardcoded
+    value would publish an identity that is simply wrong for two of the three,
+    and whichever container imported last would win the field.
+
+    Off Google infrastructure (local dev, tests) there is no metadata server, so
+    this returns None and _register omits the field entirely — never a
+    plausible-looking wrong SA, and never a placeholder that overwrites the real
+    deployed value in the shared registry.
+    """
+    global _runtime_sa_cache
+    if _runtime_sa_cache is not None:
+        return _runtime_sa_cache or None
+
+    identity = ""
+    try:
+        import urllib.request
+
+        req = urllib.request.Request(
+            "http://metadata.google.internal/computeMetadata/v1/"
+            "instance/service-accounts/default/email",
+            headers={"Metadata-Flavor": "Google"},
+        )
+        # Short timeout: off-GCP this endpoint is unroutable, and agent
+        # construction happens at import time — a slow probe would stall startup.
+        with urllib.request.urlopen(req, timeout=1.0) as resp:
+            identity = resp.read().decode().strip() or identity
+    except Exception:
+        log.debug("no metadata server — omitting iam_identity from Agent Registry")
+
+    _runtime_sa_cache = identity  # "" caches the negative result too
+    return identity or None
+
+
 @dataclass
 class SpecialistAgent:
     """
@@ -159,15 +203,20 @@ class SpecialistAgent:
 
             s = get_settings()
             client = sync_firestore.Client(project=s.google_cloud_project, database=s.firestore_database)
-            client.collection("agents").document(self.function).set({
+            payload = {
                 "function": self.function,
                 "capabilities": sorted(self.rubric.categories.keys()),
                 "rubric_version": rubric_version_hash(self.function),
-                # All agents currently run under one shared SA — per-agent
-                # identity is Agent Identity (Thu Aug 27), not yet built.
-                "iam_identity": f"csf-gateway@{s.google_cloud_project}.iam.gserviceaccount.com",
                 "registered_at": sync_firestore.SERVER_TIMESTAMP,
-            })
+            }
+            identity = _runtime_service_account()
+            if identity is not None:
+                payload["iam_identity"] = identity
+            # merge, so a developer running the gateway/UI locally (where there
+            # is no metadata server and therefore no real identity to report)
+            # leaves the DEPLOYED iam_identity intact instead of clobbering the
+            # shared registry with a local-dev placeholder.
+            client.collection("agents").document(self.function).set(payload, merge=True)
             log.info("[%s] registered in Agent Registry", self.function)
         except Exception:
             log.exception("[%s] Agent Registry self-registration failed — continuing anyway", self.function)

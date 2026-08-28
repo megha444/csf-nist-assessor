@@ -26,6 +26,11 @@ SA_EMAIL="${SA_NAME}@${PROJECT_ID}.iam.gserviceaccount.com"
 SECRET_NAME="qdrant-api-key"
 GATEWAY_KEY_SECRET_NAME="gateway-api-key"
 
+# Fortified — Agent Runtime: the Coordinator deployed on Vertex AI Agent Engine
+# (`adk deploy agent_engine coordinator_engine`). Override REASONING_ENGINE_RESOURCE
+# in the environment after redeploying to a new engine resource.
+DEFAULT_ENGINE="projects/220244569524/locations/us-central1/reasoningEngines/4356534999353131008"
+
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ENV_FILE="${REPO_ROOT}/.env"
 
@@ -93,7 +98,11 @@ for role in \
         roles/run.invoker \
         roles/run.developer \
         roles/modelarmor.user \
-        roles/cloudtrace.agent; do
+        roles/cloudtrace.agent \
+        roles/agentregistry.viewer; do
+    # agentregistry.viewer is read-only: GET /agents merges the native Agent
+    # Registry catalogue with Firestore. Registration itself is done out-of-band
+    # by infra/register_agent_registry.py, so the runtime never needs write.
     gcloud projects add-iam-policy-binding "$PROJECT_ID" \
         --member="serviceAccount:$SA_EMAIL" \
         --role="$role" \
@@ -172,6 +181,16 @@ ENV_VARS+=",MODEL_ARMOR_ENABLED=true"
 ENV_VARS+=",MODEL_ARMOR_LOCATION=us"
 ENV_VARS+=",MODEL_ARMOR_TEMPLATE_ID=my-test-template"
 ENV_VARS+=",MODEL_ARMOR_BLOCK_ON_INJECTION=false"
+# Fortified — Agent Runtime. "native" routes each assessment through the
+# Coordinator hosted on Vertex AI Agent Engine, so the path a judge actually
+# exercises from the UI is GEAP-native rather than an in-container background
+# task. "inprocess" is the Aug 23 path and remains the fallback. Flipping this
+# var is the entire rollback: no code change, no rebuild.
+#   gcloud run services update csf-gateway --region us-central1 \
+#       --update-env-vars COORDINATOR_MODE=inprocess
+ENV_VARS+=",COORDINATOR_MODE=${COORDINATOR_MODE:-native}"
+ENV_VARS+=",REASONING_ENGINE_RESOURCE=${REASONING_ENGINE_RESOURCE:-$DEFAULT_ENGINE}"
+ENV_VARS+=",AGENT_ENGINE_LOCATION=${AGENT_ENGINE_LOCATION:-us-central1}"
 
 gcloud run deploy "$SERVICE" \
     --source "$REPO_ROOT" \

@@ -10,10 +10,17 @@ bridge between the two — it does NOT re-implement any orchestration logic.
 CoordinatorEntryAgent is a plain BaseAgent (same style as the steps in
 csf_coordinator/steps.py). On invocation it:
   1. reads the incoming message text (ctx.user_content),
-  2. parses `session=<sid>` and optional `functions=govern,identify`,
+  2. parses `session=<sid>` and optional `functions=govern,identify` / `run=<rid>`,
   3. awaits the existing run_assessment() to completion (synchronous — Gate 2
      proved a hosted invocation holds well past a 2-Function run),
   4. yields a final event with the run_id and per-Function tier summary.
+
+`run=<rid>` matters when the caller is the gateway rather than a human at the
+playground: POST /sessions/{sid}/run returns a run_id to the UI *immediately*
+and the UI then polls sessions/{sid}/runs/{rid}. If we minted our own run_id
+here instead of honouring the caller's, that poll would target a document that
+never gets written and the UI would sit on "pending" forever. Omitted (the
+playground / spike case) → run_assessment generates one, as before.
 
 Firestore remains the source of truth; the event text is a convenience. The
 run's real output is verified by reading sessions/{sid}/runs/{run_id} back.
@@ -40,7 +47,14 @@ from csf_coordinator.coordinator import run_assessment
 log = logging.getLogger("csf-coordinator.entry")
 
 _SESSION_RE = re.compile(r"session\s*=\s*([A-Za-z0-9\-]+)")
-_FUNCTIONS_RE = re.compile(r"functions\s*=\s*([A-Za-z0-9_,\s]+)")
+# Stops at the next `key=` token instead of running to end-of-string. Without
+# the lookahead, "functions=govern,identify run=<rid>" parses a function called
+# "identify run" (the char class eats spaces and letters), which then fails
+# run_assessment's unknown-function check. Still tolerates "govern, identify".
+_FUNCTIONS_RE = re.compile(r"functions\s*=\s*([A-Za-z0-9_,\s]+?)(?=\s+[A-Za-z_]+\s*=|$)")
+# `run=` must be matched before `session=`/`functions=` can swallow it: both are
+# uuid-shaped, so the patterns are anchored on their own key names, not position.
+_RUN_RE = re.compile(r"\brun\s*=\s*([A-Za-z0-9\-]+)")
 
 
 def _text_event(author: str, invocation_id: str, text: str) -> Event:
@@ -54,17 +68,23 @@ def _text_event(author: str, invocation_id: str, text: str) -> Event:
     )
 
 
-def _parse_request(text: str) -> tuple[str | None, list[str] | None]:
-    """Pull session_id and optional function list out of the invocation message.
-    Expected form: 'session=<sid> functions=govern,identify' (functions optional
-    → defaults to every registered agent inside run_assessment)."""
+def _parse_request(text: str) -> tuple[str | None, list[str] | None, str | None]:
+    """Pull session_id, optional function list, and optional run_id out of the
+    invocation message. Expected form:
+    'session=<sid> functions=govern,identify run=<rid>' — functions optional
+    (→ every registered agent, resolved inside run_assessment) and run optional
+    (→ run_assessment mints one). The gateway always sends run= so the run_id it
+    already handed the UI is the one actually written to Firestore."""
     session_id = None
     functions = None
+    run_id = None
     if (m := _SESSION_RE.search(text)):
         session_id = m.group(1)
     if (m := _FUNCTIONS_RE.search(text)):
         functions = [f.strip() for f in m.group(1).split(",") if f.strip()]
-    return session_id, functions
+    if (m := _RUN_RE.search(text)):
+        run_id = m.group(1)
+    return session_id, functions, run_id
 
 
 def _reset_stale_clients() -> None:
@@ -98,22 +118,26 @@ class CoordinatorEntryAgent(BaseAgent):
         if ctx.user_content and ctx.user_content.parts:
             text = "".join(p.text for p in ctx.user_content.parts if p.text)
 
-        session_id, functions = _parse_request(text)
+        session_id, functions, req_run_id = _parse_request(text)
         if not session_id:
             yield _text_event(
                 self.name, ctx.invocation_id,
-                "ERROR: no session id in message. Expected: 'session=<sid> functions=govern,identify'.",
+                "ERROR: no session id in message. Expected: 'session=<sid> functions=govern,identify run=<rid>'.",
             )
             return
 
         yield _text_event(
             self.name, ctx.invocation_id,
-            f"starting assessment · session={session_id} · functions={functions or 'ALL registered'}",
+            f"starting assessment · session={session_id} · functions={functions or 'ALL registered'}"
+            f" · run={req_run_id or 'auto'}",
         )
-        log.info("[entry] run_assessment session=%s functions=%s", session_id, functions)
+        log.info(
+            "[entry] run_assessment session=%s functions=%s run_id=%s",
+            session_id, functions, req_run_id,
+        )
 
         _reset_stale_clients()  # rebind cached async clients to THIS invocation's loop
-        run_id, tiers = await run_assessment(session_id, functions)
+        run_id, tiers = await run_assessment(session_id, functions, req_run_id)
 
         bits = []
         for fn, tier in tiers.items():
