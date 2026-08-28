@@ -53,6 +53,18 @@ ARGS=(
     --extra_packages csf_specialists
     --extra_packages csf_gateway
     --otel_to_cloud
+    # Agent Identity: coordinator_engine/.agent_engine_config.json sets
+    # identity_type=AGENT_IDENTITY, giving the agent a SPIFFE identity with an
+    # auto-rotating 24h X.509 cert instead of the shared Google-managed
+    # aiplatform-re service agent. identity_type is fixed AT CREATION — an
+    # existing engine cannot be retrofitted, which is why adopting this needs a
+    # brand-new engine resource rather than an in-place update.
+    # ABSOLUTE path is required. ADK validates this file with os.path.exists()
+    # AFTER it has copied the agent into a coordinator_engine_tmp*/ staging dir
+    # and changed directory (cli_deploy.py ~line 1016), so a relative path
+    # silently stops resolving and the deploy dies with a "config file not
+    # found" error naming a path that plainly does exist.
+    --agent_engine_config_file "${REPO_ROOT}/${AGENT_DIR}/.agent_engine_config.json"
 )
 
 if [[ -n "$AGENT_ENGINE_ID" ]]; then
@@ -65,7 +77,24 @@ fi
 echo "    project=$PROJECT_ID region=$REGION agent_dir=$AGENT_DIR"
 echo "    (Cloud Build; expect ~5-15 min)"
 
-poetry run adk deploy agent_engine "${ARGS[@]}" "$AGENT_DIR"
+# `adk deploy` catches its own exceptions, prints "Deploy failed: ..." and STILL
+# EXITS 0 -- observed live 2026-08-27, where a bad config path failed the deploy
+# while this script cheerfully printed its success banner. set -e cannot catch
+# that, so inspect the output instead of trusting the exit code.
+DEPLOY_LOG="$(mktemp)"
+trap 'rm -f "$DEPLOY_LOG"' EXIT
+poetry run adk deploy agent_engine "${ARGS[@]}" "$AGENT_DIR" 2>&1 | tee "$DEPLOY_LOG"
+
+if grep -qiE 'Deploy failed|Traceback' "$DEPLOY_LOG"; then
+    echo ""
+    echo "!! DEPLOY FAILED (adk exited 0 anyway -- see the message above)."
+    exit 1
+fi
+if ! grep -q 'Deployed to Agent Platform' "$DEPLOY_LOG"; then
+    echo ""
+    echo "!! No 'Deployed to Agent Platform' line -- treating as failure."
+    exit 1
+fi
 
 echo ""
 echo "======================================================================"

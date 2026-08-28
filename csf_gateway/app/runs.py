@@ -87,30 +87,51 @@ async def _run_via_agent_runtime(session_id: str, functions: list[str], run_id: 
     streamed events are progress logs, not the result. That's what makes a
     dropped stream survivable: the engine keeps running server-side and the
     status endpoint keeps reporting from Firestore either way.
-    """
-    import vertexai
-    from vertexai import agent_engines
 
+    The invocation runs ENTIRELY off the event loop, in a worker thread.
+
+    This used to call vertexai.init()/agent_engines.get() directly and then hold
+    `async_stream_query` for the whole run. Despite the async surface, that
+    pinned the event loop for the assessment's full duration (~7 min), so the
+    gateway could not serve ANY request while a run was in flight -- including
+    the `/runs/{rid}/status` poll the UI depends on. Observed locally
+    2026-08-28: /health timed out for the entire run.
+
+    Deployed, Cloud Run's max-instances=3 mostly hid this by routing polls to a
+    second instance, which is why it showed up only as occasional empty poll
+    responses rather than an outright hang. With min-instances=0 a poll landing
+    on the blocked instance would still stall, so this was a latent production
+    bug, not just a local-dev annoyance.
+
+    Using the SYNC client inside asyncio.to_thread is both simpler and correct:
+    the blocking happens on a worker thread and the event loop stays free.
+    """
     s = get_settings()
     if not s.reasoning_engine_resource:
         raise RuntimeError("COORDINATOR_MODE=native but REASONING_ENGINE_RESOURCE is unset")
 
-    # Agent Engine is regional; Gemini stays on `global` (see config.py).
-    vertexai.init(project=s.google_cloud_project, location=s.agent_engine_location)
-    app = agent_engines.get(s.reasoning_engine_resource)
-
-    remote = await app.async_create_session(user_id=_ENGINE_USER)
-    remote_id = remote["id"] if isinstance(remote, dict) else getattr(remote, "id", remote)
-
     message = f"session={session_id} functions={','.join(functions)} run={run_id}"
     log.info("[%s] run_id=%s invoking Agent Runtime %s", session_id, run_id, s.reasoning_engine_resource)
 
-    async for event in app.async_stream_query(
-        user_id=_ENGINE_USER, session_id=remote_id, message=message
-    ):
-        for part in (event.get("content") or {}).get("parts") or []:
-            if part.get("text"):
-                log.info("[%s] run_id=%s agent-runtime: %s", session_id, run_id, part["text"])
+    def _invoke_blocking() -> None:
+        import vertexai
+        from vertexai import agent_engines
+
+        # Agent Engine is regional; Gemini stays on `global` (see config.py).
+        vertexai.init(project=s.google_cloud_project, location=s.agent_engine_location)
+        app = agent_engines.get(s.reasoning_engine_resource)
+
+        remote = app.create_session(user_id=_ENGINE_USER)
+        remote_id = remote["id"] if isinstance(remote, dict) else getattr(remote, "id", remote)
+
+        for event in app.stream_query(
+            user_id=_ENGINE_USER, session_id=remote_id, message=message
+        ):
+            for part in (event.get("content") or {}).get("parts") or []:
+                if part.get("text"):
+                    log.info("[%s] run_id=%s agent-runtime: %s", session_id, run_id, part["text"])
+
+    await asyncio.to_thread(_invoke_blocking)
 
 
 async def _run_exists(session_id: str, run_id: str) -> bool:

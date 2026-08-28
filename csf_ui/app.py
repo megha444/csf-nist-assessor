@@ -28,6 +28,26 @@ Usage:
   poetry run streamlit run csf_ui/app.py
 """
 from __future__ import annotations
+
+# --- bootstrap: MUST run before any csf_* import ---------------------------
+# `streamlit run csf_ui/app.py` puts the SCRIPT's directory (csf_ui/) on
+# sys.path, not the repo root, so `import csf_specialists` fails with
+# ModuleNotFoundError unless the root is added first. This block used to sit
+# below the imports, which meant it only ever worked by luck -- when the repo
+# root happened to already be on sys.path (e.g. launched with PYTHONPATH=. or
+# from a cwd that Python had added). Keep it above the csf_* imports.
+import os
+import sys
+from pathlib import Path
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+# quiet grpc C-core fork/poll INFO noise (must precede any grpc/firestore import)
+os.environ.setdefault("GRPC_VERBOSITY", "ERROR")
+# ---------------------------------------------------------------------------
+
 from csf_specialists.scripts.export_json import build_report
 from csf_specialists.scripts.export_html import (
     _build_context,
@@ -43,19 +63,8 @@ from csf_gateway.app.config import get_settings
 import streamlit as st
 import pandas as pd
 import httpx
-from pathlib import Path
 from io import BytesIO
-import sys
 import asyncio
-
-import os
-# quiet grpc C-core fork/poll INFO noise (must precede any grpc/firestore import)
-os.environ.setdefault("GRPC_VERBOSITY", "ERROR")
-
-
-REPO_ROOT = Path(__file__).resolve().parents[1]
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
 
 
 # Gateway base URL — overridable via env so the same app runs locally

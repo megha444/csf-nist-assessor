@@ -29,7 +29,14 @@ GATEWAY_KEY_SECRET_NAME="gateway-api-key"
 # Fortified — Agent Runtime: the Coordinator deployed on Vertex AI Agent Engine
 # (`adk deploy agent_engine coordinator_engine`). Override REASONING_ENGINE_RESOURCE
 # in the environment after redeploying to a new engine resource.
-DEFAULT_ENGINE="projects/220244569524/locations/us-central1/reasoningEngines/4356534999353131008"
+#
+# This engine runs under native Agent Identity: a SPIFFE principal
+# (agents.global.proj-220244569524.system.id.goog/...) with an auto-rotating 24h
+# X.509 certificate, IAM-bound as `principal://` rather than a service account.
+# Its predecessor (4356534999353131008) used the shared Google-managed
+# aiplatform-re service agent and is kept only as a rollback target.
+DEFAULT_ENGINE="projects/220244569524/locations/us-central1/reasoningEngines/403007845219434496"
+# Rollback: REASONING_ENGINE_RESOURCE=projects/220244569524/locations/us-central1/reasoningEngines/4356534999353131008
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ENV_FILE="${REPO_ROOT}/.env"

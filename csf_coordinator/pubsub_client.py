@@ -16,7 +16,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-from typing import Any
+from typing import Callable, Any
 
 from google.cloud import pubsub_v1
 
@@ -84,12 +84,29 @@ async def pull_dispatch(function: str, max_messages: int = 1, timeout: float = 3
     return await _pull_and_ack(client, sub_path, max_messages, timeout)
 
 
-async def pull_results(max_messages: int = 10, timeout: float = 30.0) -> list[dict[str, Any]]:
-    """Pull + ack up to max_messages from csf-results-sub."""
+async def pull_results(
+    max_messages: int = 10,
+    timeout: float = 30.0,
+    run_id: str | None = None,
+) -> list[dict[str, Any]]:
+    """Pull from csf-results-sub, acking ONLY what this caller consumes.
+
+    Pass `run_id` whenever you care about a specific run. All coordinators share
+    one csf-results subscription, so without a filter this call would ack every
+    completion it happens to see -- including ones belonging to OTHER in-flight
+    runs, permanently destroying them. The owning run would then wait out its
+    full 900s timeout having silently lost its completions, even though its
+    workers succeeded and wrote their scores. Observed live 2026-08-28 with two
+    concurrent assessments.
+
+    Omitting run_id keeps the old ack-everything behaviour, which is only safe
+    when nothing else is running.
+    """
     s = get_settings()
     client = _get_subscriber()
     sub_path = client.subscription_path(s.google_cloud_project, f"{s.pubsub_results_topic}-sub")
-    return await _pull_and_ack(client, sub_path, max_messages, timeout)
+    keep = None if run_id is None else (lambda m: m.get("run_id") == run_id)
+    return await _pull_and_ack(client, sub_path, max_messages, timeout, keep=keep)
 
 
 async def _pull_and_ack(
@@ -97,16 +114,60 @@ async def _pull_and_ack(
     subscription_path: str,
     max_messages: int,
     timeout: float,
+    keep: Callable[[dict[str, Any]], bool] | None = None,
 ) -> list[dict[str, Any]]:
+    """Pull messages, ack only the ones `keep` accepts (plus unparseable ones).
+
+    `keep=None` means take everything — correct for the per-Function dispatch
+    subscriptions, which have exactly one consumer. It is NOT correct for the
+    shared results subscription; see pull_results.
+    """
     def _pull() -> list[dict[str, Any]]:
         response = client.pull(
             subscription=subscription_path, max_messages=max_messages, timeout=timeout,
         )
         if not response.received_messages:
             return []
-        ack_ids = [msg.ack_id for msg in response.received_messages]
-        client.acknowledge(subscription=subscription_path, ack_ids=ack_ids)
-        return [json.loads(msg.message.data.decode("utf-8")) for msg in response.received_messages]
+
+        # Ack ONLY what we take responsibility for. Two rules, for two different
+        # failure modes we hit for real on 2026-08-28:
+        #
+        #  1. Unparseable payload -> ack and drop. Parsing used to happen in one
+        #     comprehension AFTER a blanket ack, so a single bad message raised
+        #     straight out of here and killed the whole assessment. Ack it so it
+        #     is not redelivered forever, but never let it be fatal.
+        #  2. Message for a DIFFERENT run -> do NOT ack. Every coordinator shares
+        #     one csf-results subscription. Blanket-acking destroyed other runs'
+        #     completions, leaving those runs stalled at completed_agents=0 until
+        #     their 900s timeout despite their workers having succeeded. Leaving
+        #     them unacked lets Pub/Sub redeliver them to their owner.
+        to_ack: list[str] = []
+        parsed: list[dict[str, Any]] = []
+        skipped = 0
+        for msg in response.received_messages:
+            try:
+                data = json.loads(msg.message.data.decode("utf-8"))
+            except (json.JSONDecodeError, UnicodeDecodeError) as e:
+                log.warning(
+                    "skipping unparseable message on %s (%s): %r",
+                    subscription_path, e, msg.message.data[:120],
+                )
+                to_ack.append(msg.ack_id)
+                continue
+            if keep is not None and not keep(data):
+                skipped += 1          # someone else's — leave it for them
+                continue
+            to_ack.append(msg.ack_id)
+            parsed.append(data)
+
+        if to_ack:
+            client.acknowledge(subscription=subscription_path, ack_ids=to_ack)
+        if skipped:
+            log.info(
+                "left %d message(s) on %s for other run(s) — not acked",
+                skipped, subscription_path,
+            )
+        return parsed
 
     messages = await asyncio.to_thread(_pull)
     if messages:

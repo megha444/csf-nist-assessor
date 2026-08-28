@@ -193,7 +193,15 @@ class CollectResultsStep(BaseAgent):
             received: list[dict] = []
             deadline = start + self.max_wait_s
             while len(received) < self.expected_count and time.monotonic() < deadline:
-                messages = await pubsub_client.pull_results(max_messages=10, timeout=self.poll_timeout_s)
+                # run_id= is load-bearing: it makes pull_results ack ONLY our own
+                # completions and leave other runs' messages on the subscription
+                # for them. Without it a concurrent assessment's completions were
+                # acked and discarded here, stranding that run at
+                # completed_agents=0 until its 900s timeout even though its
+                # workers had succeeded. The filter below is now belt-and-braces.
+                messages = await pubsub_client.pull_results(
+                    max_messages=10, timeout=self.poll_timeout_s, run_id=self.run_id,
+                )
                 for msg in messages:
                     if msg.get("run_id") == self.run_id:
                         received.append(msg)

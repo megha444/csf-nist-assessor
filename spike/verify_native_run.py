@@ -30,7 +30,11 @@ from google.cloud.firestore import Client
 
 PROJECT = "csf-assessor-hackathon"
 LOCATION = "us-central1"
-ENGINE = f"projects/220244569524/locations/{LOCATION}/reasoningEngines/4356534999353131008"
+import os
+ENGINE = os.environ.get(
+    "REASONING_ENGINE_RESOURCE",
+    f"projects/220244569524/locations/{LOCATION}/reasoningEngines/4356534999353131008",
+)
 DEFAULT_SESSION = "f56a9039-877e-4a24-adc6-efafa22d104b"
 DEFAULT_FUNCTIONS = "govern,identify"
 USER = "csf-gateway"  # same engine user_id the gateway uses
@@ -81,8 +85,20 @@ async def main() -> int:
     print("===== VERIFICATION =====")
     if not snap.exists:
         print(f"FAIL — sessions/{session_id}/runs/{run_id} does not exist.")
-        print("       The engine ignored `run=` and minted its own run_id.")
-        print("       The UI would poll this id forever and never see a result.")
+        # Two very different causes produce this, so don't guess. A real run
+        # takes minutes; a crash returns in seconds. Distinguishing them saved
+        # a wrong diagnosis on 2026-08-27, when an AGENT_IDENTITY engine died in
+        # 1.3s on a 401 and this message wrongly blamed run_id parsing.
+        if elapsed < 30:
+            print(f"       Returned in {elapsed}s — far too fast for a real run, so the")
+            print("       agent almost certainly CRASHED rather than ignoring `run=`.")
+            print("       Check the engine's own logs for the real error:")
+            print("         gcloud logging read 'resource.type=\"aiplatform.googleapis.com/ReasoningEngine\"")
+            print(f"           AND resource.labels.reasoning_engine_id=\"{ENGINE.split('/')[-1]}\"")
+            print("           AND severity>=ERROR' --limit 20 --freshness=15m")
+        else:
+            print("       The engine ran but did not honour `run=` — it minted its own")
+            print("       run_id, so the UI would poll this id forever and see nothing.")
         return 1
 
     doc = snap.to_dict() or {}

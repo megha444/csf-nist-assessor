@@ -6,6 +6,12 @@
 # Qdrant (the module must import cleanly). No fastapi/streamlit/plotly (empty
 # package __init__.py files mean those are never imported by this chain).
 google-adk[a2a]==2.6.3
+# Pinned for Agent Identity: the SPIFFE identity's access tokens are bound to the
+# agent's X.509 certificate by the default Context-Aware Access policy, and an
+# auth stack that cannot perform that bound-token flow gets 401 UNAUTHENTICATED
+# on every outbound call. Time-boxed attempt at whether a newer google-auth
+# closes that gap -- if it does not, this pin is harmless.
+google-auth==2.57.0
 qdrant-client==1.16.2
 python-dotenv==1.2.2
 google-cloud-firestore==2.28.1
