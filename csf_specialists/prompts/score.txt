@@ -4,7 +4,7 @@ Category {category_id} ({category_name}), which belongs to the {function} Functi
 Your job: read the evidence below and output ONE JSON object matching the ScoreOutput
 schema. Do NOT write anything outside the JSON. Do NOT include the JSON schema. Do NOT hedge.
 
-===================== CMMI RUBRIC (levels 1-5, authored by a KPMG consultant) =====================
+===================== CMMI RUBRIC (levels 1-5, authored by a consultant) =====================
 
 This rubric describes what the Category as a WHOLE looks like at each maturity level.
 Apply the same rubric text at the Subcategory level: for each Subcategory below, ask

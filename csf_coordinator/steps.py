@@ -30,6 +30,7 @@ from csf_specialists.aggregate import aggregate_function, persist_tier
 from csf_specialists.judge import judge_run
 from csf_specialists.loaders import rubric_version_hash
 from csf_specialists.memory_bank import record_assessment
+from csf_specialists.narrative import generate_narrative
 
 log = logging.getLogger("csf-coordinator.steps")
 # Observability: the coordinator's orchestration plumbing (create/dispatch/
@@ -193,7 +194,26 @@ class CollectResultsStep(BaseAgent):
             received: list[dict] = []
             deadline = start + self.max_wait_s
             while len(received) < self.expected_count and time.monotonic() < deadline:
-                messages = await pubsub_client.pull_results(max_messages=10, timeout=self.poll_timeout_s)
+                # run_id= is load-bearing: it makes pull_results ack ONLY our own
+                # completions and leave other runs' messages on the subscription
+                # for them. Without it a concurrent assessment's completions were
+                # acked and discarded here, stranding that run at
+                # completed_agents=0 until its 900s timeout even though its
+                # workers had succeeded. The filter below is now belt-and-braces.
+                # A transient pull failure (gRPC DeadlineExceeded on an empty
+                # subscription, ServiceUnavailable blip) must not abort a run
+                # that six workers are minutes into — treat it as an empty poll
+                # and let the while-deadline decide when to give up.
+                try:
+                    messages = await pubsub_client.pull_results(
+                        max_messages=10, timeout=self.poll_timeout_s, run_id=self.run_id,
+                    )
+                except Exception:
+                    log.warning(
+                        "run_id=%s: results pull failed transiently — retrying until deadline",
+                        self.run_id, exc_info=True,
+                    )
+                    messages = []
                 for msg in messages:
                     if msg.get("run_id") == self.run_id:
                         received.append(msg)
@@ -205,18 +225,48 @@ class CollectResultsStep(BaseAgent):
             span.set_attribute("received_count", len(received))
             span.set_attribute("waited_s", round(time.monotonic() - start, 1))
 
-            if len(received) < self.expected_count:
-                span.set_attribute("timed_out", True)
-                raise TimeoutError(
-                    f"run_id={self.run_id}: expected {self.expected_count} completion(s), "
-                    f"got {len(received)} within {self.max_wait_s}s"
-                )
-
             client = _get_firestore_client()
             run_ref = (
                 client.collection("sessions").document(self.session_id)
                 .collection("runs").document(self.run_id)
             )
+
+            if not received:
+                # Zero completions: aggregating would still "succeed" (every
+                # AggregateStep degrades, every JudgeStep advances the counter)
+                # and produce an empty report that renders as if the org scored
+                # nothing — so stop the pipeline AND leave a terminal status.
+                # Before this, the bare TimeoutError killed the SequentialAgent
+                # with the run stuck at `dispatched`, and the UI — which treats
+                # only ready_for_report/complete/failed as terminal — polled
+                # forever with no error shown. This is the only writer of
+                # RunStatus.failed.
+                span.set_attribute("timed_out", True)
+                await run_ref.update({
+                    "status": RunStatus.failed.value,
+                    "failure_reason": (
+                        f"no specialist completions within {int(self.max_wait_s)}s "
+                        f"(expected {self.expected_count})"
+                    ),
+                })
+                raise TimeoutError(
+                    f"run_id={self.run_id}: expected {self.expected_count} completion(s), "
+                    f"got 0 within {self.max_wait_s}s — run marked failed"
+                )
+
+            if len(received) < self.expected_count:
+                # Some Functions finished: degrade rather than abort. 5 of 6
+                # Functions is a usable assessment; the missing Function's
+                # AggregateStep and JudgeStep both degrade the same way further
+                # down, so the run still reaches ready_for_report with the
+                # Functions that did land.
+                span.set_attribute("timed_out", True)
+                log.warning(
+                    "run_id=%s: only %d/%d completion(s) within %ss — continuing "
+                    "with the Functions that finished",
+                    self.run_id, len(received), self.expected_count, self.max_wait_s,
+                )
+
             await run_ref.update({
                 "status": RunStatus.partial.value,
                 "completed_agents": len(received),
@@ -237,8 +287,28 @@ class AggregateStep(BaseAgent):
         with _tracer.start_as_current_span("csf.coordinator.aggregate") as span:
             span.set_attribute("function", self.function)
             span.set_attribute("run_id", self.run_id)
-            result = await aggregate_function(self.session_id, self.run_id, self.function)
-            await persist_tier(self.session_id, self.run_id, result)
+            # Same failure class JudgeStep is guarded against below: a Function
+            # whose worker published a completion but persisted zero scores (all
+            # Categories 429'd, say) makes aggregate_function raise ValueError,
+            # killing the SequentialAgent with the run stuck at `partial` and
+            # the UI polling forever. Degrade instead: skip this Function's Tier
+            # and Memory Bank write, let the run reach a terminal state, and the
+            # report renders without this Function rather than not at all.
+            try:
+                result = await aggregate_function(self.session_id, self.run_id, self.function)
+                await persist_tier(self.session_id, self.run_id, result)
+            except Exception:
+                span.set_attribute("aggregate_failed", True)
+                log.exception(
+                    "[%s] run_id=%s aggregation failed (likely zero persisted scores) "
+                    "— continuing so the run still reaches a terminal state",
+                    self.function, self.run_id,
+                )
+                yield _text_event(
+                    self.name,
+                    f"aggregation failed for {self.function} (non-fatal), run_id={self.run_id}",
+                )
+                return
             span.set_attribute("tier", result.tier)
             span.set_attribute("avg_cmmi", result.avg_cmmi)
 
@@ -295,9 +365,37 @@ class JudgeStep(BaseAgent):
         with _tracer.start_as_current_span("csf.coordinator.judge") as span:
             span.set_attribute("function", self.function)
             span.set_attribute("run_id", self.run_id)
-            results = await judge_run(self.session_id, self.run_id, self.function)
+            # judge_run must not be able to strand the run. The counter below is
+            # already hang-proof against a single Category's judge failing, but
+            # NOT against judge_run itself raising: that kills the invocation
+            # before judged_functions is ever incremented, so status never
+            # leaves `partial` and the UI — which treats only ready_for_report
+            # and complete as terminal — polls forever with no error shown.
+            #
+            # Observed in production 2026-08-31, run 39e03068: Vertex returned
+            # 429 RESOURCE_EXHAUSTED, the 5-attempt backoff ran out,
+            # _ResourceExhaustedError propagated, and an assessment that had
+            # already persisted 22 scores and 6 Tiers hung at `partial` with 5
+            # of 22 verdicts. The scores were fine and completely unreachable.
+            #
+            # So: degrade like NarrativeStep does. A Function whose judge blew
+            # up still advances the count, the run still reaches
+            # ready_for_report, and the report renders with fewer verdicts
+            # rather than not at all. The 429 itself is now mostly absorbed a
+            # layer down by the model fallback in csf_gateway/app/llm.py; this
+            # is the backstop for when that fails too.
+            try:
+                results = await judge_run(self.session_id, self.run_id, self.function)
+            except Exception:
+                span.set_attribute("judge_failed", True)
+                log.exception(
+                    "[%s] run_id=%s judge failed — advancing the run anyway so it "
+                    "reaches a terminal state with partial verdicts",
+                    self.function, self.run_id,
+                )
+                results = []
             counts = Counter(r.defensibility for r in results)
-            summary = ", ".join(f"{k}={v}" for k, v in sorted(counts.items()))
+            summary = ", ".join(f"{k}={v}" for k, v in sorted(counts.items())) or "none"
             span.set_attribute("categories_judged", len(results))
 
             # Terminal completion signal (moved here from AggregateStep): flip the
@@ -322,3 +420,56 @@ class JudgeStep(BaseAgent):
 
             log.info("[%s] run_id=%s judged %d Categories (%s)", self.function, self.run_id, len(results), summary)
             yield _text_event(self.name, f"judged {len(results)} Categories for {self.function}: {summary}")
+
+
+class NarrativeStep(BaseAgent):
+    """Final step: synthesises the PDF report's prose (executive summary, per-Function
+    findings, improvement themes) from the now-complete scores, and flips the run to
+    `complete`.
+
+    Appended ONCE per assessment, after every JudgeStep — unlike Aggregate and Judge
+    this is a whole-report synthesis, not a per-Function one, and it needs every
+    Function's Tier already persisted to say anything true about the org overall.
+
+    Failure here is non-fatal by design, the same way AggregateStep guards its Memory
+    Bank write: a run whose scores, Tiers and Judge verdicts all landed is a perfectly
+    good assessment, and the Streamlit report, HTML export and Excel export all render
+    from those alone. Only the PDF's two prose pages depend on this, and the download
+    path regenerates a missing narrative on demand. So a Gemini hiccup at the very end
+    must not strand a 6-Function run that took ten minutes to produce — the run stays
+    at `ready_for_report` and everything downstream still works.
+    """
+
+    session_id: str
+    run_id: str
+
+    async def _run_async_impl(self, ctx: InvocationContext):
+        with _tracer.start_as_current_span("csf.coordinator.narrative") as span:
+            span.set_attribute("run_id", self.run_id)
+            try:
+                narrative = await generate_narrative(self.session_id, self.run_id)
+            except Exception:
+                span.set_attribute("narrative_failed", True)
+                log.exception("run_id=%s: narrative generation failed — run stays at ready_for_report", self.run_id)
+                yield _text_event(self.name, f"narrative generation failed for run_id={self.run_id} (non-fatal)")
+                return
+
+            span.set_attribute("improvement_themes", len(narrative.improvement_themes))
+
+            client = _get_firestore_client()
+            run_ref = (
+                client.collection("sessions").document(self.session_id)
+                .collection("runs").document(self.run_id)
+            )
+            await run_ref.update({"status": RunStatus.complete.value})
+
+            log.info(
+                "run_id=%s narrative ready (%d Function summaries, %d themes) -> status=complete",
+                self.run_id, len(narrative.function_summaries), len(narrative.improvement_themes),
+            )
+            yield _text_event(
+                self.name,
+                f"narrative ready for run_id={self.run_id}: "
+                f"{len(narrative.function_summaries)} Function summaries, "
+                f"{len(narrative.improvement_themes)} improvement themes",
+            )

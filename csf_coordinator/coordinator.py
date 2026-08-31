@@ -6,7 +6,7 @@ per govern_build_tasks.md) — this generalizes the mechanism now so it needs no
 further coordinator changes as more agents land, just a new AGENTS entry.
 
 Composes CreateRunStep -> DispatchStep(s) -> CollectResultsStep -> AggregateStep(s)
--> JudgeStep(s) as a SequentialAgent (ADK's agent-composition primitive for
+-> JudgeStep(s) -> NarrativeStep as a SequentialAgent (ADK's agent-composition primitive for
 deterministic, non-LLM-backed workflow steps), run through the same ADK
 Runner/session pattern used by csf_specialists.agent_base. Functions are
 dispatched sequentially within one ADK run, not across concurrent worker
@@ -44,7 +44,14 @@ from google.cloud.firestore import AsyncClient
 from google.genai import types
 
 from csf_coordinator.config import get_settings
-from csf_coordinator.steps import AggregateStep, CollectResultsStep, CreateRunStep, DispatchStep, JudgeStep
+from csf_coordinator.steps import (
+    AggregateStep,
+    CollectResultsStep,
+    CreateRunStep,
+    DispatchStep,
+    JudgeStep,
+    NarrativeStep,
+)
 from csf_gateway.app.schema import TierResult
 from csf_specialists.agents import AGENTS
 from csf_specialists.firestore_util import aclose_firestore
@@ -113,6 +120,10 @@ async def run_assessment(
         sub_agents.append(JudgeStep(
             name=f"judge_{function}", session_id=session_id, run_id=run_id, function=function,
         ))
+    # Once, not per-Function: the narrative is a whole-report synthesis and needs
+    # every Function's Tier persisted before it can say anything true about the
+    # org overall. Non-fatal if it fails — see NarrativeStep's docstring.
+    sub_agents.append(NarrativeStep(name="narrative", session_id=session_id, run_id=run_id))
 
     agent = SequentialAgent(name="csf_coordinator", sub_agents=sub_agents)
 

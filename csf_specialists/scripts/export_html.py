@@ -75,9 +75,13 @@ _DEFENSIBILITY_COLORS: dict[str, str] = {
 }
 
 
-def _tier_radar_figure(report: dict) -> go.Figure:
+def _tier_radar_figure(report: dict, line_color: str = "#1e2530") -> go.Figure:
     """Executive view: one spoke per scored Function, r = Tier (1-4). Blank spokes
-    (r=0) mark Functions with Category scores but no aggregated Tier yet."""
+    (r=0) mark Functions with Category scores but no aggregated Tier yet.
+
+    line_color defaults to the report's ink, which is right on the HTML/PDF's
+    light background but nearly invisible on Streamlit's dark theme — the UI
+    passes its own accent instead."""
     functions = [fn for fn in FUNCTION_NAMES if fn in report["functions"]]
     labels = [FUNCTION_NAMES[fn] for fn in functions]
     tiers = [(report["functions"][fn]["tier"] or {}).get("tier") or 0 for fn in functions]
@@ -85,7 +89,7 @@ def _tier_radar_figure(report: dict) -> go.Figure:
     fig = go.Figure()
     fig.add_trace(go.Scatterpolar(
         r=tiers + tiers[:1], theta=labels + labels[:1],
-        fill="toself", line=dict(color="#1e2530"), name="Tier",
+        fill="toself", line=dict(color=line_color), name="Tier",
     ))
     fig.update_layout(
         polar=dict(radialaxis=dict(visible=True, range=[0, 4], dtick=1)),

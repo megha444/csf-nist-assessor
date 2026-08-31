@@ -1,5 +1,5 @@
 """
-Extract Sakina's `Ref Docs/Document Checklist.xlsx` into a versioned evidence
+Extract `Ref Docs/Document Checklist.xlsx` into a versioned evidence
 taxonomy: which real documents should cover which CSF Category, at the
 granularity her checklist actually gives (per-Subcategory, rolled up to
 Category since that's the level specialist agents retrieve at).
@@ -13,9 +13,7 @@ Reads:
 Writes:
   csf_specialists/evidence_taxonomy.yaml
     categories: {category_id: [normalized document titles...]}
-    questionnaire_only_subcategories: [subcategory_id...]  -- Sakina's own
-      explicit list of Subcategories with no document by design (interview/
-      questionnaire is the only real evidence source for these).
+    questionnaire_only_subcategories: [subcategory_id...].
 
 Document titles are normalized (lowercase, punctuation stripped, whitespace
 collapsed) so they can be matched against real uploaded filenames at retrieval
@@ -25,7 +23,7 @@ and "17. Logging_Monitoring_Standard.docx" both normalize to the same key.
 Usage:
   poetry run python infra/build_evidence_taxonomy.py
 
-Idempotent — safe to re-run whenever Sakina updates the checklist.
+Idempotent — safe to re-run
 """
 from __future__ import annotations
 
@@ -40,9 +38,6 @@ ROOT = Path(__file__).resolve().parent.parent
 CHECKLIST_XLSX = ROOT / "Ref Docs" / "Document Checklist.xlsx"
 OUT_PATH = ROOT / "csf_specialists" / "evidence_taxonomy.yaml"
 
-# Sakina's checklist wording doesn't always match the real filenames closely
-# enough for substring normalization to catch (abbreviations, reworded
-# titles) — these two are the only such cases found 2026-08-24.
 TITLE_ALIASES: dict[str, str] = {
     "info sec policy": "information security policy",
     "board risk committee papers minutes": "board risk committee minutes extract",
@@ -70,7 +65,8 @@ def main() -> int:
 
     wb = openpyxl.load_workbook(CHECKLIST_XLSX, data_only=True)
     ws = wb["Document Checklist"]
-    rows = [r for r in ws.iter_rows(values_only=True) if any(c is not None for c in r)]
+    rows = [r for r in ws.iter_rows(
+        values_only=True) if any(c is not None for c in r)]
 
     categories: dict[str, set[str]] = {}
     questionnaire_only: list[str] = []
@@ -105,7 +101,8 @@ def main() -> int:
                 questionnaire_only.append(sub_id)
 
     if not categories:
-        print("[error] no document rows parsed — checklist format may have changed", file=sys.stderr)
+        print(
+            "[error] no document rows parsed — checklist format may have changed", file=sys.stderr)
         return 1
 
     data = {
@@ -115,11 +112,13 @@ def main() -> int:
 
     OUT_PATH.parent.mkdir(parents=True, exist_ok=True)
     with OUT_PATH.open("w") as f:
-        yaml.safe_dump(data, f, sort_keys=False, allow_unicode=True, width=100, default_flow_style=False)
+        yaml.safe_dump(data, f, sort_keys=False, allow_unicode=True,
+                       width=100, default_flow_style=False)
 
     print(f"parsed {n_documents} documents across {len(categories)} Categories")
     print(f"questionnaire-only Subcategories: {questionnaire_only}")
-    print(f"wrote {OUT_PATH.relative_to(ROOT)} ({OUT_PATH.stat().st_size} bytes)")
+    print(
+        f"wrote {OUT_PATH.relative_to(ROOT)} ({OUT_PATH.stat().st_size} bytes)")
     return 0
 
 

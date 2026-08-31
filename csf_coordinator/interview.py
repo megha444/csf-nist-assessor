@@ -81,7 +81,8 @@ def _get_runner() -> Runner:
         s = get_settings()
         _llm_agent = LlmAgent(
             name="interview_director",
-            model=gemini_model(s.gemini_flash_model),
+            model=gemini_model(s.gemini_flash_model,
+                               s.gemini_flash_fallback_model),
             output_schema=NextQuestionDecision,
             output_key="decision",
             generate_content_config=types.GenerateContentConfig(
@@ -106,8 +107,7 @@ async def _fetch_answers(session_id: str, function: Function) -> list[dict]:
 
 async def _fetch_chunk_category_counts(session_id: str, function: Function) -> dict[str, int]:
     """Category-level doc-chunk coverage — chunks are only Category-tagged today
-    (tagger.py), not Subcategory-tagged (blocked on Sakina's still-pending evidence
-    taxonomy). Applied as a shared baseline to every Subcategory under a Category."""
+    (tagger.py), not Subcategory-tagged. Applied as a shared baseline to every Subcategory under a Category."""
     client = _get_firestore_client()
     counts: dict[str, int] = {}
     function_categories = set(load_rubric(function).categories.keys())
@@ -160,7 +160,6 @@ def _build_prompt(
 
     # need_score = category_importance / (1 + coverage), descending — see lld.md §8.1,
     # generalized to Subcategory. No per-Subcategory importance weight exists yet
-    # (that's Sakina's still-pending deliverable, same gap as the roadmap-ranking code);
     # the parent Category's importance is used as a proxy, default 2.
     needs: list[tuple[str, float, int, int]] = []
     for cat_code, cat in rubric.categories.items():
@@ -248,7 +247,8 @@ async def _decide_next_question_impl(session_id: str, function: Function) -> Nex
     # Injection screening for interview answers happens at the door in
     # record_answer() (raw-answer granularity — screening this assembled prompt
     # misses embedded injections by dilution). PII scrub still runs on the full prompt.
-    prompt = pii_scrubber.scrub_for_llm(prompt, context=f"interview/{function}")
+    prompt = pii_scrubber.scrub_for_llm(
+        prompt, context=f"interview/{function}")
 
     runner = _get_runner()
     adk_session_id = str(uuid.uuid4())

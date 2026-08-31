@@ -29,39 +29,100 @@ Usage:
 """
 from __future__ import annotations
 
+# --- bootstrap: MUST run before any csf_* import ---------------------------
+# `streamlit run csf_ui/app.py` puts the SCRIPT's directory (csf_ui/) on
+# sys.path, not the repo root, so `import csf_specialists` fails with
+# ModuleNotFoundError unless the root is added first. This block used to sit
+# below the imports, which meant it only ever worked by luck -- when the repo
+# root happened to already be on sys.path (e.g. launched with PYTHONPATH=. or
+# from a cwd that Python had added). Keep it above the csf_* imports.
 import os
-os.environ.setdefault("GRPC_VERBOSITY", "ERROR")  # quiet grpc C-core fork/poll INFO noise (must precede any grpc/firestore import)
-
-import asyncio
 import sys
-from io import BytesIO
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-import httpx
-import pandas as pd
-import streamlit as st
+# quiet grpc C-core fork/poll INFO noise (must precede any grpc/firestore import)
+os.environ.setdefault("GRPC_VERBOSITY", "ERROR")
+# ---------------------------------------------------------------------------
 
-from csf_gateway.app.config import get_settings
-from csf_gateway.app.csf_catalog import FUNCTION_NAMES
-from csf_gateway.app.doctype_taxonomy import DocType
-from csf_specialists.agents import AGENTS
-from csf_specialists.scripts.export_excel import build_rows, fetch_scores, write_workbook
+from csf_specialists.scripts.export_json import build_report
 from csf_specialists.scripts.export_html import (
     _build_context,
     _category_radar_figure,
     _tier_radar_figure,
     render_html,
 )
-from csf_specialists.scripts.export_json import build_report
+from csf_specialists.scripts.export_excel import build_rows, fetch_scores, write_workbook
+from csf_specialists.scripts.export_pdf import build_pdf_bytes
+from csf_specialists.agents import AGENTS
+from csf_gateway.app.doctype_taxonomy import DocType, doc_types_for_function
+from csf_gateway.app.csf_catalog import FUNCTION_NAMES
+from csf_gateway.app.config import get_settings
+import streamlit as st
+import pandas as pd
+import httpx
+from io import BytesIO
+import asyncio
 
-GATEWAY_URL = "http://localhost:8090"
+
+# Gateway base URL — overridable via env so the same app runs locally
+# (default) or on Cloud Run pointed at the deployed gateway.
+GATEWAY_URL = os.environ.get("GATEWAY_URL", "http://localhost:8090")
 _GATEWAY_API_KEY = get_settings().gateway_api_key
 
 st.set_page_config(page_title="CSF Assessor Fleet", layout="wide")
+
+# Mirror of primaryColor/linkColor in .streamlit/config.toml, where the theme
+# itself lives (Streamlit has no runtime theming API). Needed here for the two
+# places we hand a color to something Streamlit won't theme for us: the Plotly
+# tier radar's trace, whose default ink vanishes against the dark background,
+# and the masthead gradient below.
+_PRIMARY = "#6b75dc"
+_ACCENT = "#89e0ea"
+
+# Rendered by hand instead of st.title() because gradient text has no Streamlit
+# API: the fill needs background-clip on an element we control. Streamlit's
+# native :rainbow[...] is a fixed 7-color ramp and :color[x]{foreground=...}
+# takes a solid color only, so neither can carry the brand pair.
+#
+# The @supports guard is load-bearing, not decoration: -webkit-text-fill-color
+# transparent WITHOUT background-clip support paints the title invisible. Behind
+# the feature check, the plain `color` above it is what a non-supporting browser
+# falls back to.
+_MASTHEAD_HTML = f"""
+<style>
+  .csf-masthead {{ padding: 0.5rem 0 0.25rem; }}
+  .csf-masthead h1 {{
+    margin: 0;
+    padding: 0;
+    font-size: 2.75rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    line-height: 1.15;
+    color: {_ACCENT};
+    background: linear-gradient(95deg, {_PRIMARY} 0%, {_ACCENT} 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+  }}
+  @supports ((-webkit-background-clip: text) or (background-clip: text)) {{
+    .csf-masthead h1 {{ -webkit-text-fill-color: transparent; }}
+  }}
+  .csf-masthead .csf-rule {{
+    height: 3px;
+    width: 132px;
+    margin-top: 0.6rem;
+    border-radius: 2px;
+    background: linear-gradient(90deg, {_PRIMARY}, {_ACCENT});
+  }}
+</style>
+<div class="csf-masthead">
+  <h1>CSF Assessor Fleet</h1>
+  <div class="csf-rule"></div>
+</div>
+"""
 
 
 # ---------------------------------------------------------------------------
@@ -69,18 +130,29 @@ st.set_page_config(page_title="CSF Assessor Fleet", layout="wide")
 # ---------------------------------------------------------------------------
 
 
-def _api(method: str, path: str, **kwargs) -> dict:
-    """Call the gateway; surface connection/HTTP errors as a clean st.error + st.stop()
-    instead of a raw traceback — this is a real system boundary (gateway may not be running)."""
+def _api(method: str, path: str, *, timeout: float = 60.0, **kwargs) -> dict:
+    """Call the gateway; surface connection/timeout/HTTP errors as a clean st.error +
+    st.stop() instead of a raw traceback — this is a real system boundary (the gateway
+    may be down, or slow on large uploads: document parsing / Q&A extraction). Pass a
+    larger `timeout` for those long calls."""
     headers = kwargs.pop("headers", {})
     if _GATEWAY_API_KEY:
         headers["X-API-Key"] = _GATEWAY_API_KEY
     try:
-        resp = httpx.request(method, f"{GATEWAY_URL}{path}", timeout=60.0, headers=headers, **kwargs)
+        resp = httpx.request(
+            method, f"{GATEWAY_URL}{path}", timeout=timeout, headers=headers, **kwargs)
     except httpx.ConnectError:
         st.error(
             f"Can't reach the gateway at {GATEWAY_URL}. Start it with:\n\n"
             "`poetry run uvicorn csf_gateway.app.main:app --port 8090`"
+        )
+        st.stop()
+    except httpx.TimeoutException:
+        st.error(
+            f"The gateway didn't respond within {int(timeout)}s for `{method} {path}`. "
+            "Large uploads (document parsing / Q&A extraction) can take longer — the work "
+            "may still be finishing on the server, so wait a few seconds and refresh before "
+            "retrying, or try a smaller file."
         )
         st.stop()
     if resp.status_code >= 400:
@@ -124,7 +196,8 @@ with st.sidebar:
             label_visibility="collapsed",
         )
         if st.form_submit_button("+ New session", type="primary", width="stretch"):
-            body = {"target_org": new_org_name.strip()} if new_org_name.strip() else {}
+            body = {"target_org": new_org_name.strip(
+            )} if new_org_name.strip() else {}
             data = _api("POST", "/sessions", json=body)
             _switch_session(data["session_id"])
             st.rerun()
@@ -139,7 +212,7 @@ with st.sidebar:
             _switch_session(s["session_id"])
             st.rerun()
 
-st.title("CSF Assessor Fleet")
+st.html(_MASTHEAD_HTML)
 
 if not st.session_state.active_session_id:
     st.info("Create a new session from the sidebar, or select an existing one, to get started.")
@@ -149,7 +222,8 @@ sid = st.session_state.active_session_id
 session = _api("GET", f"/sessions/{sid}")
 st.caption(f"{session['target_org']}  ·  {sid}")
 
-view = st.segmented_control("View", ["Docs", "Chat", "Reports"], key="active_view")
+view = st.segmented_control(
+    "View", ["Docs", "Chat", "Reports"], key="active_view")
 
 # ---------------------------------------------------------------------------
 # Docs view
@@ -158,6 +232,27 @@ view = st.segmented_control("View", ["Docs", "Chat", "Reports"], key="active_vie
 if view == "Docs":
     doc_type_values = [t.value for t in DocType]
     other_index = doc_type_values.index("Other")
+
+    # Suggestion only — rendered from DOC_TYPE_TO_FUNCTIONS so the checklist
+    # can never drift from the taxonomy the retrieval filter actually uses.
+    with st.expander("📋 Not sure what to upload? Suggested documents"):
+        st.caption(
+            "Each document informs the CSF Function(s) it's grouped under. "
+            "None are mandatory — the more coverage, the better-evidenced the "
+            "scores."
+        )
+        for fn, fn_name in FUNCTION_NAMES.items():
+            fn_doc_types = doc_types_for_function(fn)
+            if fn_doc_types:
+                st.markdown(
+                    f"- **{fn_name}** — "
+                    + ", ".join(dt.value for dt in fn_doc_types)
+                )
+        st.markdown(
+            "- **Anything else** that evidences your security program can be "
+            "uploaded as *Other*."
+        )
+
     uploaded_files = st.file_uploader(
         "PDF / DOCX / XLSX", accept_multiple_files=True, type=["pdf", "docx", "doc", "xlsx"],
         key=f"docs_uploader_{sid}",
@@ -170,10 +265,14 @@ if view == "Docs":
                 f.name, doc_type_values, index=other_index, key=f"doctype_{f.file_id}",
             )
         if st.button("Upload"):
-            files_payload = [("files", (f.name, f.getvalue())) for f in uploaded_files]
-            data_payload = {"doc_types": [selected_doc_types[f.file_id] for f in uploaded_files]}
-            resp = _api("POST", f"/sessions/{sid}/documents", files=files_payload, data=data_payload)
-            st.success(f"Uploaded {len(resp['files'])} file(s) — status: {resp['status']}")
+            files_payload = [("files", (f.name, f.getvalue()))
+                             for f in uploaded_files]
+            data_payload = {"doc_types": [
+                selected_doc_types[f.file_id] for f in uploaded_files]}
+            resp = _api("POST", f"/sessions/{sid}/documents",
+                        files=files_payload, data=data_payload, timeout=300.0)
+            st.success(
+                f"Uploaded {len(resp['files'])} file(s) — status: {resp['status']}")
 
     # Cheap pre-check, outside the fragment, purely to decide whether the
     # fragment's own timer should be armed for this render. st.rerun() cannot
@@ -183,7 +282,8 @@ if view == "Docs":
     # Gating it here means polling actually stops once nothing's in flight,
     # instead of run_every="2s" firing forever for the rest of the session.
     _docs_preview = _api("GET", f"/sessions/{sid}/documents")
-    _any_in_flight = any(d["ingest_status"] not in ("ready", "failed") for d in _docs_preview)
+    _any_in_flight = any(d["ingest_status"] not in (
+        "ready", "failed") for d in _docs_preview)
 
     @st.fragment(run_every="2s" if _any_in_flight else None)
     def _render_docs_status(session_id: str) -> None:
@@ -192,10 +292,13 @@ if view == "Docs":
             st.caption("No documents uploaded yet.")
             return
 
-        in_flight = [d for d in docs if d["ingest_status"] not in ("ready", "failed")]
+        in_flight = [d for d in docs if d["ingest_status"]
+                     not in ("ready", "failed")]
         for d in in_flight:
-            status = _api("GET", f"/sessions/{session_id}/documents/{d['doc_id']}/status")
-            st.progress(status["progress_pct"] / 100, text=f"{d['filename']} — {status['ingest_status']}")
+            status = _api(
+                "GET", f"/sessions/{session_id}/documents/{d['doc_id']}/status")
+            st.progress(status["progress_pct"] / 100,
+                        text=f"{d['filename']} — {status['ingest_status']}")
 
         st.dataframe(
             [
@@ -219,7 +322,8 @@ if view == "Docs":
     # above already ran) — an on_click callback runs before the script
     # re-executes, so it's the correct way to change the active view from a
     # button that renders below the switcher.
-    st.button("Next → Chat", type="primary", on_click=lambda: st.session_state.update(active_view="Chat"))
+    st.button("Next → Chat", type="primary",
+              on_click=lambda: st.session_state.update(active_view="Chat"))
 
 # ---------------------------------------------------------------------------
 # Chat view — fully server-state-driven: chat_state.pending/done and the
@@ -246,9 +350,11 @@ elif view == "Chat":
 
     header_col, button_col = st.columns([3, 1])
     with header_col:
-        st.caption("Answer as many questions as you'd like — or run the assessment now with what's already covered.")
+        st.caption(
+            "Answer as many questions as you'd like — or run the assessment now with what's already covered.")
     with button_col:
-        st.button("Run assessment now", width="stretch", on_click=_go_to_reports_and_run)
+        st.button("Run assessment now", width="stretch",
+                  on_click=_go_to_reports_and_run)
 
     with st.expander("📎 Upload a completed Q&A questionnaire (optional)"):
         qna_file = st.file_uploader(
@@ -260,12 +366,15 @@ elif view == "Chat":
                 resp = _api(
                     "POST", f"/sessions/{sid}/qna",
                     files={"file": (qna_file.name, qna_file.getvalue())},
+                    timeout=300.0,
                 )
             if resp["records_extracted"] == 0:
                 st.warning("No Q&A pairs identified in this document.")
             else:
-                by_fn = ", ".join(f"{FUNCTION_NAMES.get(fn, fn)}: {n}" for fn, n in resp["by_function"].items())
-                st.success(f"Extracted {resp['records_extracted']} Q&A pair(s) — {by_fn}")
+                by_fn = ", ".join(
+                    f"{FUNCTION_NAMES.get(fn, fn)}: {n}" for fn, n in resp["by_function"].items())
+                st.success(
+                    f"Extracted {resp['records_extracted']} Q&A pair(s) — {by_fn}")
             st.rerun()
 
     history = _api("GET", f"/sessions/{sid}/chat/history")
@@ -327,17 +436,33 @@ elif view == "Reports":
         # armed for this render, so polling actually stops once done instead
         # of firing forever.
         _status = _api("GET", f"/sessions/{sid}/runs/{pending_run_id}/status")
-        _run_done = _status["status"] == "ready_for_report"
+        # `complete` (NarrativeStep done) as well as `ready_for_report` (scores +
+        # tiers + judge done). The report renders fine at either — the narrative
+        # only adds the PDF's two prose pages, and the download regenerates a
+        # missing one — so polling must not hang on for it.
+        _run_done = _status["status"] in ("ready_for_report", "complete", "failed")
 
         @st.fragment(run_every=None if _run_done else "3s")
         def _render_run_status() -> None:
-            status = _api("GET", f"/sessions/{sid}/runs/{pending_run_id}/status")
+            status = _api(
+                "GET", f"/sessions/{sid}/runs/{pending_run_id}/status")
             label = {
                 "pending": "Starting…",
                 "dispatched": "Dispatching specialist agents…",
                 "partial": f"Scoring — {status.get('completed_agents', 0)}/{status.get('expected_agents', '?')} Functions complete…",
+                "ready_for_report": "Writing the executive summary…",
             }.get(status["status"], status["status"])
-            if status["status"] == "ready_for_report":
+            if status["status"] == "failed":
+                # Terminal error (CollectResultsStep got zero specialist
+                # completions) — render it instead of spinning forever, and
+                # clear the pending run so the Run button comes back.
+                st.session_state.pop(pending_key, None)
+                st.error(
+                    "Assessment failed — "
+                    f"{status.get('failure_reason') or 'no specialist results arrived'}. "
+                    "Run the assessment again."
+                )
+            elif status["status"] in ("ready_for_report", "complete"):
                 st.session_state.pop(pending_key, None)
                 st.rerun()
             else:
@@ -347,7 +472,8 @@ elif view == "Reports":
 
     elif not run_id:
         st.info("No assessment has been run for this session yet.")
-        st.caption(f"Scores every Function with a live agent: {', '.join(FUNCTION_NAMES[f] for f in AGENTS)}.")
+        st.caption(
+            f"Scores every Function with a live agent: {', '.join(FUNCTION_NAMES[f] for f in AGENTS)}.")
         if st.button("Run assessment", type="primary"):
             st.session_state[pending_key] = _start_run(sid)
             st.rerun()
@@ -355,14 +481,33 @@ elif view == "Reports":
         report = asyncio.run(build_report(sid, run_id))
         ctx = _build_context(report, session["target_org"])
 
-        col1, col2 = st.columns(2)
+        col1, col2, col3 = st.columns(3)
         with col1:
+            # Built behind a button rather than eagerly like the other two: the PDF
+            # render itself is ~1s, but a run whose narrative is missing (anything
+            # assessed before NarrativeStep shipped, or a run where it failed) pays
+            # for a Gemini call here — not something to fire on every rerun of the
+            # Reports view. Once built it's cached in session_state so the actual
+            # download_button click doesn't rebuild it.
+            pdf_key = f"pdf_bytes_{sid}_{run_id}"
+            if pdf_key not in st.session_state:
+                if st.button("📄 Generate report (.pdf)", type="primary"):
+                    with st.spinner("Building the PDF report…"):
+                        st.session_state[pdf_key] = asyncio.run(build_pdf_bytes(sid, run_id))
+                    st.rerun()
+            else:
+                st.download_button(
+                    "⬇ Download report (.pdf)", data=st.session_state[pdf_key],
+                    file_name=f"csf_report_{sid[:8]}.pdf", mime="application/pdf",
+                    type="primary",
+                )
+        with col2:
             html = render_html(report, session["target_org"])
             st.download_button(
                 "⬇ Download report (.html)", data=html,
                 file_name=f"csf_report_{sid[:8]}.html", mime="text/html",
             )
-        with col2:
+        with col3:
             scores = asyncio.run(fetch_scores(sid, run_id))
             buf = BytesIO()
             write_workbook(build_rows(scores), buf)
@@ -388,7 +533,8 @@ elif view == "Reports":
                 # None (not 0) suppresses the indicator entirely -- shown only when
                 # there's an actual prior run to compare against.
                 tier_delta = f.get("tier_delta")
-                col.metric(f["name"], tier_label, delta=tier_delta if tier_delta else None, help=help_text)
+                col.metric(
+                    f["name"], tier_label, delta=tier_delta if tier_delta else None, help=help_text)
                 captions = []
                 if f["avg_cmmi"] is not None:
                     captions.append(f"avg CMMI {f['avg_cmmi']:.2f}")
@@ -396,13 +542,15 @@ elif view == "Reports":
                     captions.append("unchanged since last assessment")
                 if captions:
                     col.caption(" · ".join(captions))
-            st.plotly_chart(_tier_radar_figure(report), width="stretch", config={"displayModeBar": False})
+            st.plotly_chart(_tier_radar_figure(report, line_color=_ACCENT),
+                            width="stretch", config={"displayModeBar": False})
 
         for tab, f in zip(tabs[1:], ctx["functions"]):
             with tab:
                 cat_fig = _category_radar_figure(report, f["function"])
                 if cat_fig is not None:
-                    st.plotly_chart(cat_fig, width="stretch", config={"displayModeBar": False})
+                    st.plotly_chart(cat_fig, width="stretch",
+                                    config={"displayModeBar": False})
                 for c in f["categories"]:
                     header = f"{c['category_id']} — {c['name']}  ·  **CMMI {c['cmmi_level']}**"
                     if c.get("cmmi_delta"):
@@ -414,7 +562,8 @@ elif view == "Reports":
                     with st.expander(header):
                         # CMMI is the headline number — show it prominently ABOVE the
                         # reasoning prose so it doesn't get lost in the sea of text.
-                        _ccolor = {1: "#dc2626", 2: "#ea580c", 3: "#ca8a04", 4: "#65a30d", 5: "#059669"}[c["cmmi_level"]]
+                        _ccolor = {1: "#dc2626", 2: "#ea580c", 3: "#ca8a04",
+                                   4: "#65a30d", 5: "#059669"}[c["cmmi_level"]]
                         _cmmi_html = (
                             f"<span style='background:{_ccolor};color:#fff;padding:4px 14px;"
                             f"border-radius:8px;font-size:1.15em;font-weight:700'>CMMI {c['cmmi_level']}</span>"
@@ -425,12 +574,15 @@ elif view == "Reports":
                             _cmmi_html += f"<span style='color:{_adc};font-weight:700;margin-left:12px'>{_arrow} was {c['prior_cmmi']}</span>"
                         st.markdown(_cmmi_html, unsafe_allow_html=True)
                         if c["low_confidence"]:
-                            st.warning("Confidence below threshold — treat this Category's score as provisional.")
+                            st.warning(
+                                "Confidence below threshold — treat this Category's score as provisional.")
                         if c["no_doc_evidence"]:
-                            st.warning("No document evidence for this Category.")
+                            st.warning(
+                                "No document evidence for this Category.")
                         st.write(c["reasoning"])
                         if c.get("defensibility"):
-                            _dcolor = {"high": "#059669", "medium": "#d97706", "low": "#dc2626"}[c["defensibility"]]
+                            _dcolor = {"high": "#059669", "medium": "#d97706", "low": "#dc2626"}[
+                                c["defensibility"]]
                             st.markdown(
                                 f"<span style='color:#6b7280;font-size:0.85em'>"
                                 f"<span style='display:inline-block;width:8px;height:8px;border-radius:50%;"
@@ -441,7 +593,8 @@ elif view == "Reports":
                         if c.get("judge_notes"):
                             st.caption(f"⚖️ Judge review: {c['judge_notes']}")
                         if c.get("prior_top_gap"):
-                            st.caption(f"Previously flagged: {c['prior_top_gap']}")
+                            st.caption(
+                                f"Previously flagged: {c['prior_top_gap']}")
                         if c["subcategory_scores"]:
                             # st.dataframe is a virtualized grid that truncates overflowing
                             # cell text with no wrap option — st.table renders a plain static
@@ -461,7 +614,8 @@ elif view == "Reports":
                                     for s in c["subcategory_scores"]
                                 ],
                                 index=[
-                                    f"{s['subcategory_id']} — {s['name']}" if s.get("name") else s["subcategory_id"]
+                                    f"{s['subcategory_id']} — {s['name']}" if s.get(
+                                        "name") else s["subcategory_id"]
                                     for s in c["subcategory_scores"]
                                 ],
                             )
@@ -470,7 +624,10 @@ elif view == "Reports":
                         if c["evidence_citations"]:
                             st.caption("Evidence citations")
                             for e in c["evidence_citations"]:
-                                pages = f"p.{e['page_start']}" + (f"–{e['page_end']}" if e["page_end"] != e["page_start"] else "")
-                                st.markdown(f"- **{e['doc_title']}** {e.get('section', '')} ({pages}): “{e['snippet']}”")
+                                pages = f"p.{e['page_start']}" + (
+                                    f"–{e['page_end']}" if e["page_end"] != e["page_start"] else "")
+                                st.markdown(
+                                    f"- **{e['doc_title']}** {e.get('section', '')} ({pages}): “{e['snippet']}”")
                         if c["interview_evidence"]:
-                            st.caption(f"Interview evidence: {', '.join(c['interview_evidence'])}")
+                            st.caption(
+                                f"Interview evidence: {', '.join(c['interview_evidence'])}")

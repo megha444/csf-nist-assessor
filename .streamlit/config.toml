@@ -1,0 +1,52 @@
+# Streamlit theme for csf-ui.
+#
+# Before this file existed the app ran Streamlit's stock theme: whatever the
+# viewer's browser preferred (usually dark = near-black) accented with
+# Streamlit's default red #FF4B4B. Both are replaced by the two brand colors:
+#
+#   #6b75dc  indigo     -> primaryColor: buttons, active segmented-control /
+#                          tabs, checkboxes, sliders, spinners, progress bars,
+#                          focus rings. This is the color that used to be red.
+#   #89e0ea  pale cyan  -> the light accent: links in dark mode, and the tinted
+#                          surface wash in light mode.
+#
+# `base = "dark"` pins the app to dark for every viewer instead of following
+# their browser's prefers-color-scheme, so the demo looks identical no matter
+# whose machine opens the Cloud Run URL. [theme.light] below still defines a
+# proper light palette for anyone who flips Settings -> Appearance.
+#
+# Read from $CWD/.streamlit/config.toml, so it only applies when streamlit is
+# launched from the repo root (local) or /app (container — see the COPY in the
+# Dockerfile, without which the deployed UI silently falls back to stock).
+
+[theme]
+base = "dark"
+
+primaryColor = "#6b75dc"
+linkColor = "#89e0ea"
+
+# Not pure black: a deep indigo ink, so the background sits in the same family
+# as the two accents instead of reading as neutral chrome behind them.
+backgroundColor = "#0f1220"
+secondaryBackgroundColor = "#191d33"
+textColor = "#e8ebf7"
+
+borderColor = "#2b3153"
+codeBackgroundColor = "#161a2e"
+dataframeHeaderBackgroundColor = "#191d33"
+showWidgetBorder = true
+
+[theme.light]
+primaryColor = "#6b75dc"
+# #89e0ea is ~1.6:1 on white — far too pale for link text, so light mode uses
+# the indigo for links and spends the cyan on surfaces instead.
+linkColor = "#6b75dc"
+
+backgroundColor = "#ffffff"
+secondaryBackgroundColor = "#eef7fa"   # #89e0ea washed out to a surface tint
+textColor = "#1e2530"                  # same ink as the HTML/PDF report
+
+borderColor = "#d3e6ec"
+codeBackgroundColor = "#f2f8fb"
+dataframeHeaderBackgroundColor = "#eef7fa"
+showWidgetBorder = true

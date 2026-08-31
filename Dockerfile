@@ -33,12 +33,19 @@ WORKDIR /app
 COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
 COPY --from=builder /usr/local/bin /usr/local/bin
 
-# Copy application source. Shared by csf-gateway (Cloud Run service) and
-# csf-worker (Cloud Run Job, runs csf_specialists/worker.py) — one image,
-# command overridden at the Job level rather than maintaining two builds.
+# Copy application source. One image, three run targets via command override:
+# csf-gateway (Cloud Run service, uvicorn), csf-worker (Cloud Run Job, runs
+# csf_specialists/worker.py), and csf-ui (Cloud Run service, streamlit run
+# csf_ui/app.py) — rather than maintaining separate builds.
 COPY csf_gateway/ ./csf_gateway/
 COPY csf_specialists/ ./csf_specialists/
 COPY csf_coordinator/ ./csf_coordinator/
+COPY csf_ui/ ./csf_ui/
+
+# Streamlit reads its theme from $CWD/.streamlit/config.toml, and csf-ui runs
+# `streamlit run csf_ui/app.py` from this WORKDIR. Without this the deployed UI
+# falls back to the stock theme while local dev looks correct.
+COPY .streamlit/ ./.streamlit/
 
 # Run as non-root (Cloud Run best practice)
 RUN useradd --create-home --shell /bin/bash appuser && chown -R appuser:appuser /app

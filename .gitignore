@@ -28,4 +28,12 @@ docs/*task*
 report.html
 csf_report.html
 *.log
-coordinator_engine*
+# `adk deploy agent_engine` writes a coordinator_engine_tmp<timestamp>/ staging
+# dir next to the agent dir. Ignore ONLY those -- the previous pattern
+# (coordinator_engine*) also matched the real agent directory, so any NEW file
+# added there was silently untracked. agent.py/__init__.py/requirements.txt only
+# survived because they predate the rule.
+coordinator_engine_tmp*
+
+# Generated report artefacts (export_pdf.py output)
+report*.pdf

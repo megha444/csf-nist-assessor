@@ -58,6 +58,31 @@ def cmmi_to_tier(avg: float) -> int:
     return 4
 
 
+def overall_maturity(report: dict) -> tuple[float, int] | None:
+    """One org-wide headline number across every Function in a `build_report`
+    result: (avg_cmmi, tier). None when no Function has an aggregated Tier yet.
+
+    Function-weighted — each Function's own avg_cmmi counts once, regardless of
+    how many Categories NIST split it into. Same reasoning as the Category
+    weighting this module already defends: pooling the underlying Categories
+    instead would let Govern's 6 Categories outvote Recover's 2, so an org
+    strong in Govern and absent in Recover would read as more mature than it is.
+
+    Introduced for the PDF report's overview page — aggregation otherwise stops
+    at per-Function Tier and no org-wide score exists anywhere. Single source of
+    truth: report/UI layers call this rather than averaging tiers themselves.
+    """
+    avgs = [
+        data["tier"]["avg_cmmi"]
+        for data in report["functions"].values()
+        if data.get("tier") and data["tier"].get("avg_cmmi") is not None
+    ]
+    if not avgs:
+        return None
+    avg = sum(avgs) / len(avgs)
+    return avg, cmmi_to_tier(avg)
+
+
 async def aggregate_function(session_id: str, run_id: str, function: Function) -> TierResult:
     """
     Roll up one Function's persisted Category scores into a Tier.

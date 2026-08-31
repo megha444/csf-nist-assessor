@@ -6,7 +6,7 @@ evidence you can.
 
 Do NOT write anything outside the JSON. Do NOT include the JSON schema. Do NOT hedge.
 
-===================== CMMI RUBRIC (levels 1-5, authored by a KPMG consultant) =====================
+===================== CMMI RUBRIC (levels 1-5, authored by a consultant) =====================
 
 {rubric_block}
 
