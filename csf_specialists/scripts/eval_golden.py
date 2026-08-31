@@ -2,7 +2,7 @@
 Golden-set eval — diff our agents' scores against the expert golden set.
 
 Compares a completed assessment run (Firestore `sessions/{sid}/runs/{rid}`) against
-Sakina's expert golden set (`Ref Docs/Golden Set.xlsx`) at all three levels our
+expert golden set (`Ref Docs/Golden Set.xlsx`) at all three levels our
 pipeline produces, and reports real accuracy numbers for the 40% Innovation/Utility
 bucket:
 
@@ -45,7 +45,8 @@ if not DEFAULT_GOLDEN.exists():
 # ---------- golden set ----------
 def _sheet_rows(wb, name):
     ws = wb[name]
-    rows = [r for r in ws.iter_rows(values_only=True) if any(c is not None and str(c).strip() for c in r)]
+    rows = [r for r in ws.iter_rows(values_only=True) if any(
+        c is not None and str(c).strip() for c in r)]
     header = [str(c).strip() if c is not None else "" for c in rows[0]]
     idx = {h: i for i, h in enumerate(header)}
 
@@ -98,7 +99,8 @@ def load_golden(path: Path):
 
 # ---------- our run ----------
 def load_run(db, sid: str, rid: str):
-    runref = db.collection("sessions").document(sid).collection("runs").document(rid)
+    runref = db.collection("sessions").document(
+        sid).collection("runs").document(rid)
     our_sub, our_cat, our_cites = {}, {}, defaultdict(list)
     for s in runref.collection("scores").stream():
         d = s.to_dict() or {}
@@ -153,7 +155,8 @@ def main():
     ap.add_argument("--run", required=True)
     ap.add_argument("--golden", default=str(DEFAULT_GOLDEN))
     ap.add_argument("--project", default="csf-assessor-hackathon")
-    ap.add_argument("--top", type=int, default=15, help="how many biggest disagreements to list")
+    ap.add_argument("--top", type=int, default=15,
+                    help="how many biggest disagreements to list")
     args = ap.parse_args()
 
     g_sub, g_cat, g_fn = load_golden(Path(args.golden))
@@ -161,7 +164,8 @@ def main():
     o_sub, o_cat, o_cites, o_tier = load_run(db, args.session, args.run)
 
     print("=" * 72)
-    print(f"GOLDEN-SET EVAL   session={args.session[:12]}  run={args.run[:12]}")
+    print(
+        f"GOLDEN-SET EVAL   session={args.session[:12]}  run={args.run[:12]}")
     print(f"golden={args.golden}")
     print("=" * 72)
     print(f"coverage: golden has {len(g_sub)} subcats / {len(g_cat)} cats / {len(g_fn)} functions; "
@@ -169,40 +173,49 @@ def main():
 
     # 1. Subcategory
     matched = sorted(set(g_sub) & set(o_sub))
-    exact = sum(1 for s in matched if round(g_sub[s]["cmmi"]) == round(o_sub[s]))
-    within1 = sum(1 for s in matched if abs(g_sub[s]["cmmi"] - o_sub[s]) <= 1.0)
-    mae = sum(abs(g_sub[s]["cmmi"] - o_sub[s]) for s in matched) / len(matched) if matched else 0
+    exact = sum(1 for s in matched if round(
+        g_sub[s]["cmmi"]) == round(o_sub[s]))
+    within1 = sum(1 for s in matched if abs(
+        g_sub[s]["cmmi"] - o_sub[s]) <= 1.0)
+    mae = sum(abs(g_sub[s]["cmmi"] - o_sub[s])
+              for s in matched) / len(matched) if matched else 0
     print("\n── 1. SUBCATEGORY CMMI (our per-subcat vs golden) ──")
-    print(f"   compared: {len(matched)}   exact: {pct(exact,len(matched))}   "
-          f"within ±1: {pct(within1,len(matched))}   MAE: {mae:.2f}")
+    print(f"   compared: {len(matched)}   exact: {pct(exact, len(matched))}   "
+          f"within ±1: {pct(within1, len(matched))}   MAE: {mae:.2f}")
 
     # 2. Category
     cmatched = sorted(set(g_cat) & set(o_cat))
-    cmae = sum(abs(g_cat[c] - o_cat[c]) for c in cmatched) / len(cmatched) if cmatched else 0
+    cmae = sum(abs(g_cat[c] - o_cat[c])
+               for c in cmatched) / len(cmatched) if cmatched else 0
     chalf = sum(1 for c in cmatched if abs(g_cat[c] - o_cat[c]) <= 0.5)
     print("\n── 2. CATEGORY CMMI (our category cmmi vs golden avg) ──")
-    print(f"   compared: {len(cmatched)}   within 0.5: {pct(chalf,len(cmatched))}   MAE: {cmae:.2f}")
+    print(
+        f"   compared: {len(cmatched)}   within 0.5: {pct(chalf, len(cmatched))}   MAE: {cmae:.2f}")
 
     # 3. Tier
     tmatched = sorted(set(g_fn) & set(o_tier))
     tier_ok = sum(1 for f in tmatched if g_fn[f] == o_tier[f])
     print("\n── 3. FUNCTION / TIER (our tier vs golden tier) ──")
-    print(f"   compared: {len(tmatched)}   tier match: {pct(tier_ok,len(tmatched))}")
+    print(
+        f"   compared: {len(tmatched)}   tier match: {pct(tier_ok, len(tmatched))}")
     for f in tmatched:
         mark = "✓" if g_fn[f] == o_tier[f] else "✗"
-        print(f"     {mark} {f:9} ours=Tier {o_tier[f]}  golden=Tier {g_fn[f]}")
+        print(
+            f"     {mark} {f:9} ours=Tier {o_tier[f]}  golden=Tier {g_fn[f]}")
 
     # 4. Evidence-doc precision
     ev_total = ev_hit = 0
     for cid in set(g_cat) & set(o_cat):
-        golden_docs = {g_sub[s]["evidence"] for s in g_sub if g_sub[s]["category"] == cid and g_sub[s]["evidence"]}
+        golden_docs = {g_sub[s]["evidence"] for s in g_sub if g_sub[s]
+                       ["category"] == cid and g_sub[s]["evidence"]}
         cited = o_cites.get(cid, [])
         for gd in golden_docs:
             ev_total += 1
             if _title_matches(gd, cited):
                 ev_hit += 1
     print("\n── 4. EVIDENCE-DOC PRECISION (did we cite the golden primary evidence?) ──")
-    print(f"   golden evidence docs (in scored cats): {ev_total}   cited by us: {pct(ev_hit,ev_total)}")
+    print(
+        f"   golden evidence docs (in scored cats): {ev_total}   cited by us: {pct(ev_hit, ev_total)}")
 
     # Per-function breakdown
     print("\n── PER-FUNCTION (subcategory agreement) ──")
@@ -214,17 +227,22 @@ def main():
         ss = by_fn[f]
         ex = sum(1 for s in ss if round(g_sub[s]["cmmi"]) == round(o_sub[s]))
         w1 = sum(1 for s in ss if abs(g_sub[s]["cmmi"] - o_sub[s]) <= 1.0)
-        tinfo = f"{o_tier.get(f,'-')}/{g_fn.get(f,'-')}" if f in o_tier else "-"
-        print(f"   {f:10} {len(ss):>3} {pct(ex,len(ss)):>7} {pct(w1,len(ss)):>7} {tinfo:>12}")
+        tinfo = f"{o_tier.get(f, '-')}/{g_fn.get(f, '-')}" if f in o_tier else "-"
+        print(
+            f"   {f:10} {len(ss):>3} {pct(ex, len(ss)):>7} {pct(w1, len(ss)):>7} {tinfo:>12}")
 
     # Biggest disagreements (spot-check these)
-    diffs = sorted(matched, key=lambda s: abs(g_sub[s]["cmmi"] - o_sub[s]), reverse=True)
-    diffs = [s for s in diffs if abs(g_sub[s]["cmmi"] - o_sub[s]) > 0][: args.top]
-    print(f"\n── TOP {len(diffs)} DISAGREEMENTS (spot-check: are we or the expert right?) ──")
+    diffs = sorted(matched, key=lambda s: abs(
+        g_sub[s]["cmmi"] - o_sub[s]), reverse=True)
+    diffs = [s for s in diffs if abs(
+        g_sub[s]["cmmi"] - o_sub[s]) > 0][: args.top]
+    print(
+        f"\n── TOP {len(diffs)} DISAGREEMENTS (spot-check: are we or the expert right?) ──")
     print(f"   {'subcategory':14} {'ours':>5} {'golden':>7} {'Δ':>5}")
     for s in diffs:
         delta = o_sub[s] - g_sub[s]["cmmi"]
-        print(f"   {s:14} {o_sub[s]:>5.0f} {g_sub[s]['cmmi']:>7.0f} {delta:>+5.0f}")
+        print(
+            f"   {s:14} {o_sub[s]:>5.0f} {g_sub[s]['cmmi']:>7.0f} {delta:>+5.0f}")
 
 
 if __name__ == "__main__":

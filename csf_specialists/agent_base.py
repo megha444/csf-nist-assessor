@@ -1,8 +1,7 @@
 """
 Base class for CSF Function specialist agents.
 
-One instance per Function. Owns the rubric (Sakina-authored) and NIST
-implementation examples (extracted from CSF 2.0-Implementation_Examples.xlsx).
+One instance per Function.
 
 Public API:
     async score_category(category_code, session_id, run_id=None) -> ScoreOutput
@@ -14,6 +13,15 @@ Public API:
     - Optionally persists to Firestore at sessions/{sid}/runs/{rid}/scores/{cat_id}
 """
 from __future__ import annotations
+from csf_specialists.loaders import (
+    Category,
+    FunctionRubric,
+    SubcategoryExamples,
+    examples_for_category,
+    load_evidence_taxonomy,
+    load_rubric,
+    rubric_version_hash,
+)
 
 import logging
 import os
@@ -42,15 +50,6 @@ from csf_gateway.app.schema import EvidenceCitation, ScoreOutput
 from csf_gateway.app.tracing import get_tracer
 
 _tracer = get_tracer("csf-specialists")
-from csf_specialists.loaders import (
-    Category,
-    FunctionRubric,
-    SubcategoryExamples,
-    examples_for_category,
-    load_evidence_taxonomy,
-    load_rubric,
-    rubric_version_hash,
-)
 
 log = logging.getLogger("csf-specialists")
 
@@ -143,7 +142,8 @@ class SpecialistAgent:
 
     # Populated in __post_init__
     rubric: FunctionRubric = field(init=False)
-    examples_by_category: dict[str, list[SubcategoryExamples]] = field(init=False)
+    examples_by_category: dict[str,
+                               list[SubcategoryExamples]] = field(init=False)
     prompt_template: str = field(init=False)
     _llm_agent: LlmAgent = field(init=False, repr=False)
     _session_service: InMemorySessionService = field(init=False, repr=False)
@@ -160,7 +160,8 @@ class SpecialistAgent:
         s = get_settings()
         self._llm_agent = LlmAgent(
             name=f"{self.function}_specialist",
-            model=gemini_model(s.gemini_flash_model, s.gemini_flash_fallback_model),
+            model=gemini_model(s.gemini_flash_model,
+                               s.gemini_flash_fallback_model),
             output_schema=ScoreOutput,
             output_key=ADK_OUTPUT_KEY,
             generate_content_config=types.GenerateContentConfig(
@@ -203,7 +204,8 @@ class SpecialistAgent:
             from google.cloud import firestore as sync_firestore
 
             s = get_settings()
-            client = sync_firestore.Client(project=s.google_cloud_project, database=s.firestore_database)
+            client = sync_firestore.Client(
+                project=s.google_cloud_project, database=s.firestore_database)
             payload = {
                 "function": self.function,
                 "capabilities": sorted(self.rubric.categories.keys()),
@@ -224,10 +226,12 @@ class SpecialistAgent:
             # is no metadata server and therefore no real identity to report)
             # leaves the DEPLOYED iam_identity intact instead of clobbering the
             # shared registry with a local-dev placeholder.
-            client.collection("agents").document(self.function).set(payload, merge=True)
+            client.collection("agents").document(
+                self.function).set(payload, merge=True)
             log.info("[%s] registered in Agent Registry", self.function)
         except Exception:
-            log.exception("[%s] Agent Registry self-registration failed — continuing anyway", self.function)
+            log.exception(
+                "[%s] Agent Registry self-registration failed — continuing anyway", self.function)
 
     # ------------------------------------------------------------------
     # Public API
@@ -285,19 +289,22 @@ class SpecialistAgent:
         )
         query_vec = await embed_query(query_text)
         chunks = search_session(session_id, query_vec, top_k=top_k)
-        log.info("[%s/%s] retrieved %d chunks", self.function, category_code, len(chunks))
+        log.info("[%s/%s] retrieved %d chunks",
+                 self.function, category_code, len(chunks))
         chunks = await self._ensure_expected_documents(category_code, session_id, query_vec, chunks)
 
         # 2. Interview answers for this Function
         answers = await self._fetch_answers(session_id)
-        log.info("[%s/%s] fetched %d interview answers", self.function, category_code, len(answers))
+        log.info("[%s/%s] fetched %d interview answers",
+                 self.function, category_code, len(answers))
 
         # 3. Prompt assembly
         prompt = self._build_prompt(category_code, chunks, answers)
         # Model Armor (managed threat gate) screens the raw text for injection /
         # jailbreak / malicious URLs before the regex scrubber de-identifies PII.
         await model_armor.screen_prompt(prompt, context=f"{self.function}/{category_code}")
-        prompt = pii_scrubber.scrub_for_llm(prompt, context=f"{self.function}/{category_code}")
+        prompt = pii_scrubber.scrub_for_llm(
+            prompt, context=f"{self.function}/{category_code}")
 
         # 4. ADK structured-output call. One fresh session per call — this is a
         # stateless, single-shot structured generation, not a multi-turn conversation.
@@ -312,7 +319,8 @@ class SpecialistAgent:
             async for event in self._runner.run_async(
                 user_id=ADK_USER_ID,
                 session_id=adk_session_id,
-                new_message=types.Content(role="user", parts=[types.Part(text=prompt)]),
+                new_message=types.Content(
+                    role="user", parts=[types.Part(text=prompt)]),
             ):
                 if event.content and event.content.parts:
                     text = "".join(
@@ -336,7 +344,8 @@ class SpecialistAgent:
 
         usage = final_event.usage_metadata
         actions = getattr(final_event, "actions", None)
-        state_delta = (getattr(actions, "state_delta", None) or {}) if actions else {}
+        state_delta = (getattr(actions, "state_delta", None)
+                       or {}) if actions else {}
         state_dict = state_delta.get(ADK_OUTPUT_KEY)
 
         if state_dict is None:
@@ -362,7 +371,8 @@ class SpecialistAgent:
         #    LLM's own reasoning said "Level 3", the answer any rubric author or reader would
         #    expect. int(x + 0.5) round-half-up matches human/rubric convention instead.
         if result.subcategory_scores:
-            computed = int(statistics.mean(s.cmmi_level for s in result.subcategory_scores) + 0.5)
+            computed = int(statistics.mean(
+                s.cmmi_level for s in result.subcategory_scores) + 0.5)
             if computed != result.cmmi_level:
                 log.info(
                     "[%s/%s] LLM Category cmmi=%d, computed mean=%d — using mean",
@@ -373,7 +383,8 @@ class SpecialistAgent:
         log.info(
             "[%s/%s] scored CMMI=%d conf=%.2f subs=%d tokens in=%s out=%s",
             self.function, category_code,
-            result.cmmi_level, result.confidence, len(result.subcategory_scores),
+            result.cmmi_level, result.confidence, len(
+                result.subcategory_scores),
             getattr(usage, "prompt_token_count", "?"),
             getattr(usage, "candidates_token_count", "?"),
         )
@@ -420,7 +431,8 @@ class SpecialistAgent:
         """Fetch interview answers for this Function from Firestore."""
         client = _get_firestore_client()
         coll = (
-            client.collection("sessions").document(session_id).collection("answers")
+            client.collection("sessions").document(
+                session_id).collection("answers")
         )
         query = coll.where(filter=FieldFilter("function", "==", self.function))
         return [snap.to_dict() async for snap in query.stream()]
@@ -430,7 +442,8 @@ class SpecialistAgent:
         to match the evidence taxonomy's expected document titles against
         what's actually available in this specific session."""
         client = _get_firestore_client()
-        coll = client.collection("sessions").document(session_id).collection("documents")
+        coll = client.collection("sessions").document(
+            session_id).collection("documents")
         return [snap.to_dict() async for snap in coll.stream()]
 
     async def _ensure_expected_documents(
@@ -441,8 +454,7 @@ class SpecialistAgent:
         chunks: list[dict[str, Any]],
     ) -> list[dict[str, Any]]:
         """
-        Guarantee at least a few chunks from each document Sakina's evidence
-        taxonomy (`Ref Docs/Document Checklist.xlsx`, extracted via
+        Guarantee at least a few chunks from each document (`Ref Docs/Document Checklist.xlsx`, extracted via
         `infra/build_evidence_taxonomy.py`) says should cover this Category —
         even when plain semantic search doesn't rank them into the initial
         top_k. Additive only: never removes anything the normal search found.
@@ -468,19 +480,22 @@ class SpecialistAgent:
             return chunks
 
         session_docs = await self._fetch_session_documents(session_id)
-        normalized_docs = [(_normalize_title(d["filename"]), d["doc_id"]) for d in session_docs]
+        normalized_docs = [(_normalize_title(d["filename"]),
+                            d["doc_id"]) for d in session_docs]
 
         already_covered = {c["payload"]["doc_id"] for c in chunks}
         seen_ids = {c["id"] for c in chunks}
 
         for title in expected_titles:
             match = next(
-                (doc_id for norm_name, doc_id in normalized_docs if title in norm_name or norm_name in title),
+                (doc_id for norm_name,
+                 doc_id in normalized_docs if title in norm_name or norm_name in title),
                 None,
             )
             if match is None or match in already_covered:
                 continue
-            supplemental = search_session(session_id, query_vec, top_k=3, doc_id_filter=[match])
+            supplemental = search_session(
+                session_id, query_vec, top_k=3, doc_id_filter=[match])
             added = 0
             for c in supplemental:
                 if c["id"] not in seen_ids:
@@ -522,7 +537,8 @@ class SpecialistAgent:
             chunk_lines: list[str] = []
             for i, h in enumerate(chunks, 1):
                 p = h.get("payload", {}) or {}
-                snippet = str(p.get("text", "") or "")[:600].replace("\n", " ").strip()
+                snippet = str(p.get("text", "") or "")[
+                    :600].replace("\n", " ").strip()
                 chunk_lines.append(
                     f'[{i}] doc_type={p.get("doc_type", "?")!r}  '
                     f'section={p.get("section_title", "") or "?"!r}  '

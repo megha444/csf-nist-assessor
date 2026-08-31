@@ -6,14 +6,15 @@ Structure: 6 Functions → 22 Categories total.
 No Subcategories (see ADR-0002).
 
 Keyword lists are deliberately broad — Phase E6 uses them as a first-pass tag,
-not as an authoritative classifier. Sakina refines during the taxonomy pass.
+not as an authoritative classifier.
 """
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 from typing import Literal
 
-Function = Literal["govern", "identify", "protect", "detect", "respond", "recover"]
+Function = Literal["govern", "identify",
+                   "protect", "detect", "respond", "recover"]
 
 FUNCTION_NAMES: dict[Function, str] = {
     "govern":   "Govern",

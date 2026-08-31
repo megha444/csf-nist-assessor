@@ -42,39 +42,39 @@ def slugify_org(name: str) -> str:
 
 
 class IngestStatus(str, Enum):
-    pending   = "pending"
-    parsing   = "parsing"
-    chunking  = "chunking"
+    pending = "pending"
+    parsing = "parsing"
+    chunking = "chunking"
     embedding = "embedding"
-    ready     = "ready"
-    failed    = "failed"
+    ready = "ready"
+    failed = "failed"
 
 
 class SessionStatus(str, Enum):
-    collecting_inputs   = "collecting_inputs"
-    running             = "running"
-    ready_for_report    = "ready_for_report"
-    complete            = "complete"
+    collecting_inputs = "collecting_inputs"
+    running = "running"
+    ready_for_report = "ready_for_report"
+    complete = "complete"
 
 
 class RunStatus(str, Enum):
-    dispatched          = "dispatched"
-    partial             = "partial"
-    ready_for_report    = "ready_for_report"
-    complete            = "complete"
-    failed              = "failed"
+    dispatched = "dispatched"
+    partial = "partial"
+    ready_for_report = "ready_for_report"
+    complete = "complete"
+    failed = "failed"
 
 
 class Provenance(str, Enum):
-    pre_seeded          = "pre_seeded"
-    live_chat           = "live_chat"
+    pre_seeded = "pre_seeded"
+    live_chat = "live_chat"
     live_chat_generated = "live_chat_generated"
 
 
 class Defensibility(str, Enum):
-    high    = "high"
-    medium  = "medium"
-    low     = "low"
+    high = "high"
+    medium = "medium"
+    low = "low"
 
 
 # ---------------------------------------------------------------------------
@@ -105,8 +105,10 @@ class SessionState(BaseModel):
     model_config = ConfigDict(use_enum_values=True)
 
     session_id: str
-    target_org: str = "Northwind Financial"   # demo default; overridable via CreateSessionRequest
-    org_id: str = ""                          # stable slug of target_org; empty on legacy rows
+    # demo default; overridable via CreateSessionRequest
+    target_org: str = "Northwind Financial"
+    # stable slug of target_org; empty on legacy rows
+    org_id: str = ""
     status: SessionStatus = SessionStatus.collecting_inputs
     created_at: datetime
     doc_ids: list[str] = Field(default_factory=list)
@@ -141,7 +143,8 @@ class CreateSessionRequest(BaseModel):
             return None
         # Enforce slug-safe: lowercase, alphanumeric + dash
         if not re.fullmatch(r"[a-z0-9-]+", v):
-            raise ValueError("org_id must be lowercase alphanumeric with dashes only")
+            raise ValueError(
+                "org_id must be lowercase alphanumeric with dashes only")
         return v
 
 
@@ -204,7 +207,6 @@ class DocumentStatusResponse(BaseModel):
 
 
 class PreseedRecord(BaseModel):
-    """Shape of one record in Sakina's northwind_preseed.json."""
     model_config = ConfigDict(use_enum_values=True)
 
     id: str
@@ -249,8 +251,8 @@ class EvidenceCitation(BaseModel):
     page_start: int = 1
     page_end: int = 1
     snippet: str  # UI truncates at render — no Pydantic-side length cap (LLM
-                  # occasionally emits 400-600 chars and cosmetic rejection breaks
-                  # the whole ScoreOutput parse for a stochastic reason)
+    # occasionally emits 400-600 chars and cosmetic rejection breaks
+    # the whole ScoreOutput parse for a stochastic reason)
 
 
 class SubcategoryScore(BaseModel):
@@ -261,7 +263,8 @@ class SubcategoryScore(BaseModel):
     (subcategory_id, current→next_level).  See ADR-0007.
     """
     subcategory_id: str = Field(..., description="e.g. 'PR.AA-05'")
-    cmmi_level: int = Field(..., ge=1, le=5, description="1=Initial through 5=Optimising, applied at Subcategory granularity using the Category rubric text as a maturity scale")
+    cmmi_level: int = Field(..., ge=1, le=5,
+                            description="1=Initial through 5=Optimising, applied at Subcategory granularity using the Category rubric text as a maturity scale")
     confidence: float = Field(..., ge=0.0, le=1.0)
     evidence_status: Literal["absent", "partial", "present"]
     expected_practice: str = Field(

@@ -24,7 +24,7 @@ a scrub failure must never break scoring, so scrub() never raises.
 Honest limit: no automated scrubber is 100%. This catches high-confidence
 STRUCTURED PII (email / SSN / IBAN / credit-card-with-Luhn / phone / IP) with a
 fail-closed bias (over-redact rather than leak). Arbitrary person names / bespoke
-account formats need a domain dictionary (Sakina-provided, optional hook below).
+account formats need a domain dictionary 
 """
 from __future__ import annotations
 
@@ -44,7 +44,8 @@ _IBAN = re.compile(r"\b[A-Z]{2}\d{2}[A-Z0-9]{11,30}\b")
 _CC = re.compile(r"\b(?:\d[ -]?){13,19}\b")
 # Phone: require a 3-3-4 (optionally +CC / parens / separators) shape so plain
 # short numbers (dates, counts, CMMI levels) aren't touched.
-_PHONE = re.compile(r"\b(?:\+?\d{1,3}[\s.-]?)?\(?\d{3}\)?[\s.-]?\d{3}[\s.-]?\d{4}\b")
+_PHONE = re.compile(
+    r"\b(?:\+?\d{1,3}[\s.-]?)?\(?\d{3}\)?[\s.-]?\d{3}[\s.-]?\d{4}\b")
 _IP = re.compile(r"\b(?:\d{1,3}\.){3}\d{1,3}\b")
 
 
@@ -91,7 +92,8 @@ def scrub(text: str) -> tuple[str, dict[str, int]]:
 
             text = pattern.sub(_repl, text)
     except Exception:
-        log.exception("PII scrub failed — returning text unchanged (fail-safe)")
+        log.exception(
+            "PII scrub failed — returning text unchanged (fail-safe)")
         return text, counts
     return text, counts
 
@@ -115,6 +117,7 @@ def scrub_for_llm(text: str, *, context: str) -> str:
         if total:
             log.info(
                 "[%s] PII de-identified %d value(s): %s",
-                context, total, ", ".join(f"{k}={v}" for k, v in sorted(counts.items())),
+                context, total, ", ".join(
+                    f"{k}={v}" for k, v in sorted(counts.items())),
             )
         return cleaned

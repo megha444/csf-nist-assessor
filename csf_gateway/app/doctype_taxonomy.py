@@ -1,9 +1,6 @@
 """
 Hardcoded doc-type taxonomy for the upload dropdown.
 
-Ships before Sakina's Fri Aug 14 9 PM ET evidence taxonomy. Reconciliation task
-tracked in `task_list.md` and `docs/ingest_tasks.md`.
-
 Maps each doc_type to the CSF Functions whose evidence it typically satisfies.
 Used at retrieval time to bias/filter Vector Search results.
 """

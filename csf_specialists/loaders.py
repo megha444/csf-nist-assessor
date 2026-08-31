@@ -1,7 +1,7 @@
 """
-Loaders for Sakina-authored (rubrics) and NIST-authored (implementation examples)
+Loaders for (rubrics) and NIST-authored (implementation examples)
 YAML content. Both live in-repo under `csf_specialists/`; regenerate rubrics via
-`infra/build_govern_yaml.py` when Sakina updates the source spreadsheets.
+`infra/build_govern_yaml.py`
 """
 from __future__ import annotations
 
@@ -13,7 +13,8 @@ from typing import Literal
 
 import yaml
 
-Function = Literal["govern", "identify", "protect", "detect", "respond", "recover"]
+Function = Literal["govern", "identify",
+                   "protect", "detect", "respond", "recover"]
 
 PACKAGE_ROOT = Path(__file__).resolve().parent
 RUBRICS_DIR = PACKAGE_ROOT / "rubrics"
@@ -27,7 +28,7 @@ EXAMPLES_DIR = PACKAGE_ROOT / "implementation_examples"
 
 @dataclass(frozen=True)
 class Category:
-    """One CSF Category with its CMMI 1-5 rubric text (Sakina-authored)."""
+    """One CSF Category with its CMMI 1-5 rubric text"""
     code: str                          # e.g. "GV.OC"
     name: str
     importance: int                    # 1-3 weight for roadmap ranking
@@ -51,10 +52,11 @@ class SubcategoryExamples:
 
 @dataclass(frozen=True)
 class EvidenceTaxonomy:
-    """Which real documents (Sakina's Document Checklist, 2026-08-24) should
+    """Which real documents should
     cover each CSF Category, plus the Subcategories she's confirmed have no
     document by design (questionnaire is the only real evidence source)."""
-    categories: dict[str, tuple[str, ...]]      # category_id -> normalized doc titles
+    categories: dict[str, tuple[str, ...]
+                     ]      # category_id -> normalized doc titles
     questionnaire_only_subcategories: frozenset[str]
 
 
@@ -70,17 +72,19 @@ def load_rubric(function: Function) -> FunctionRubric:
     if not path.exists():
         raise FileNotFoundError(
             f"Rubric YAML missing for function={function!r} at {path}. "
-            f"If this is a Sakina deliverable that hasn't landed yet, block on her."
+            f"If this is a deliverable that hasn't landed yet, block."
         )
     raw = yaml.safe_load(path.read_text())
     if raw.get("function") != function:
-        raise ValueError(f"{path}: file declares function={raw.get('function')!r}, expected {function!r}")
+        raise ValueError(
+            f"{path}: file declares function={raw.get('function')!r}, expected {function!r}")
 
     cats: dict[str, Category] = {}
     for code, entry in raw.get("categories", {}).items():
         levels = {int(k): str(v) for k, v in entry.get("levels", {}).items()}
         if set(levels) != {1, 2, 3, 4, 5}:
-            raise ValueError(f"{path}: Category {code} missing CMMI levels; got {sorted(levels)}")
+            raise ValueError(
+                f"{path}: Category {code} missing CMMI levels; got {sorted(levels)}")
         cats[code] = Category(
             code=code,
             name=str(entry["name"]),
@@ -98,7 +102,8 @@ def load_implementation_examples(function: Function) -> dict[str, SubcategoryExa
     """
     path = EXAMPLES_DIR / f"{function}.yaml"
     if not path.exists():
-        raise FileNotFoundError(f"Implementation examples YAML missing at {path}")
+        raise FileNotFoundError(
+            f"Implementation examples YAML missing at {path}")
     raw = yaml.safe_load(path.read_text())
 
     result: dict[str, SubcategoryExamples] = {}
@@ -123,7 +128,7 @@ def rubric_version_hash(function: Function) -> str:
     """Short content hash of {function}.yaml's raw bytes — replaces the
     hardcoded "v1" string that never actually changed. Registered agent
     metadata and dispatch messages use this so "version" is a real signal
-    tied to Sakina's actual rubric content, not a static placeholder — it
+    tied to actual rubric content, not a static placeholder — it
     changes the moment a rubric file changes, without needing a manual bump
     anywhere. Cached per-process like the other loaders; a running process
     picks up a new hash on its next restart after the file changes, same as
@@ -149,5 +154,6 @@ def load_evidence_taxonomy() -> EvidenceTaxonomy | None:
     raw = yaml.safe_load(path.read_text())
     return EvidenceTaxonomy(
         categories={k: tuple(v) for k, v in raw.get("categories", {}).items()},
-        questionnaire_only_subcategories=frozenset(raw.get("questionnaire_only_subcategories", [])),
+        questionnaire_only_subcategories=frozenset(
+            raw.get("questionnaire_only_subcategories", [])),
     )
