@@ -168,6 +168,7 @@ def _reset_stale_clients() -> None:
     import csf_specialists.aggregate as _agg
     import csf_specialists.judge as _judge
     import csf_specialists.memory_bank as _mem
+    import csf_specialists.narrative as _narr
 
     _steps._firestore_client = None
     _agg._firestore_client = None
@@ -176,6 +177,13 @@ def _reset_stale_clients() -> None:
     _judge._runner = None
     _judge._llm_agent = None
     _judge._session_service = None
+    # narrative caches the same Runner/LlmAgent/session trio as judge and hits
+    # the same closed-loop failure on the 2nd invocation of a warm container —
+    # non-fatal there by design, so the symptom is a silently missing narrative,
+    # not a crash. (Its Firestore client is loop-aware and rebinds itself.)
+    _narr._runner = None
+    _narr._llm_agent = None
+    _narr._session_service = None
 
 
 class CoordinatorEntryAgent(BaseAgent):

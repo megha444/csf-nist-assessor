@@ -32,7 +32,14 @@ import openpyxl
 from google.cloud import firestore
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_GOLDEN = REPO_ROOT / "Ref Docs" / "Golden Set.xlsx"
+# docs/, not "Ref Docs/": `Ref Docs/` is gitignored, so a fresh clone has no copy
+# there and this script's default would fail for anyone but us. The golden set is
+# force-added at docs/Golden Set.xlsx precisely so the published accuracy numbers
+# can be independently re-derived. Fall back to the working-copy location if the
+# published one is absent, so a local checkout without it still runs.
+DEFAULT_GOLDEN = REPO_ROOT / "docs" / "Golden Set.xlsx"
+if not DEFAULT_GOLDEN.exists():
+    DEFAULT_GOLDEN = REPO_ROOT / "Ref Docs" / "Golden Set.xlsx"
 
 
 # ---------- golden set ----------

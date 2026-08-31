@@ -60,7 +60,7 @@ Instead of "You're Tier 2 on Protect" say "Your average Protect maturity is CMMI
 
 1. GRC audiences immediately recognize CMMI. Judges scoring "Innovation & Operational Utility" who know the space will nod.
 2. 5 levels give more differentiation. Tier 1-4 forces false precision when a control is between levels.
-3. CMMI is used by CMMC, Cyber Essentials, and most Big 4 GRC practices. Your teammate has almost certainly used it at KPMG. Ask her.
+3. CMMI is used by CMMC, Cyber Essentials, and most Big 4 GRC practices.
 4. Numeric scores (1.0-5.0 including decimals for aggregated Function scores) make the heatmap richer.
 
 ## One thing to note

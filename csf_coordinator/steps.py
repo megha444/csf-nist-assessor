@@ -200,9 +200,20 @@ class CollectResultsStep(BaseAgent):
                 # acked and discarded here, stranding that run at
                 # completed_agents=0 until its 900s timeout even though its
                 # workers had succeeded. The filter below is now belt-and-braces.
-                messages = await pubsub_client.pull_results(
-                    max_messages=10, timeout=self.poll_timeout_s, run_id=self.run_id,
-                )
+                # A transient pull failure (gRPC DeadlineExceeded on an empty
+                # subscription, ServiceUnavailable blip) must not abort a run
+                # that six workers are minutes into — treat it as an empty poll
+                # and let the while-deadline decide when to give up.
+                try:
+                    messages = await pubsub_client.pull_results(
+                        max_messages=10, timeout=self.poll_timeout_s, run_id=self.run_id,
+                    )
+                except Exception:
+                    log.warning(
+                        "run_id=%s: results pull failed transiently — retrying until deadline",
+                        self.run_id, exc_info=True,
+                    )
+                    messages = []
                 for msg in messages:
                     if msg.get("run_id") == self.run_id:
                         received.append(msg)
@@ -214,18 +225,48 @@ class CollectResultsStep(BaseAgent):
             span.set_attribute("received_count", len(received))
             span.set_attribute("waited_s", round(time.monotonic() - start, 1))
 
-            if len(received) < self.expected_count:
-                span.set_attribute("timed_out", True)
-                raise TimeoutError(
-                    f"run_id={self.run_id}: expected {self.expected_count} completion(s), "
-                    f"got {len(received)} within {self.max_wait_s}s"
-                )
-
             client = _get_firestore_client()
             run_ref = (
                 client.collection("sessions").document(self.session_id)
                 .collection("runs").document(self.run_id)
             )
+
+            if not received:
+                # Zero completions: aggregating would still "succeed" (every
+                # AggregateStep degrades, every JudgeStep advances the counter)
+                # and produce an empty report that renders as if the org scored
+                # nothing — so stop the pipeline AND leave a terminal status.
+                # Before this, the bare TimeoutError killed the SequentialAgent
+                # with the run stuck at `dispatched`, and the UI — which treats
+                # only ready_for_report/complete/failed as terminal — polled
+                # forever with no error shown. This is the only writer of
+                # RunStatus.failed.
+                span.set_attribute("timed_out", True)
+                await run_ref.update({
+                    "status": RunStatus.failed.value,
+                    "failure_reason": (
+                        f"no specialist completions within {int(self.max_wait_s)}s "
+                        f"(expected {self.expected_count})"
+                    ),
+                })
+                raise TimeoutError(
+                    f"run_id={self.run_id}: expected {self.expected_count} completion(s), "
+                    f"got 0 within {self.max_wait_s}s — run marked failed"
+                )
+
+            if len(received) < self.expected_count:
+                # Some Functions finished: degrade rather than abort. 5 of 6
+                # Functions is a usable assessment; the missing Function's
+                # AggregateStep and JudgeStep both degrade the same way further
+                # down, so the run still reaches ready_for_report with the
+                # Functions that did land.
+                span.set_attribute("timed_out", True)
+                log.warning(
+                    "run_id=%s: only %d/%d completion(s) within %ss — continuing "
+                    "with the Functions that finished",
+                    self.run_id, len(received), self.expected_count, self.max_wait_s,
+                )
+
             await run_ref.update({
                 "status": RunStatus.partial.value,
                 "completed_agents": len(received),
@@ -246,8 +287,28 @@ class AggregateStep(BaseAgent):
         with _tracer.start_as_current_span("csf.coordinator.aggregate") as span:
             span.set_attribute("function", self.function)
             span.set_attribute("run_id", self.run_id)
-            result = await aggregate_function(self.session_id, self.run_id, self.function)
-            await persist_tier(self.session_id, self.run_id, result)
+            # Same failure class JudgeStep is guarded against below: a Function
+            # whose worker published a completion but persisted zero scores (all
+            # Categories 429'd, say) makes aggregate_function raise ValueError,
+            # killing the SequentialAgent with the run stuck at `partial` and
+            # the UI polling forever. Degrade instead: skip this Function's Tier
+            # and Memory Bank write, let the run reach a terminal state, and the
+            # report renders without this Function rather than not at all.
+            try:
+                result = await aggregate_function(self.session_id, self.run_id, self.function)
+                await persist_tier(self.session_id, self.run_id, result)
+            except Exception:
+                span.set_attribute("aggregate_failed", True)
+                log.exception(
+                    "[%s] run_id=%s aggregation failed (likely zero persisted scores) "
+                    "— continuing so the run still reaches a terminal state",
+                    self.function, self.run_id,
+                )
+                yield _text_event(
+                    self.name,
+                    f"aggregation failed for {self.function} (non-fatal), run_id={self.run_id}",
+                )
+                return
             span.set_attribute("tier", result.tier)
             span.set_attribute("avg_cmmi", result.avg_cmmi)
 

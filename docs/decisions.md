@@ -53,20 +53,16 @@ NIST CSF 2.0 has 6 Functions → ~22 Categories → ~106 Subcategories. The orig
 ### Decision
 Score CMMI at the **Category level (~22)** instead. Sakina writes ~22 × 5 = ~110 cells. Aggregation still rolls up to CSF Tier 1-4 per Function.
 
-### Alternatives considered
-1. **Subcategory-level scoring** (original). Highest fidelity, but Sakina's rubric authoring likely doesn't finish in 19 days at her ~5 hrs/day KPMG-adjacent bandwidth.
-2. **Function-level scoring only** (skip CMMI). Loses the practitioner drill-down which is half of the "consultant judgment" story. Rejected.
-
 ### Consequences
 - ✅ Sakina's rubric authoring drops from ~500 cells to ~110 cells — realistic in the timeline
 - ✅ Agent cost drops from ~60 Flash calls/run to ~22 (~$0.05 instead of $0.15)
 - ✅ Report table stays scannable (22 rows vs. 60+)
 - ⚠ Slight loss of fidelity — a Category with 4 well-managed Subcategories and 1 broken one shows up as CMMI 3 instead of pinpointing the broken one. Mitigated by capturing the fine-grained finding in the reasoning field per Category.
-- ⚠ Divergence from KPMG standard practice — Sakina's real-world engagements often go to Subcategory. For the demo she's already Category-focused for Northwind.
+- ⚠ Divergence from standard practice — Sakina's real-world engagements often go to Subcategory. For the demo she's already Category-focused for Northwind.
 
 ### Demo-Q&A talking points
 - "In production this scales down naturally: adding Subcategory-level scoring is more agent calls with the same rubric structure — no architectural change. We chose Category for the demo because it lines up with the level a board consumes and finishes in 19 days."
-- "The two-layer story is intact: CMMI 1-5 per Category for practitioners, Tier 1-4 per Function for executives. That maps directly to how KPMG delivers these engagements."
+- "The two-layer story is intact: CMMI 1-5 per Category for practitioners, Tier 1-4 per Function for executives. That maps directly to how to deliver these engagements."
 
 ### Revisit-when
 - If we ship this as a real product, add Subcategory-level scoring as a "detailed" mode. Same agents, same rubrics, just more calls.
@@ -267,7 +263,7 @@ Original design (implicit) put both CMMI scoring **and** recommendations at the 
 
 ### Demo-Q&A talking points
 - "We score at Category to keep the rubric authoring realistic, but we identify gaps and give recommendations at Subcategory — because a CISO doesn't act on 'improve PR.AA,' they act on 'MFA is missing on privileged accounts.' The agent uses NIST's official Implementation Examples as its reference for what specific practices should be in place per Subcategory."
-- "Every remediation is incremental — 'to move from CMMI 2 to CMMI 3, do X.' Not 'here's how to reach CMMI 5.' That matches how KPMG delivers these engagements: a customer can absorb one or two maturity steps per cycle, not a moonshot."
+- "Every remediation is incremental — 'to move from CMMI 2 to CMMI 3, do X.' Not 'here's how to reach CMMI 5.' That matches how to delivers these engagements: a customer can absorb one or two maturity steps per cycle, not a moonshot."
 
 ### Revisit-when
 - If a customer wants CMMI scoring at Subcategory granularity, we already have the gap-identification infrastructure — just enforces one score per Subcategory in aggregation. Rubric authoring is the blocker, not the code.

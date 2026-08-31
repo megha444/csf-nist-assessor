@@ -223,4 +223,5 @@ async def get_run_status(session_id: str, run_id: str) -> dict:
         "status": d.get("status"),
         "completed_agents": d.get("completed_agents"),
         "expected_agents": d.get("expected_agents"),
+        "failure_reason": d.get("failure_reason"),
     }

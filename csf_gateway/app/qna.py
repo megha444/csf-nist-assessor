@@ -106,17 +106,45 @@ async def post_qna(session_id: str, file: Annotated[UploadFile, File(description
             status_code=422, detail=f"{filename!r} produced no extractable text")
 
     sections = _split_by_sheet(text) if ext == ".xlsx" else [text]
-    try:
-        extracted = await asyncio.gather(*(extract_qna(section) for section in sections))
-    except ModelArmorBlocked as e:
+
+    # Cap extraction at 3 concurrent Gemini calls — the worker uses the same cap
+    # (csf_specialists/worker.py MAX_CONCURRENT_CATEGORIES) after observing 429
+    # RESOURCE_EXHAUSTED at 6 concurrent. return_exceptions so one sheet's
+    # failure doesn't discard every other sheet's successfully extracted answers
+    # — before this, a single 429 on one worksheet threw away all six and
+    # returned a 500 for the whole upload.
+    sem = asyncio.Semaphore(3)
+
+    async def _extract_capped(section: str):
+        async with sem:
+            return await extract_qna(section)
+
+    results = await asyncio.gather(
+        *(_extract_capped(section) for section in sections), return_exceptions=True)
+
+    blocked = next((r for r in results if isinstance(r, ModelArmorBlocked)), None)
+    if blocked is not None:
         # Model Armor flagged the uploaded questionnaire as a prompt-injection /
-        # jailbreak attempt and block-on-injection is enabled — reject at the door;
-        # the document is not ingested.
+        # jailbreak attempt and block-on-injection is enabled — reject at the
+        # door, whole document, even if other sheets extracted cleanly.
         raise HTTPException(
             status_code=400,
             detail=(
                 f"{filename!r} rejected — content flagged as a potential prompt-injection / "
-                f"jailbreak attempt (confidence {e.confidence}). The document was not ingested."
+                f"jailbreak attempt (confidence {blocked.confidence}). The document was not ingested."
+            ),
+        )
+
+    extracted = [r for r in results if not isinstance(r, BaseException)]
+    failures = [r for r in results if isinstance(r, BaseException)]
+    for exc in failures:
+        log.warning("[%s] %s: one section's extraction failed: %r", session_id, filename, exc)
+    if failures and not extracted:
+        raise HTTPException(
+            status_code=502,
+            detail=(
+                f"{filename!r}: extraction failed for all {len(failures)} section(s) "
+                f"({failures[0]!r}) — wait a moment and retry."
             ),
         )
     records = [r for batch in extracted for r in batch]
@@ -131,6 +159,10 @@ async def post_qna(session_id: str, file: Annotated[UploadFile, File(description
     for r in records:
         by_function[r.function] = by_function.get(r.function, 0) + 1
 
-    log.info("[%s] %s: extracted %d Q&A pairs (%s)",
-             session_id, filename, len(records), by_function)
-    return {"records_extracted": len(records), "by_function": by_function}
+    log.info("[%s] %s: extracted %d Q&A pairs (%s), %d section(s) failed",
+             session_id, filename, len(records), by_function, len(failures))
+    return {
+        "records_extracted": len(records),
+        "by_function": by_function,
+        "sections_failed": len(failures),
+    }

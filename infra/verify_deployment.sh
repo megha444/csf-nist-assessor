@@ -141,7 +141,7 @@ runs = ready = 0
 for s in sess:
     rs = list(db.collection('sessions').document(s.id).collection('runs').stream())
     runs += len(rs)
-    ready += sum(1 for r in rs if (r.to_dict() or {}).get('status') == 'ready_for_report')
+    ready += sum(1 for r in rs if (r.to_dict() or {}).get('status') in ('ready_for_report', 'complete'))
 print(f'  sessions: {len(sess)}   runs: {runs}   completed: {ready}')
 ag = list(db.collection('agents').stream())
 print(f'  registered agents (Firestore mirror): {len(ag)}')

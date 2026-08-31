@@ -58,7 +58,7 @@ from csf_specialists.scripts.export_html import (
 from csf_specialists.scripts.export_excel import build_rows, fetch_scores, write_workbook
 from csf_specialists.scripts.export_pdf import build_pdf_bytes
 from csf_specialists.agents import AGENTS
-from csf_gateway.app.doctype_taxonomy import DocType
+from csf_gateway.app.doctype_taxonomy import DocType, doc_types_for_function
 from csf_gateway.app.csf_catalog import FUNCTION_NAMES
 from csf_gateway.app.config import get_settings
 import streamlit as st
@@ -183,6 +183,27 @@ view = st.segmented_control(
 if view == "Docs":
     doc_type_values = [t.value for t in DocType]
     other_index = doc_type_values.index("Other")
+
+    # Suggestion only — rendered from DOC_TYPE_TO_FUNCTIONS so the checklist
+    # can never drift from the taxonomy the retrieval filter actually uses.
+    with st.expander("📋 Not sure what to upload? Suggested documents"):
+        st.caption(
+            "Each document informs the CSF Function(s) it's grouped under. "
+            "None are mandatory — the more coverage, the better-evidenced the "
+            "scores."
+        )
+        for fn, fn_name in FUNCTION_NAMES.items():
+            fn_doc_types = doc_types_for_function(fn)
+            if fn_doc_types:
+                st.markdown(
+                    f"- **{fn_name}** — "
+                    + ", ".join(dt.value for dt in fn_doc_types)
+                )
+        st.markdown(
+            "- **Anything else** that evidences your security program can be "
+            "uploaded as *Other*."
+        )
+
     uploaded_files = st.file_uploader(
         "PDF / DOCX / XLSX", accept_multiple_files=True, type=["pdf", "docx", "doc", "xlsx"],
         key=f"docs_uploader_{sid}",
@@ -370,7 +391,7 @@ elif view == "Reports":
         # tiers + judge done). The report renders fine at either — the narrative
         # only adds the PDF's two prose pages, and the download regenerates a
         # missing one — so polling must not hang on for it.
-        _run_done = _status["status"] in ("ready_for_report", "complete")
+        _run_done = _status["status"] in ("ready_for_report", "complete", "failed")
 
         @st.fragment(run_every=None if _run_done else "3s")
         def _render_run_status() -> None:
@@ -382,7 +403,17 @@ elif view == "Reports":
                 "partial": f"Scoring — {status.get('completed_agents', 0)}/{status.get('expected_agents', '?')} Functions complete…",
                 "ready_for_report": "Writing the executive summary…",
             }.get(status["status"], status["status"])
-            if status["status"] in ("ready_for_report", "complete"):
+            if status["status"] == "failed":
+                # Terminal error (CollectResultsStep got zero specialist
+                # completions) — render it instead of spinning forever, and
+                # clear the pending run so the Run button comes back.
+                st.session_state.pop(pending_key, None)
+                st.error(
+                    "Assessment failed — "
+                    f"{status.get('failure_reason') or 'no specialist results arrived'}. "
+                    "Run the assessment again."
+                )
+            elif status["status"] in ("ready_for_report", "complete"):
                 st.session_state.pop(pending_key, None)
                 st.rerun()
             else:
