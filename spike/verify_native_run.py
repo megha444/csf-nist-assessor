@@ -114,8 +114,25 @@ async def main() -> int:
     print(f"Judge verdicts  : {judges}")
 
     n_fn = len([f for f in functions.split(",") if f.strip()])
-    ok = doc.get("status") == "ready_for_report" and len(tiers) == n_fn and scores > 0
-    print(f"\nRESULT: {'PASS — native Agent Runtime wrote the run the UI polls' if ok else 'INCOMPLETE — see counts above'}")
+    # TWO terminal states are a pass, not one. NarrativeStep runs after JudgeStep
+    # and advances ready_for_report -> complete (steps.py, RunStatus.complete).
+    # Its failure path is deliberately non-fatal and leaves the run at
+    # ready_for_report, so a run that reached either state produced everything
+    # the UI polls for. Asserting only ready_for_report made a fully successful
+    # narrative-enabled run report INCOMPLETE (observed on staging 2026-08-31,
+    # cold 266.4s and warm 344.3s, both 6 scores / 1 tier / 6 judge verdicts).
+    status = doc.get("status")
+    terminal = {"ready_for_report", "complete"}
+    ok = status in terminal and len(tiers) == n_fn and scores > 0
+    if ok:
+        note = ("narrative generated" if status == "complete"
+                else "no narrative (non-fatal) — run stopped at ready_for_report")
+        print(f"\nRESULT: PASS — native Agent Runtime wrote the run the UI polls; {note}")
+    else:
+        print("\nRESULT: INCOMPLETE — see counts above")
+        if status not in terminal:
+            print(f"        status={status!r} is not terminal "
+                  f"(expected one of {sorted(terminal)})")
     return 0 if ok else 1
 
 

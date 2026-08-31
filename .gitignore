@@ -34,3 +34,6 @@ csf_report.html
 # added there was silently untracked. agent.py/__init__.py/requirements.txt only
 # survived because they predate the rule.
 coordinator_engine_tmp*
+
+# Generated report artefacts (export_pdf.py output)
+report*.pdf

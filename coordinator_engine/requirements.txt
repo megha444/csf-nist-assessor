@@ -24,3 +24,4 @@ opentelemetry-exporter-gcp-trace==1.15.0
 pydantic==2.13.4
 pydantic-settings==2.15.0
 PyYAML==6.0.3
+google-cloud-modelarmor==0.7.1

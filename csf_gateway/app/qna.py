@@ -14,6 +14,8 @@ from __future__ import annotations
 import asyncio
 import logging
 import re
+import uuid
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Annotated
 
@@ -24,7 +26,7 @@ from csf_specialists.qna_extractor import extract_qna
 from csf_specialists.scripts.preseed_govern import preseed
 
 from .ingest import docx_parser, pdf_parser, xlsx_parser
-from .sessions import get_session
+from .sessions import _client_get, get_session
 
 log = logging.getLogger("csf-gateway.qna")
 
@@ -35,9 +37,6 @@ _ALLOWED_EXTS = frozenset({".pdf", ".docx", ".doc", ".xlsx"})
 # xlsx_parser.xlsx_to_markdown emits one "## SheetName" heading per worksheet.
 # A multi-sheet questionnaire covering all 6 Functions (~240 Q&A pairs) blows
 # past extract_qna's single-call output budget and truncates mid-JSON — proven
-# live 2026-08-21 on the real Northwind questionnaire. Splitting per sheet and
-# merging keeps every call the size of one Function's worth of questions,
-# which is exactly what already extracts cleanly.
 _SHEET_HEADING_RE = re.compile(r"^## ", re.MULTILINE)
 
 
@@ -47,11 +46,41 @@ def _split_by_sheet(markdown: str) -> list[str]:
     return [p for p in re.split(r"(?=^## )", markdown, flags=re.MULTILINE) if p.strip()]
 
 
+async def _record_questionnaire(session_id: str, filename: str, records_extracted: int) -> None:
+    """Note that this questionnaire was provided, at sessions/{sid}/questionnaires/{id}.
+
+    Extracted answers land in `answers/` keyed by question, which loses the fact
+    that a file was ever uploaded — before this, a questionnaire left no filename
+    anywhere in the system, so the PDF report's appendix (which lists what the
+    client actually handed over) silently omitted it. Deliberately a bare record,
+    not a DocumentSummary: nothing is chunked, embedded or stored in GCS on this
+    path, so most of that model would be empty fields.
+
+    Best-effort — a bookkeeping write must never fail an upload whose answers were
+    already extracted and preseeded successfully.
+    """
+    try:
+        client = _client_get()
+        await (
+            client.collection("sessions").document(session_id)
+            .collection("questionnaires").document(uuid.uuid4().hex)
+            .set({
+                "filename": filename,
+                "records_extracted": records_extracted,
+                "uploaded_at": datetime.now(timezone.utc),
+            })
+        )
+    except Exception:
+        log.exception(
+            "[%s] failed to record questionnaire %r — continuing", session_id, filename)
+
+
 @router.post("", summary="Upload a completed Q&A questionnaire; extract + attach as pre-answered evidence.")
 async def post_qna(session_id: str, file: Annotated[UploadFile, File(description="One completed Q&A document.")]) -> dict:
     session = await get_session(session_id)
     if session is None:
-        raise HTTPException(status_code=404, detail=f"session {session_id} not found")
+        raise HTTPException(
+            status_code=404, detail=f"session {session_id} not found")
 
     filename = file.filename or ""
     ext = Path(filename).suffix.lower()
@@ -73,7 +102,8 @@ async def post_qna(session_id: str, file: Annotated[UploadFile, File(description
         text = await pdf_parser.pdf_to_markdown(data)
 
     if not text.strip():
-        raise HTTPException(status_code=422, detail=f"{filename!r} produced no extractable text")
+        raise HTTPException(
+            status_code=422, detail=f"{filename!r} produced no extractable text")
 
     sections = _split_by_sheet(text) if ext == ".xlsx" else [text]
     try:
@@ -95,10 +125,12 @@ async def post_qna(session_id: str, file: Annotated[UploadFile, File(description
         return {"records_extracted": 0, "by_function": {}}
 
     await preseed(session_id, records)
+    await _record_questionnaire(session_id, filename, len(records))
 
     by_function: dict[str, int] = {}
     for r in records:
         by_function[r.function] = by_function.get(r.function, 0) + 1
 
-    log.info("[%s] %s: extracted %d Q&A pairs (%s)", session_id, filename, len(records), by_function)
+    log.info("[%s] %s: extracted %d Q&A pairs (%s)",
+             session_id, filename, len(records), by_function)
     return {"records_extracted": len(records), "by_function": by_function}

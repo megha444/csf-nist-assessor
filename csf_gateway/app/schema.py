@@ -311,3 +311,50 @@ class JudgeResult(BaseModel):
     category_id: str
     defensibility: Defensibility
     judge_notes: str
+
+
+# ---------------------------------------------------------------------------
+# Report narrative — Stage 7 (PDF report)
+# ---------------------------------------------------------------------------
+
+
+class FunctionSummary(BaseModel):
+    """One Function's finding, in the business register the exec summary uses."""
+    model_config = ConfigDict(use_enum_values=True)
+
+    function: Function
+    summary: str = Field(
+        ..., description="1-2 sentences a non-technical Board member would understand: what this Function's practice actually looks like at this org today"
+    )
+
+
+class ImprovementTheme(BaseModel):
+    """One cross-cutting improvement area, grounded in real Subcategory gaps."""
+
+    title: str = Field(..., description="Short noun phrase, e.g. 'Privileged access on legacy infrastructure'")
+    body: str = Field(..., description="2-3 sentences: what the gap is and why it matters commercially. No jargon.")
+    refs: list[str] = Field(
+        default_factory=list, description="Subcategory ids this theme is grounded in, e.g. ['PR.AA-05']"
+    )
+
+
+class ReportNarrative(BaseModel):
+    """LLM-synthesised prose for the PDF report's Executive Summary and Areas of
+    Improvement pages. Deliberately narrow: every number in the report still comes
+    from the persisted scores, and this model carries only the language wrapped
+    around them. Persisted at sessions/{sid}/runs/{rid}/report/narrative so a
+    re-render never re-bills a Gemini call.
+
+    Lists rather than dicts throughout — Gemini's structured-output schema has no
+    clean representation for an open-ended mapping, so `function_summaries` is a
+    list keyed by its own `function` field instead of a dict[Function, str]."""
+
+    intro: str = Field(
+        ..., description="One paragraph (4-6 sentences) opening the executive summary: who the org is, how it manages cyber risk, and where its strongest practice and best opportunities lie."
+    )
+    function_summaries: list[FunctionSummary] = Field(
+        default_factory=list, description="One entry per assessed Function, in Govern->Recover order"
+    )
+    improvement_themes: list[ImprovementTheme] = Field(
+        default_factory=list, description="4-6 themes, most material first"
+    )

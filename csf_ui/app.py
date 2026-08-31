@@ -56,6 +56,7 @@ from csf_specialists.scripts.export_html import (
     render_html,
 )
 from csf_specialists.scripts.export_excel import build_rows, fetch_scores, write_workbook
+from csf_specialists.scripts.export_pdf import build_pdf_bytes
 from csf_specialists.agents import AGENTS
 from csf_gateway.app.doctype_taxonomy import DocType
 from csf_gateway.app.csf_catalog import FUNCTION_NAMES
@@ -365,7 +366,11 @@ elif view == "Reports":
         # armed for this render, so polling actually stops once done instead
         # of firing forever.
         _status = _api("GET", f"/sessions/{sid}/runs/{pending_run_id}/status")
-        _run_done = _status["status"] == "ready_for_report"
+        # `complete` (NarrativeStep done) as well as `ready_for_report` (scores +
+        # tiers + judge done). The report renders fine at either — the narrative
+        # only adds the PDF's two prose pages, and the download regenerates a
+        # missing one — so polling must not hang on for it.
+        _run_done = _status["status"] in ("ready_for_report", "complete")
 
         @st.fragment(run_every=None if _run_done else "3s")
         def _render_run_status() -> None:
@@ -375,8 +380,9 @@ elif view == "Reports":
                 "pending": "Starting…",
                 "dispatched": "Dispatching specialist agents…",
                 "partial": f"Scoring — {status.get('completed_agents', 0)}/{status.get('expected_agents', '?')} Functions complete…",
+                "ready_for_report": "Writing the executive summary…",
             }.get(status["status"], status["status"])
-            if status["status"] == "ready_for_report":
+            if status["status"] in ("ready_for_report", "complete"):
                 st.session_state.pop(pending_key, None)
                 st.rerun()
             else:
@@ -395,14 +401,33 @@ elif view == "Reports":
         report = asyncio.run(build_report(sid, run_id))
         ctx = _build_context(report, session["target_org"])
 
-        col1, col2 = st.columns(2)
+        col1, col2, col3 = st.columns(3)
         with col1:
+            # Built behind a button rather than eagerly like the other two: the PDF
+            # render itself is ~1s, but a run whose narrative is missing (anything
+            # assessed before NarrativeStep shipped, or a run where it failed) pays
+            # for a Gemini call here — not something to fire on every rerun of the
+            # Reports view. Once built it's cached in session_state so the actual
+            # download_button click doesn't rebuild it.
+            pdf_key = f"pdf_bytes_{sid}_{run_id}"
+            if pdf_key not in st.session_state:
+                if st.button("📄 Generate report (.pdf)", type="primary"):
+                    with st.spinner("Building the PDF report…"):
+                        st.session_state[pdf_key] = asyncio.run(build_pdf_bytes(sid, run_id))
+                    st.rerun()
+            else:
+                st.download_button(
+                    "⬇ Download report (.pdf)", data=st.session_state[pdf_key],
+                    file_name=f"csf_report_{sid[:8]}.pdf", mime="application/pdf",
+                    type="primary",
+                )
+        with col2:
             html = render_html(report, session["target_org"])
             st.download_button(
                 "⬇ Download report (.html)", data=html,
                 file_name=f"csf_report_{sid[:8]}.html", mime="text/html",
             )
-        with col2:
+        with col3:
             scores = asyncio.run(fetch_scores(sid, run_id))
             buf = BytesIO()
             write_workbook(build_rows(scores), buf)

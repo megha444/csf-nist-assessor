@@ -72,7 +72,7 @@ def _get_runner() -> Runner:
         s = get_settings()
         _llm_agent = LlmAgent(
             name="judge",
-            model=gemini_model(s.gemini_pro_model),
+            model=gemini_model(s.gemini_pro_model, s.gemini_pro_fallback_model),
             output_schema=JudgeResult,
             output_key=ADK_OUTPUT_KEY,
             generate_content_config=types.GenerateContentConfig(

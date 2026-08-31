@@ -33,6 +33,7 @@ streamlit = "^1.61.1"
 opentelemetry-exporter-gcp-trace = "^1.15.0"
 google-cloud-run = "^0.16.1"
 google-cloud-modelarmor = "*"
+reportlab = "^5.0.1"
 
 [build-system]
 requires = ["poetry-core"]

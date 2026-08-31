@@ -54,6 +54,16 @@ cannot POST to it to run a scoring job. Do not imply otherwise.
 Region: us-central1. Manual registration is NOT supported in the `us`/`eu`
 multi-regions, so this deliberately does not sit where the Model Armor template
 lives (`us`).
+
+EGRESS DESTINATIONS LIVE ELSEWHERE — infra/setup_agent_gateway.py
+------------------------------------------------------------------
+Agent Gateway turns the registry into a default-deny egress ALLOWLIST: every
+hostname the Coordinator dials must be a registered Service or the call is
+refused. Those ~28 entries are deliberately NOT here. This file is the fleet
+CATALOGUE — 7 entries, each individually argued, meant to be read by a human;
+folding an allowlist into it would triple `--list` and blur that. They also fail
+differently: a thin description here is cosmetic, a missing hostname there is a
+silent egress outage. They are namespaced `egress-*` so the two never collide.
 """
 from __future__ import annotations
 

@@ -18,9 +18,17 @@
 # Role sets were derived by reading the code, not by guessing:
 #   * csf-ui imports csf_specialists.agents only to render a list of Function
 #     names, but that import constructs all 6 agents and each writes its Firestore
-#     registration -- so the UI genuinely needs datastore.user. It never touches
-#     Qdrant, Vertex, GCS or Pub/Sub (verified: zero references in csf_ui/app.py),
-#     so it gets none of those.
+#     registration -- so the UI genuinely needs datastore.user.
+#     It ALSO needs aiplatform.user as of 2026-08-31. That reverses the earlier
+#     claim here that the UI "never touches Vertex (verified: zero references in
+#     csf_ui/app.py)", which was true when written and went stale the moment PDF
+#     export landed: csf_ui/app.py imports build_pdf_bytes at module scope, and
+#     build_pdf_bytes falls back to generate_narrative() -> an ADK Runner against
+#     Vertex whenever a run has no persisted narrative (every run predating
+#     NarrativeStep, plus any run where that non-fatal step failed). Without the
+#     role the PDF button 403s in production while working fine locally, because
+#     a developer's ADC has aiplatform.user and this service account did not.
+#     Still no Qdrant, GCS or Pub/Sub -- those remain unreferenced.
 #   * csf-worker queries Qdrant and Vertex and reads/writes Firestore, but never
 #     touches Cloud Storage (verified: no storage references in the scoring path)
 #     and never triggers Cloud Run Jobs -- so no storage, no run.developer.
@@ -93,10 +101,11 @@ grant "csf-worker@${PROJECT_ID}.iam.gserviceaccount.com" \
     roles/logging.logWriter \
     roles/monitoring.metricWriter
 
-echo "=== csf-ui: Streamlit front end (Firestore reads + gateway API key only) ==="
+echo "=== csf-ui: Streamlit front end (Firestore + gateway API key + PDF narrative) ==="
 ensure_sa csf-ui "CSF UI (Streamlit)"
 grant "csf-ui@${PROJECT_ID}.iam.gserviceaccount.com" \
     roles/datastore.user \
+    roles/aiplatform.user \
     roles/secretmanager.secretAccessor \
     roles/logging.logWriter \
     roles/monitoring.metricWriter

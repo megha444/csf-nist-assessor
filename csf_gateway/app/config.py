@@ -46,6 +46,13 @@ class Settings(BaseSettings):
     # Models — hackathon requires Gemini 3.5 or newer
     gemini_flash_model: str = "gemini-3.5-flash"
     gemini_pro_model: str = "gemini-3.7-flash"   # 3.x has no Pro tier; newer Flash plays the Judge role
+    # Where a request goes when its primary model 429s after retries. The two
+    # tiers hold SEPARATE Vertex quota, which is the whole point: on 2026-08-31
+    # gemini-3.7-flash drew 32 429s in two hours while gemini-3.5-flash drew
+    # zero. Cross-wired on purpose so each tier can lean on the other's budget.
+    # Per-request and stateless — see csf_gateway/app/llm.py.
+    gemini_pro_fallback_model: str = "gemini-3.5-flash"
+    gemini_flash_fallback_model: str = "gemini-3.7-flash"
     embedding_model: str = "text-embedding-004"
     embedding_dim: int = 768
 

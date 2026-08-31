@@ -37,14 +37,82 @@ import re
 # constructs a Firestore client or caches get_settings().
 os.environ["GOOGLE_CLOUD_PROJECT"] = "csf-assessor-hackathon"
 
+
+def _trust_agent_gateway_ca() -> None:
+    """Teach this container to trust the Agent Gateway's TLS inspection CA.
+
+    Agent Gateway INSPECTS traffic, which means it terminates TLS and re-signs
+    with its own "Agent Gateway TLS Inspection CA" — a deliberate MITM, and the
+    only way Model Armor can read a request body. Clients that don't hold that CA
+    fail every call with:
+
+        SSLCertVerificationError: self-signed certificate in certificate chain
+
+    Adding the CA to the OS store is NOT enough: aiohttp / requests / google-auth
+    read the bundle shipped by the `certifi` package, and gRPC reads whatever
+    GRPC_DEFAULT_SSL_ROOTS_FILE_PATH names. So we concatenate certifi's bundle
+    with the gateway CA and point all three at the result.
+
+    Gated on AGENT_GATEWAY_CA_BUNDLE=1, injected by
+    infra/deploy_coordinator_engine.sh for NON-PRODUCTION engines only. Production
+    does not route through the gateway, so it must not carry an extra trusted CA
+    it has no use for — trusting a MITM CA you don't need is a real, if small,
+    widening of the trust boundary, and this project's Agent Identity claims are
+    the last place to be casual about that.
+
+    Must run BEFORE any csf_* import constructs a client, same as the project-id
+    fix above: SSL contexts are built once and cached.
+    """
+    if os.environ.get("AGENT_GATEWAY_CA_BUNDLE") != "1":
+        return
+    # Normal path: the deploy script baked the bundle into the image and pointed
+    # the env vars at it, so it is already in force before this module is imported
+    # — which is the only ordering that works for gRPC (see the deploy script).
+    # Nothing to do; just confirm it so the log says which file is authoritative.
+    preset = os.environ.get("GRPC_DEFAULT_SSL_ROOTS_FILE_PATH")
+    if preset and os.path.exists(preset):
+        log.info("Agent Gateway CA already trusted via %s (baked into image)", preset)
+        return
+    # Fallback only. This fixes HTTP clients but is TOO LATE for gRPC, whose roots
+    # are cached during container startup. Kept so a misconfigured deploy degrades
+    # to "HTTP works, gRPC does not" rather than failing everything silently.
+    log.warning("Agent Gateway CA bundle not baked in; falling back to a runtime "
+                "bundle. HTTP will work, gRPC will still fail cert verification.")
+    ca = os.path.join(os.path.dirname(os.path.abspath(__file__)), "agent_gateway_ca.pem")
+    if not os.path.exists(ca):
+        log.warning("AGENT_GATEWAY_CA_BUNDLE=1 but %s is missing — egress will fail", ca)
+        return
+    try:
+        import certifi
+
+        # Keep this path in sync with GRPC_DEFAULT_SSL_ROOTS_FILE_PATH in
+        # infra/deploy_coordinator_engine.sh — gRPC reads that env var from the
+        # container environment, so the two must name the same file.
+        bundle = os.environ.get("GRPC_DEFAULT_SSL_ROOTS_FILE_PATH",
+                                "/tmp/ca-bundle-with-agent-gateway.pem")
+        with open(bundle, "w") as out:
+            for src in (certifi.where(), ca):
+                with open(src) as f:
+                    out.write(f.read().rstrip() + "\n")
+        # requests/aiohttp/google-auth, the stdlib default, and gRPC respectively.
+        os.environ["REQUESTS_CA_BUNDLE"] = bundle
+        os.environ["SSL_CERT_FILE"] = bundle
+        os.environ["GRPC_DEFAULT_SSL_ROOTS_FILE_PATH"] = bundle
+        log.info("Agent Gateway CA trusted via %s", bundle)
+    except Exception:
+        log.exception("failed to build the Agent Gateway CA bundle")
+
+
+logging.basicConfig(level=logging.INFO)
+log = logging.getLogger("csf-coordinator.entry")
+_trust_agent_gateway_ca()
+
 from google.adk.agents import BaseAgent
 from google.adk.agents.invocation_context import InvocationContext
 from google.adk.events.event import Event
 from google.genai import types
 
 from csf_coordinator.coordinator import run_assessment
-
-log = logging.getLogger("csf-coordinator.entry")
 
 _SESSION_RE = re.compile(r"session\s*=\s*([A-Za-z0-9\-]+)")
 # Stops at the next `key=` token instead of running to end-of-string. Without

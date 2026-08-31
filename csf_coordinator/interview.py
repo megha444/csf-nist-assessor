@@ -81,7 +81,7 @@ def _get_runner() -> Runner:
         s = get_settings()
         _llm_agent = LlmAgent(
             name="interview_director",
-            model=gemini_model(s.gemini_flash_model),
+            model=gemini_model(s.gemini_flash_model, s.gemini_flash_fallback_model),
             output_schema=NextQuestionDecision,
             output_key="decision",
             generate_content_config=types.GenerateContentConfig(

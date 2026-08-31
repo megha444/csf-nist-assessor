@@ -160,7 +160,7 @@ class SpecialistAgent:
         s = get_settings()
         self._llm_agent = LlmAgent(
             name=f"{self.function}_specialist",
-            model=gemini_model(s.gemini_flash_model),
+            model=gemini_model(s.gemini_flash_model, s.gemini_flash_fallback_model),
             output_schema=ScoreOutput,
             output_key=ADK_OUTPUT_KEY,
             generate_content_config=types.GenerateContentConfig(
