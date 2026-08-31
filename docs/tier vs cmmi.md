@@ -67,4 +67,4 @@ Instead of "You're Tier 2 on Protect" say "Your average Protect maturity is CMMI
 
 CSF 2.0 itself does not officially prescribe CMMI. You're combining CSF's *what to assess* (108 subcategories) with CMMI's *how mature is each*. This is a very common consultant approach and totally defensible. Say so explicitly in the README and demo: "We use CSF 2.0 subcategories as the control taxonomy and CMMI 1-5 for per-control maturity scoring. This mirrors standard Big 4 assessment practice."
 
-Ask your teammate: "CSF Tiers or CMMI 1-5 per subcategory?" If she says CMMI, you're good. If she prefers something else (some firms use custom 1-5 scales), use what she uses.
+Ask the domain expert: "CSF Tiers or CMMI 1-5 per subcategory?" If the answer is CMMI, you're good. If they prefer something else (some firms use custom 1-5 scales), use what she uses.

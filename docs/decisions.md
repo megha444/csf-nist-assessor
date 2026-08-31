@@ -4,7 +4,7 @@ Presentation-ready notes on the load-bearing choices in the CSF Assessor Fleet. 
 
 Status legend: 🟢 accepted · 🟡 accepted but revisit-later · 🔴 superseded.
 
-Related docs: [architecture.md](architecture.md) · [lld.md](lld.md) · [csf_assessor_hackathon_plan.md](csf_assessor_hackathon_plan.md).
+Related docs: [architecture.md](architecture.md) · [eval_results.md](eval_results.md) · [tier vs cmmi.md](tier%20vs%20cmmi.md).
 
 ---
 
@@ -48,17 +48,17 @@ Wrapper module `csf_gateway/app/ingest/vector_store.py` abstracts the client so 
 **Date:** 2026-08-13
 
 ### Context
-NIST CSF 2.0 has 6 Functions → ~22 Categories → ~106 Subcategories. The original plan locked scoring at the Subcategory level (~106 × 5 CMMI cells = ~530 rubric cells for Sakina to author). That's her single biggest deliverable and paces the entire domain track.
+NIST CSF 2.0 has 6 Functions → ~22 Categories → ~106 Subcategories. The original plan locked scoring at the Subcategory level (~106 × 5 CMMI cells = ~530 rubric cells for the domain expert to author). That is the domain expert's single biggest deliverable and paces the entire domain track.
 
 ### Decision
-Score CMMI at the **Category level (~22)** instead. Sakina writes ~22 × 5 = ~110 cells. Aggregation still rolls up to CSF Tier 1-4 per Function.
+Score CMMI at the **Category level (~22)** instead. The domain expert writes ~22 × 5 = ~110 cells. Aggregation still rolls up to CSF Tier 1-4 per Function.
 
 ### Consequences
-- ✅ Sakina's rubric authoring drops from ~500 cells to ~110 cells — realistic in the timeline
+- ✅ The domain expert's rubric authoring drops from ~500 cells to ~110 cells — realistic in the timeline
 - ✅ Agent cost drops from ~60 Flash calls/run to ~22 (~$0.05 instead of $0.15)
 - ✅ Report table stays scannable (22 rows vs. 60+)
 - ⚠ Slight loss of fidelity — a Category with 4 well-managed Subcategories and 1 broken one shows up as CMMI 3 instead of pinpointing the broken one. Mitigated by capturing the fine-grained finding in the reasoning field per Category.
-- ⚠ Divergence from standard practice — Sakina's real-world engagements often go to Subcategory. For the demo she's already Category-focused for Northwind.
+- ⚠ Divergence from standard practice — the domain expert's real-world engagements often go to Subcategory. For the demo they are already Category-focused for Northwind.
 
 ### Demo-Q&A talking points
 - "In production this scales down naturally: adding Subcategory-level scoring is more agent calls with the same rubric structure — no architectural change. We chose Category for the demo because it lines up with the level a board consumes and finishes in 19 days."
@@ -69,12 +69,16 @@ Score CMMI at the **Category level (~22)** instead. Sakina writes ~22 × 5 = ~11
 
 ---
 
-## ADR-0003 — PDF ingest: Gemini 2.5 Flash multimodal   🟢
+## ADR-0003 — PDF ingest: Gemini multimodal   🟢
 
 **Date:** 2026-08-13
 
+> The decision (multimodal-in ingest rather than a parser library stack) stands. The model
+> named below was the current Flash at the time of writing; ingest now runs on
+> `gemini-3.5-flash` — see [ADR-0005](#adr-0005--model-selection-gemini-35-flash--gemini-37-flash-no-pro-tier-available).
+
 ### Context
-Policy docs (SANS templates, Sakina's Northwind package) contain narrative text plus tables plus the occasional chart or image. Extraction quality matters — an agent scoring "PR.AA-05 (MFA on privileged accounts)" needs to find MFA policy text even when it's in a table cell, not free prose. The standard approach is `pypdf` + `pdfplumber` (tables) + `PyMuPDF` (images) + Tesseract or Vertex AI Document AI (OCR for scanned pages) — four libraries to stitch, none handling chart semantics.
+Policy docs (SANS templates, the domain expert's Northwind package) contain narrative text plus tables plus the occasional chart or image. Extraction quality matters — an agent scoring "PR.AA-05 (MFA on privileged accounts)" needs to find MFA policy text even when it's in a table cell, not free prose. The standard approach is `pypdf` + `pdfplumber` (tables) + `PyMuPDF` (images) + Tesseract or Vertex AI Document AI (OCR for scanned pages) — four libraries to stitch, none handling chart semantics.
 
 ### Decision
 Use **Gemini 2.5 Flash multimodal** at ingest time. Each PDF is passed to Gemini with a prompt: "convert to structured markdown, preserve headings, render tables as markdown tables, insert `[Figure N: description]` placeholders for charts/images." Output is text-only markdown ready for the section-aware chunker.
@@ -101,9 +105,22 @@ Use **Gemini 2.5 Flash multimodal** at ingest time. Each PDF is passed to Gemini
 
 ---
 
-## ADR-0004 — Deployment topology: 3 Cloud Run services + per-agent SA impersonation   🟢
+## ADR-0004 — Deployment topology: 3 Cloud Run services + per-agent SA impersonation   🔴 SUPERSEDED
 
-**Date:** 2026-08-13
+**Date:** 2026-08-13 · **Superseded:** 2026-08-31
+
+> **⚠ This ADR describes a topology that was never built. It is kept for the reasoning, not the
+> outcome.** What actually shipped:
+> - **Two** Cloud Run *services* (`csf-gateway`, `csf-ui`) plus one Cloud Run **Job**
+>   (`csf-worker`, six parallel executions). There is no `csf-specialists` service.
+> - The Coordinator is **not** a Cloud Run service — it runs on **Vertex AI Agent Engine**
+>   under a native **SPIFFE agent identity**.
+> - There are **three** service accounts (`csf-gateway@` 13 roles, `csf-worker@` 9,
+>   `csf-ui@` 5), not six per-agent SAs, and **no impersonation** anywhere. Agent Identity is
+>   only supported on Agent Runtime, so the specialists — being Cloud Run Jobs — are
+>   ineligible by platform design, not by omission.
+>
+> Current topology: [architecture.md](architecture.md).
 
 ### Context
 The Fortified Enterprise Fleet track requires an Agent Identity model — "one IAM identity per agent." Literal reading = 8 Cloud Run services (1 gateway + 1 coordinator + 6 specialists). Reality = 8× cold starts, 8× deploy pipelines, 8× monitoring targets in a 19-day sprint. Simplest reading = 1 monolith with attribution-only "identity" (Firestore field, no IAM isolation) — weak Fortified story.
@@ -233,33 +250,33 @@ Ship **Option 1** for the hackathon. Explicitly note **Option 2 as planned, not 
 **Date:** 2026-08-15 (revised same day — original gap-only flavor superseded)
 
 ### Context
-Original design (implicit) put both CMMI scoring **and** recommendations at the Category level. Two things broke that assumption once we started building against Sakina's actual reference materials:
+Original design (implicit) put both CMMI scoring **and** recommendations at the Category level. Two things broke that assumption once we started building against the domain expert's actual reference materials:
 
 1. **The demo money-shot is a Subcategory.** `PR.AA-05` (MFA on privileged accounts) is what a CISO cares about — not "Category PR.AA needs work." Category-only recommendations are too vague to demo.
-2. **Sakina's `Implementation Examples` file is Subcategory-granular.** Every Subcategory carries `Ex1, Ex2, ...` concrete practices from NIST. That's the natural key for "have you done this specific thing? no → gap." Losing that granularity throws away her authored material.
-3. **Sakina's real-world consulting practice is incremental.** She never writes "here's how to go from CMMI 2 to CMMI 5." She writes "here's what to do next to go from 2 to 3, and if you have appetite, from 3 to 4." Any "reach the maximum level" recommendation reads as fantasy, not consulting.
+2. **The domain expert's `Implementation Examples` file is Subcategory-granular.** Every Subcategory carries `Ex1, Ex2, ...` concrete practices from NIST. That's the natural key for "have you done this specific thing? no → gap." Losing that granularity throws away her authored material.
+3. **The domain expert's real-world consulting practice is incremental.** They never write "here's how to go from CMMI 2 to CMMI 5." She writes "here's what to do next to go from 2 to 3, and if you have appetite, from 3 to 4." Any "reach the maximum level" recommendation reads as fantasy, not consulting.
 
 ### Decision (revised)
-- **LLM scores at Subcategory level.** The specialist agent's output has a `subcategory_scores: list[SubcategoryScore]` field where each entry carries `{subcategory_id, cmmi_level 1-5, confidence, evidence_status, expected_practice, notes}`. The Category CMMI is then a **deterministic Python-computed `round(mean(sub.cmmi_level for sub in subs))`**, NOT an LLM output. This matches Sakina's real practice (her draft data in `CSF 2.0-Implementation_Examples.xlsx` scored at Subcategory with `"Category = avg"`).
-- **Sakina's rubric authoring stays at Category level** — ADR-0002 unchanged. Her one 5-level rubric per Category is applied by the LLM at each Subcategory ("does this specific Subcategory's practice meet Level X as described by the Category rubric?"). NIST Implementation Examples provide the concrete "what mature looks like" for each Subcategory.
-- **Recommendation templates** (Sakina's Wed Aug 19 deliverable) are keyed by `(subcategory_id, level_transition)` — e.g. `("PR.AA-05", "1→2")`, `("PR.AA-05", "2→3")`. Text describes the next 1-2 CMMI-level moves only. Never "reach 5."
+- **LLM scores at Subcategory level.** The specialist agent's output has a `subcategory_scores: list[SubcategoryScore]` field where each entry carries `{subcategory_id, cmmi_level 1-5, confidence, evidence_status, expected_practice, notes}`. The Category CMMI is then a **deterministic Python-computed `round(mean(sub.cmmi_level for sub in subs))`**, NOT an LLM output. This matches the domain expert's real practice (her draft data in `CSF 2.0-Implementation_Examples.xlsx` scored at Subcategory with `"Category = avg"`).
+- **The domain expert's rubric authoring stays at Category level** — ADR-0002 unchanged. One 5-level rubric per Category is applied by the LLM at each Subcategory ("does this specific Subcategory's practice meet Level X as described by the Category rubric?"). NIST Implementation Examples provide the concrete "what mature looks like" for each Subcategory.
+- **Recommendation templates** (the domain expert's Wed Aug 19 deliverable) are keyed by `(subcategory_id, level_transition)` — e.g. `("PR.AA-05", "1→2")`, `("PR.AA-05", "2→3")`. Text describes the next 1-2 CMMI-level moves only. Never "reach 5."
 - **Roadmap ranking** (report phase) uses target-based math: `priority = (target_tier - current_tier_for_function) × subcategory_importance`. Ranked at Subcategory level; templates supply the incremental text.
 - **Radar chart** unchanged — Function/Tier level with target overlay.
 - **LLM cost + latency unchanged** — still one LLM call per Category, one Category retrieval. The LLM just outputs richer structured data in the same call.
 
 ### Alternatives considered
-1. **Both scoring AND recommendations at Subcategory.** Truest to Sakina's practice but ~5× rubric authoring burden. Blows past 19-day timeline. Rejected (ADR-0002 already said no).
+1. **Both scoring AND recommendations at Subcategory.** Truest to the domain expert's practice but ~5× rubric authoring burden. Blows past 19-day timeline. Rejected (ADR-0002 already said no).
 2. **Recommendations at Category with "which subcategories drove this score" as a footnote.** Half-measure. The report's actionability lives in the recommendation text; if that text says "Category PR.AA at CMMI 2," it's not a demo-worthy finding. Rejected.
-3. **Recommendation text that describes reaching the target tier in full.** Sakina says: not how consulting works. Rejected.
+3. **Recommendation text that describes reaching the target tier in full.** the domain expert's view: not how consulting works. Rejected.
 
 ### Consequences
 - ✅ Demo money-shot works: click PR.AA-05 in the report → see current gap (no MFA) → see next-level remediation
-- ✅ Sakina's Implementation Examples file is used natively as agent context
-- ✅ Sakina's rubric authoring stays at Category granularity (unchanged from ADR-0002)
-- ✅ Recommendation template count stays around 30 (per-Subcategory-of-interest for the demo, not all 106) — she picks the ~20-30 most-likely gap subcategories to write templates for; unmatched gaps get a generic fallback text
+- ✅ The domain expert's Implementation Examples file is used natively as agent context
+- ✅ The domain expert's rubric authoring stays at Category granularity (unchanged from ADR-0002)
+- ✅ Recommendation template count stays around 30 (per-Subcategory-of-interest for the demo, not all 106) — they pick the ~20-30 most-likely gap subcategories to write templates for; unmatched gaps get a generic fallback text
 - ⚠ One extra field per Category-scoring output; the agent's LLM prompt gains a "identify weak Subcategories" instruction. Adds ~30% to prompt length; cost impact negligible at 22 calls/run.
-- ⚠ Template lookup logic: report needs to match identified `subcategory_gaps[].subcategory_id` + `(current_level → next_level)` transition against Sakina's template map. Missing template → generic fallback + log warning.
-- ⚠ Sakina now decides which ~20-30 Subcategories to write templates for. The demo needs at least PR.AA-05 covered. Document this priority in her working doc.
+- ⚠ Template lookup logic: report needs to match identified `subcategory_gaps[].subcategory_id` + `(current_level → next_level)` transition against the domain expert's template map. Missing template → generic fallback + log warning.
+- ⚠ The domain expert decides which ~20-30 Subcategories to write templates for. The demo needs at least PR.AA-05 covered. Document this priority in the domain expert's working doc.
 
 ### Demo-Q&A talking points
 - "We score at Category to keep the rubric authoring realistic, but we identify gaps and give recommendations at Subcategory — because a CISO doesn't act on 'improve PR.AA,' they act on 'MFA is missing on privileged accounts.' The agent uses NIST's official Implementation Examples as its reference for what specific practices should be in place per Subcategory."
