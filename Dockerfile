@@ -42,6 +42,11 @@ COPY csf_specialists/ ./csf_specialists/
 COPY csf_coordinator/ ./csf_coordinator/
 COPY csf_ui/ ./csf_ui/
 
+# Streamlit reads its theme from $CWD/.streamlit/config.toml, and csf-ui runs
+# `streamlit run csf_ui/app.py` from this WORKDIR. Without this the deployed UI
+# falls back to the stock theme while local dev looks correct.
+COPY .streamlit/ ./.streamlit/
+
 # Run as non-root (Cloud Run best practice)
 RUN useradd --create-home --shell /bin/bash appuser && chown -R appuser:appuser /app
 USER appuser

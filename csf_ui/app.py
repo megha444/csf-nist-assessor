@@ -75,6 +75,55 @@ _GATEWAY_API_KEY = get_settings().gateway_api_key
 
 st.set_page_config(page_title="CSF Assessor Fleet", layout="wide")
 
+# Mirror of primaryColor/linkColor in .streamlit/config.toml, where the theme
+# itself lives (Streamlit has no runtime theming API). Needed here for the two
+# places we hand a color to something Streamlit won't theme for us: the Plotly
+# tier radar's trace, whose default ink vanishes against the dark background,
+# and the masthead gradient below.
+_PRIMARY = "#6b75dc"
+_ACCENT = "#89e0ea"
+
+# Rendered by hand instead of st.title() because gradient text has no Streamlit
+# API: the fill needs background-clip on an element we control. Streamlit's
+# native :rainbow[...] is a fixed 7-color ramp and :color[x]{foreground=...}
+# takes a solid color only, so neither can carry the brand pair.
+#
+# The @supports guard is load-bearing, not decoration: -webkit-text-fill-color
+# transparent WITHOUT background-clip support paints the title invisible. Behind
+# the feature check, the plain `color` above it is what a non-supporting browser
+# falls back to.
+_MASTHEAD_HTML = f"""
+<style>
+  .csf-masthead {{ padding: 0.5rem 0 0.25rem; }}
+  .csf-masthead h1 {{
+    margin: 0;
+    padding: 0;
+    font-size: 2.75rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    line-height: 1.15;
+    color: {_ACCENT};
+    background: linear-gradient(95deg, {_PRIMARY} 0%, {_ACCENT} 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+  }}
+  @supports ((-webkit-background-clip: text) or (background-clip: text)) {{
+    .csf-masthead h1 {{ -webkit-text-fill-color: transparent; }}
+  }}
+  .csf-masthead .csf-rule {{
+    height: 3px;
+    width: 132px;
+    margin-top: 0.6rem;
+    border-radius: 2px;
+    background: linear-gradient(90deg, {_PRIMARY}, {_ACCENT});
+  }}
+</style>
+<div class="csf-masthead">
+  <h1>CSF Assessor Fleet</h1>
+  <div class="csf-rule"></div>
+</div>
+"""
+
 
 # ---------------------------------------------------------------------------
 # HTTP + background-work helpers
@@ -163,7 +212,7 @@ with st.sidebar:
             _switch_session(s["session_id"])
             st.rerun()
 
-st.title("CSF Assessor Fleet")
+st.html(_MASTHEAD_HTML)
 
 if not st.session_state.active_session_id:
     st.info("Create a new session from the sidebar, or select an existing one, to get started.")
@@ -493,7 +542,7 @@ elif view == "Reports":
                     captions.append("unchanged since last assessment")
                 if captions:
                     col.caption(" · ".join(captions))
-            st.plotly_chart(_tier_radar_figure(report),
+            st.plotly_chart(_tier_radar_figure(report, line_color=_ACCENT),
                             width="stretch", config={"displayModeBar": False})
 
         for tab, f in zip(tabs[1:], ctx["functions"]):
